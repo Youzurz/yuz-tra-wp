@@ -1,3 +1,5 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
 (function($){
   function hasEnv() {
     var okUrl = (typeof yuzAdv !== 'undefined' && yuzAdv && yuzAdv.ajaxurl) || (typeof ajaxurl !== 'undefined' && ajaxurl);

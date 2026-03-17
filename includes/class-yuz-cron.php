@@ -89,7 +89,7 @@ if ( ! class_exists( 'YUZ_Cron' ) ) {
             $interval = $settings['cron_interval'] ?? 'hourly';
             if ( in_array( $mode, [ 'silent', 'all' ], true ) && ! wp_next_scheduled( 'yuz_tra_batch_translate' ) ) {
                 wp_schedule_event( time(), $interval, 'yuz_tra_batch_translate' );
-                error_log( 'YUZ-TRA: Scheduled cron yuz_tra_batch_translate with interval ' . $interval );
+                yuz_tra_release_error_log( 'YUZ-TRA: Scheduled cron yuz_tra_batch_translate with interval ' . $interval );
             }
         }
 
@@ -122,14 +122,14 @@ if ( ! class_exists( 'YUZ_Cron' ) ) {
             $site_locale = get_locale();
             $site_lang = substr( $site_locale, 0, 2 );
             if ( in_array( $site_lang, $valid_langs, true ) ) {
-                error_log( 'YUZ-TRA: [WARNING] Falling back to site language ' . $site_lang );
+                yuz_tra_release_error_log( 'YUZ-TRA: [WARNING] Falling back to site language ' . $site_lang );
                 return $site_lang;
             }
             if ( in_array( 'en', $valid_langs, true ) ) {
-                error_log( 'YUZ-TRA: [WARNING] Falling back to default "en"' );
+                yuz_tra_release_error_log( 'YUZ-TRA: [WARNING] Falling back to default "en"' );
                 return 'en';
             }
-            error_log( 'YUZ-TRA: [ERROR] No valid source language found.' );
+            yuz_tra_release_error_log( 'YUZ-TRA: [ERROR] No valid source language found.' );
             return '';
         }
 
@@ -138,18 +138,18 @@ if ( ! class_exists( 'YUZ_Cron' ) ) {
          */
         public static function run_batch() {
             if (!wp_doing_cron()) {
-                error_log( 'YUZ-TRA: [WARNING] Not in cron context, skipping batch' );
+                yuz_tra_release_error_log( 'YUZ-TRA: [WARNING] Not in cron context, skipping batch' );
                 return;
             }
             // MODIF: Lock transient 60s + backoff 15s (Phase 8: lock/backoff)
             $lock_key = 'yuz_tra_batch_lock';
             if (get_transient($lock_key)) {
-                error_log( 'YUZ-TRA: [INFO] Lock active, skipping & backoff' );
+                yuz_tra_release_error_log( 'YUZ-TRA: [INFO] Lock active, skipping & backoff' );
                 wp_schedule_single_event(time() + 15, 'yuz_tra_batch_translate'); // Backoff 15s
                 return;
             }
             set_transient($lock_key, true, 60); // Lock 60s
-            error_log( 'YUZ-TRA: [DO] Running batch at ' . current_time( 'mysql' ) );
+            yuz_tra_release_error_log( 'YUZ-TRA: [DO] Running batch at ' . current_time( 'mysql' ) );
             $source = self::get_valid_source_language();
             if ( ! $source ) {
                 delete_transient($lock_key);
@@ -177,11 +177,11 @@ if ( ! class_exists( 'YUZ_Cron' ) ) {
                                 'created_at' => current_time( 'mysql' ),
                             ]
                         );
-                        error_log( "YUZ-TRA: Translated post {$post->ID} → {$code}" );
+                        yuz_tra_release_error_log( "YUZ-TRA: Translated post {$post->ID} → {$code}" );
                     }
                 }
             }
-            error_log( 'YUZ-TRA: Batch translation completed' );
+            yuz_tra_release_error_log( 'YUZ-TRA: Batch translation completed' );
             delete_transient($lock_key); // Release lock
         }
     }

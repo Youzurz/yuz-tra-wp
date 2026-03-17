@@ -1,3 +1,5 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
 /**
  * YUZ Guard — shared sanitization and translation metadata helpers.
  * The goal is to keep only real human-facing strings and map them to DB IDs.

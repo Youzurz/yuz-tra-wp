@@ -611,7 +611,7 @@ if (!class_exists('YUZ_Frontend')) {
             }
             // Fallback: error_log.
             $line = sprintf('[YUZ][%s][%s] %s %s', strtoupper($level), $this->trace_id, $message, wp_json_encode($payload));
-            error_log($line);
+            yuz_tra_release_error_log($line);
             // Best-effort file log.
             $this->write_file_log($line . "\n");
         }

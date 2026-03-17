@@ -1,3 +1,5 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
 /**
  * YUZ-TRA – Gutenberg: panneau "Translate Page" + "Save & Translate"
  * Robuste: gère permalink indispo, brouillon non-enregistré, modules optionnels.

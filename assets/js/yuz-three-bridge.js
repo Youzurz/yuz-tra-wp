@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 (function () {
   var existing = window.THREE || null;
   var READY_EVENT = 'three:ready';
@@ -16,7 +19,7 @@
     try {
       window.dispatchEvent(new CustomEvent(READY_EVENT, { detail: detail }));
     } catch (err) {
-      console.warn('[YUZ][three] ready dispatch failed', err);
+      yuz_release_console.warn('[YUZ][three] ready dispatch failed', err);
     }
   }
 
@@ -37,13 +40,13 @@
           if (canvas && canvas.dataset) {
             const attempts = parseInt(canvas.dataset.yuzThreeAwait || '0', 10) || 0;
             if (attempts >= 5) {
-              console.warn(`[YUZ][three] ${key}: THREE.js indisponible, animation ignorée.`);
+              yuz_release_console.warn(`[YUZ][three] ${key}: THREE.js indisponible, animation ignorée.`);
               return;
             }
             canvas.dataset.yuzThreeAwait = String(attempts + 1);
             setTimeout(() => guarded.apply(this, args), 300 * (attempts + 1));
           } else {
-            console.warn(`[YUZ][three] ${key}: THREE.js indisponible, appel différé.`);
+            yuz_release_console.warn(`[YUZ][three] ${key}: THREE.js indisponible, appel différé.`);
             setTimeout(() => guarded.apply(this, args), 300);
           }
           return;
@@ -103,7 +106,7 @@
       };
       script.onerror = function () {
         script.remove();
-        console.warn('[YUZ][three] module load failed', url);
+        yuz_release_console.warn('[YUZ][three] module load failed', url);
         resolve(null);
       };
       (document.head || document.documentElement).appendChild(script);
@@ -143,18 +146,18 @@
         if (legacy) {
           attachThree(legacy, LEGACY_SOURCE);
         } else {
-          console.error('[YUZ][three] Legacy loader produced no namespace');
+          yuz_release_console.error('[YUZ][three] Legacy loader produced no namespace');
         }
       }).catch(function (err) {
-        console.error('[YUZ][three] Legacy loader failed', err);
+        yuz_release_console.error('[YUZ][three] Legacy loader failed', err);
       });
     })
     .catch(function (err) {
-      console.error('[YUZ][three] Module loader crashed', err);
+      yuz_release_console.error('[YUZ][three] Module loader crashed', err);
       loadLegacy(LEGACY_SOURCE).then(function (legacy) {
         if (legacy) attachThree(legacy, LEGACY_SOURCE);
       }).catch(function (err2) {
-        console.error('[YUZ][three] Unable to provide THREE', err2);
+        yuz_release_console.error('[YUZ][three] Unable to provide THREE', err2);
       });
     });
 })();

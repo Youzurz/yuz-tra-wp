@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /**
  * ===========================================================
  * YUZ Translation — Publish Controller v9.3+ (hardened)
@@ -6,7 +9,7 @@
  * Compatible avec : éditeur, inspecteur DOM, gettext
  * ===========================================================
  */
-console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Date());
+yuz_release_console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Date());
 
 (function () {
     if (typeof window === 'undefined') {
@@ -16,7 +19,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
     // Si déjà initialisé, on ne rebinde rien (évite les collisions)
     if (window.YUZ_PUBLISH && window.YUZ_PUBLISH.__v93hardened) {
         try {
-            console.info('[YUZ_PUBLISH] Déjà initialisé, on saute le bootstrap dupliqué.');
+            yuz_release_console.info('[YUZ_PUBLISH] Déjà initialisé, on saute le bootstrap dupliqué.');
         } catch (_) { }
         return;
     }
@@ -97,7 +100,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
                         credentials: 'include'
                     }).catch(() => { });
                 } catch (probeErr) {
-                    try { console.debug('[YUZ][PIPELINE][probe_failed]', probeErr); } catch (_) { }
+                    try { yuz_release_console.debug('[YUZ][PIPELINE][probe_failed]', probeErr); } catch (_) { }
                 }
             };
             send.enabled = true;
@@ -355,7 +358,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
 
         async function publishBatch(ids = [], options = {}) {
             const normalized = normalizeIds(ids);
-            console.debug('[YUZ_PUBLISH] publishBatch called', {
+            yuz_release_console.debug('[YUZ_PUBLISH] publishBatch called', {
                 ids: normalized,
                 options,
                 now: Date.now(),
@@ -392,7 +395,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
                 toast(AUTH_ERROR_MESSAGE, true);
                 pipelineProbe('publish_skip', { reason: 'not_logged_in', message: authError?.message || '' });
                 try {
-                    console.warn('[YUZ_PUBLISH] Authentication check failed', {
+                    yuz_release_console.warn('[YUZ_PUBLISH] Authentication check failed', {
                         message: authError?.message,
                         code: authError?.code,
                         status: authError?.status
@@ -501,7 +504,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
             }
 
             try {
-                console.info('[YUZ_PUBLISH] showDockReview called', {
+                yuz_release_console.info('[YUZ_PUBLISH] showDockReview called', {
                     idsCount: normalizedIds.length,
                     sample: normalizedIds.slice(0, 5)
                 });

@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /* =======================================================================================
  * YUZ String Translation Editor — ESM safe entry (UMD↔ESM interop)
  * - Zéro CDN
@@ -18,7 +21,7 @@ const $ = window.jQuery || window.$; // WordPress fournit jQuery en noConflict
 const heSafe = (typeof window.he !== 'undefined') ? window.he : { decode: (s) => s };
 // ——— Diagnostics doux (pas bloquants)
 try {
-    console.info('[YUZ::diag] UMD globals', 
+    yuz_release_console.info('[YUZ::diag] UMD globals', 
         { Vue: !!Vue, VueRouter: !!VueRouter, jQuery: !!$, select2: !!($ && $.fn && $.fn.select2), he: !!heSafe }
     );
 } catch(_) {}
@@ -797,7 +800,7 @@ function buildRoutes() {
 // ————————————————————————————————————————————————————————————————————————————————
 function hardFail(msg, extra = {}) {
   try { window.YUZ_Assets?.log_colored?.('critical', msg, extra); } catch(_) {}
-  console.error('[YUZ::fatal]', msg, extra);
+  yuz_release_console.error('[YUZ::fatal]', msg, extra);
   alert('String translation editor cannot initialize.\n\n' + msg);
 }
 

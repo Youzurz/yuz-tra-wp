@@ -113,7 +113,7 @@ private static function getLogger(): LoggerInterface {
     if ( ! $condition ) {
         $log_context = ['context' => $method, 'message' => $message];
         $logger->log('critical', "Health check failed: $message", $log_context);
-        error_log("🟥 [CRITICAL] YUZ-TRA: $message in $method");
+        yuz_tra_release_error_log("🟥 [CRITICAL] YUZ-TRA: $message in $method");
         if ( is_admin() ) {
             wp_die( esc_html( "Critical error: $message" ) );
         }

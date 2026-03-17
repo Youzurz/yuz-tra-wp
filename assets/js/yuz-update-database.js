@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /**
  * yuz-update-database.js
  * Manages database update functionality for YUZ Translation.
@@ -12,7 +15,7 @@
 (function (w) {
   var s = w && w.yuzTraSettings;
   if (!s || typeof s.ajax_url !== 'string' || !s.nonces) {
-    console.error('[YUZ-TRA][TRANSVERSE] yuzTraSettings missing or invalid. ' +
+    yuz_release_console.error('[YUZ-TRA][TRANSVERSE] yuzTraSettings missing or invalid. ' +
       'class-yuz-assets must inject the minimal config BEFORE this script. ' +
       'Expected shape: {ajax_url:string, nonces:object}');
     return; // hard stop: prevents undefined access later

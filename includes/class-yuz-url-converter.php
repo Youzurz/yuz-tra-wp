@@ -140,7 +140,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         ];
         $prefix = $prefixes[$lvl] ?? $prefixes['info'];
         $suffix = $ctx ? ' | Context: ' . wp_json_encode($ctx) : '';
-        error_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
+        yuz_tra_release_error_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
     }
 
     /* ---------------------------- SETTINGS HELPERS --------------------------- */
@@ -645,7 +645,7 @@ public function cur_page_url(): string
             'slug_map' => $slug_map,
             'code_map' => $code_map,
         ]);
-        error_log('[YUZ-URL][resolve_locale_and_slug] input=' . $candidate . ' locales=' . implode(',', $locales) . ' slug_map=' . (string) $serializer($slug_map) . ' code_map=' . (string) $serializer($code_map));
+        yuz_tra_release_error_log('[YUZ-URL][resolve_locale_and_slug] input=' . $candidate . ' locales=' . implode(',', $locales) . ' slug_map=' . (string) $serializer($slug_map) . ' code_map=' . (string) $serializer($code_map));
 
         $normalized_upper = strtoupper(str_replace('-', '_', $candidate));
         $candidate_lower  = strtolower($candidate);
@@ -1223,12 +1223,12 @@ public function normalize(string $url): string
                 header('x-yuz-target-slug: ' . $slug);
                 header('x-yuz-target-url: ' . $final_url);
             }
-            error_log('[YUZ-URL] lang=' . $lang_code . ' base=' . $base . ' locale=' . $locale . ' slug=' . $slug . ' final=' . $final_url);
+            yuz_tra_release_error_log('[YUZ-URL] lang=' . $lang_code . ' base=' . $base . ' locale=' . $locale . ' slug=' . $slug . ' final=' . $final_url);
 
             return $final_url;
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
+                yuz_tra_release_error_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
             }
             return $base;
         }

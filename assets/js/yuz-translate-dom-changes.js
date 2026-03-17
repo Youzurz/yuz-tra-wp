@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /*!
  * yuz-translate-dom-changes.js — Unified-Plus (2025-11-12)
  * Single engine replacing legacy/v8/v9 while preserving telemetry & boot logic.
@@ -19,16 +22,16 @@
         window.yuzTraSettings.dom_log = true;
       }
     } catch (_) { /* ignore */ }
-    console.log('[YUZ_DOM][BOOT_SMOKE] URL =', location.href);
-    console.log('[YUZ_DOM][BOOT_SMOKE] keys(yuzTraSettings) =',
+    yuz_release_console.log('[YUZ_DOM][BOOT_SMOKE] URL =', location.href);
+    yuz_release_console.log('[YUZ_DOM][BOOT_SMOKE] keys(yuzTraSettings) =',
       window.yuzTraSettings ? Object.keys(window.yuzTraSettings) : 'MISSING'
     );
     if (!window.yuzTraSettings) {
-      console.warn('[YUZ_DOM][BOOT_SMOKE] ABORT: window.yuzTraSettings is missing.');
+      yuz_release_console.warn('[YUZ_DOM][BOOT_SMOKE] ABORT: window.yuzTraSettings is missing.');
       return;
     }
   } catch (e) {
-    try { console.error('[YUZ_DOM][BOOT_SMOKE] exception', e); } catch (_) { }
+    try { yuz_release_console.error('[YUZ_DOM][BOOT_SMOKE] exception', e); } catch (_) { }
   }
   /* ============================================================
    * [YUZ_PREPATCH_VIDEO] blocks early autoplay rejection
@@ -40,14 +43,14 @@
         const p = video.play();
         if (p && typeof p.catch === 'function') {
           p.catch(err => {
-            try { console.debug('[YUZ_PREPATCH_VIDEO] Autoplay blocked:', err && err.message ? err.message : err); } catch (_) { }
+            try { yuz_release_console.debug('[YUZ_PREPATCH_VIDEO] Autoplay blocked:', err && err.message ? err.message : err); } catch (_) { }
             video.muted = true;
             video.setAttribute('playsinline', '');
             try { video.pause(); } catch (_) { }
           });
         }
       } catch (e) {
-        try { console.debug('[YUZ_PREPATCH_VIDEO] Early play() error:', e.message); } catch (_) { }
+        try { yuz_release_console.debug('[YUZ_PREPATCH_VIDEO] Early play() error:', e.message); } catch (_) { }
       }
     };
     const maybeFix = () => { try { document.querySelectorAll('video').forEach(v => safePlay(v)); } catch (_) { } };
@@ -56,7 +59,7 @@
     window.addEventListener('unhandledrejection', (ev) => {
       try {
         const msg = (ev && ev.reason && ev.reason.message) || (ev && ev.reason && ev.reason.toString && ev.reason.toString()) || (ev && ev.reason) || '';
-        if (msg && /play\(\)/i.test(msg)) { console.debug('[YUZ_PREPATCH_VIDEO] prevented global rejection:', msg); if (typeof ev.preventDefault === 'function') ev.preventDefault(); }
+        if (msg && /play\(\)/i.test(msg)) { yuz_release_console.debug('[YUZ_PREPATCH_VIDEO] prevented global rejection:', msg); if (typeof ev.preventDefault === 'function') ev.preventDefault(); }
       } catch (_) { }
     });
   })();
@@ -155,7 +158,7 @@
   (function (w) {
     var s = w && w.yuzTraSettings;
     if (!s || typeof s.ajax_url !== 'string' || !s.nonces) {
-      console.error('[YUZ-TRA][TRANSVERSE] yuzTraSettings missing or invalid. Expected: {ajax_url:string, nonces:object}');
+      yuz_release_console.error('[YUZ-TRA][TRANSVERSE] yuzTraSettings missing or invalid. Expected: {ajax_url:string, nonces:object}');
       try { domLogEvent('missing_settings', { ajax_url: !!(s && s.ajax_url), nonces: !!(s && s.nonces) }); } catch (_) { }
       return;
     }
@@ -165,7 +168,7 @@
    * [YUZ_DOM_BOOT_FIX] Translator readiness watcher (instrumented)
    * ============================================================ */
   (function () {
-    const fallbackLog = (event, payload = {}) => { try { console.debug('[YUZ_DOM_BOOT_FIX]', event, payload); } catch (_) { } };
+    const fallbackLog = (event, payload = {}) => { try { yuz_release_console.debug('[YUZ_DOM_BOOT_FIX]', event, payload); } catch (_) { } };
     if (!window.__YUZ_DOM_LOG) {
       // When available, forward to admin-ajax with multi-nonce
       window.__YUZ_DOM_LOG = (evt, data) => {
@@ -208,7 +211,7 @@
    * ============================================================ */
   (function () {
     const trace = (event, payload = {}) => {
-      const logger = window.__YUZ_DOM_LOG || ((evt, data) => { try { console.debug('[YUZ_TRACE]', evt, data); } catch (_) { } });
+      const logger = window.__YUZ_DOM_LOG || ((evt, data) => { try { yuz_release_console.debug('[YUZ_TRACE]', evt, data); } catch (_) { } });
       logger(event, Object.assign({ trace: true }, payload));
     };
     const perf = window.YUZ_TracePerf = window.YUZ_TracePerf || { start: (performance && performance.now ? performance.now() : Date.now()), domContentLoaded: null, translatorReady: null, total: null };
@@ -229,9 +232,9 @@
   /* ============================================================
    * Unified Engine
    * ============================================================ */
-  console.log("YUZ-TRANS BEFORE LOAD :: window.yuzTraSettings =", window.yuzTraSettings);
-  console.log("YUZ-TRANS BEFORE LOAD :: translations =", window.yuzTraSettings && window.yuzTraSettings.translations);
-  console.log("YUZ-TRANS BEFORE LOAD :: current_language =", window.yuzTraSettings && window.yuzTraSettings.current_language);
+  yuz_release_console.log("YUZ-TRANS BEFORE LOAD :: window.yuzTraSettings =", window.yuzTraSettings);
+  yuz_release_console.log("YUZ-TRANS BEFORE LOAD :: translations =", window.yuzTraSettings && window.yuzTraSettings.translations);
+  yuz_release_console.log("YUZ-TRANS BEFORE LOAD :: current_language =", window.yuzTraSettings && window.yuzTraSettings.current_language);
   (() => {
     try {
       // Singleton guard
@@ -419,7 +422,7 @@
         if (debugCount >= debugMax) return;
         debugCount++;
         try {
-          const logger = window.__YUZ_DOM_LOG || ((e, p) => { try { console.debug('[YUZ_TRANSLATOR_DEBUG]', e, p); } catch (_) { } });
+          const logger = window.__YUZ_DOM_LOG || ((e, p) => { try { yuz_release_console.debug('[YUZ_TRANSLATOR_DEBUG]', e, p); } catch (_) { } });
           logger(event, Object.assign({ lang, count: debugCount }, payload));
         } catch (_) { }
       };
@@ -464,7 +467,7 @@
       lang = resolveLang();
       settings.current_language = lang;
       if (!lang) {
-        try { console.warn('[YUZ_TRANSLATOR] Aborting: missing current_language'); } catch (_) {}
+        try { yuz_release_console.warn('[YUZ_TRANSLATOR] Aborting: missing current_language'); } catch (_) {}
         return;
       }
       const dictRoot = settings.translations && lang && settings.translations[lang];
@@ -486,7 +489,7 @@
           normalizationLogCount++;
           try {
             const payload = { from: raw.slice(0, 160), to: s.slice(0, 160), where: where || 'unknown', count: normalizationLogCount };
-            const logger = window.__YUZ_DOM_LOG || ((e, p) => { try { console.debug('[YUZ_TRANSLATOR_DEBUG]', e, p); } catch (_) { } });
+            const logger = window.__YUZ_DOM_LOG || ((e, p) => { try { yuz_release_console.debug('[YUZ_TRANSLATOR_DEBUG]', e, p); } catch (_) { } });
             logger('normalized_string', payload);
           } catch (_) { }
         }
@@ -790,7 +793,7 @@
                 try {
                   syncGlobalFailUntil(0);
                   if (!resp || resp.success === false) {
-                    console.warn('[YUZ][yuz_get_regular][cid=' + cid + '] server error resp', resp);
+                    yuz_release_console.warn('[YUZ][yuz_get_regular][cid=' + cid + '] server error resp', resp);
                     dbg('batch_error_resp', { cid, resp });
                   } else {
                     dbg('batch_success', { cid, rows: Array.isArray(resp && resp.data) ? resp.data.length : 0 });
@@ -848,7 +851,7 @@
               error: (xhr) => {
                 dbg('batch_http_error', { cid, status: xhr && xhr.status });
                 syncGlobalFailUntil(Date.now() + GLOBAL_FAIL_COOLDOWN_MS);
-                try { console.error('[YUZ][yuz_get_regular][cid=' + cid + '] HTTP error', xhr && xhr.status); } catch (_) { }
+                try { yuz_release_console.error('[YUZ][yuz_get_regular][cid=' + cid + '] HTTP error', xhr && xhr.status); } catch (_) { }
                 try { domLogEvent('yuz_get_regular_request', { cid, count: limitedStrings.length, status: 'http_error', http_status: xhr && xhr.status }); } catch (_) { }
                 limitedStrings.forEach((s) => { FAILED_KEYS.set(s, Date.now()); IN_FLIGHT_KEYS.delete(s); });
                 const fallback = output;
@@ -1245,13 +1248,13 @@
                 success: (resp) => {
                   syncGlobalFailUntil(0);
                   try { done(); } catch (_) { }
-                  try { if (!resp || resp.success === false) console.warn('[YUZ][batch][cid=' + cid + '] server error resp', resp); } catch (_) { }
+                  try { if (!resp || resp.success === false) yuz_release_console.warn('[YUZ][batch][cid=' + cid + '] server error resp', resp); } catch (_) { }
                   resolve(resp);
                 },
                 error: (xhr) => {
                   syncGlobalFailUntil(Date.now() + GLOBAL_FAIL_COOLDOWN_MS);
                   try { done(); } catch (_) { }
-                  try { console.error('[YUZ][batch][cid=' + cid + '] HTTP error', xhr && xhr.status); } catch (_) { }
+                  try { yuz_release_console.error('[YUZ][batch][cid=' + cid + '] HTTP error', xhr && xhr.status); } catch (_) { }
                   resolve(null);
                 }
               });
@@ -1276,7 +1279,7 @@
       };
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
       else start();
-    } catch (fatal) { try { console.error('[YUZ][unified] fatal', fatal); } catch (_) { } }
+    } catch (fatal) { try { yuz_release_console.error('[YUZ][unified] fatal', fatal); } catch (_) { } }
   })();
 
 })();

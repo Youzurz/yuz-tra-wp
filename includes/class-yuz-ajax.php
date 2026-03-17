@@ -127,7 +127,7 @@ if (!class_exists('YUZ_Ajax')) {
                     wp_json_encode($ctx, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
                     PHP_EOL
                 );
-                error_log($row, 3, $file);
+                yuz_tra_release_error_log($row, 3, $file);
             } catch (\Throwable $ignored) {}
         }
 
@@ -267,7 +267,7 @@ if (!class_exists('YUZ_Ajax')) {
 
                 wp_send_json_success($result);
             } catch (\Throwable $e) {
-                error_log('[YUZ][AJAX] ajax_my_action error: ' . $e->getMessage());
+                yuz_tra_release_error_log('[YUZ][AJAX] ajax_my_action error: ' . $e->getMessage());
                 wp_send_json_error(['message' => 'internal_error'], 500);
             }
         }
@@ -321,7 +321,7 @@ private function is_trace_request(): bool {
                 $payload = '{}';
             }
             $line = sprintf('[%s] %s', $marker, $payload);
-            error_log($line);
+            yuz_tra_release_error_log($line);
 
             $target = $this->trace_upload_path();
             if ($target) {
@@ -926,7 +926,7 @@ private function is_trace_request(): bool {
             $required_classes = ['YUZ_Settings', 'YUZ_DB', 'YUZ_Health_Check', 'YUZ_Logger'];
             foreach ($required_classes as $class) {
                 if (!class_exists($class)) {
-                    error_log("🟥 [CRITICAL] YUZ-TRA: $class missing — halting AJAX initialization. [" . current_time('mysql') . "]");
+                    yuz_tra_release_error_log("🟥 [CRITICAL] YUZ-TRA: $class missing — halting AJAX initialization. [" . current_time('mysql') . "]");
                     wp_die(sprintf(__('Critical error: %s class missing.', 'yuz_translation'), $class));
                 }
             }
@@ -1368,7 +1368,7 @@ private function log_debug($tag, array $data) {
     } elseif (class_exists('YUZ_Logger')) {
         (new YUZ_Logger())->log('debug', $tag, $data);
     } else {
-        error_log($tag . ': ' . wp_json_encode($data));
+        yuz_tra_release_error_log($tag . ': ' . wp_json_encode($data));
     }
 }
 
@@ -4124,7 +4124,7 @@ public function yuz_tra_ts_start_translation() {
                     }
 
                     if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('[YUZ][AJAX][TM] req=' . $req_id . ' src_raw=' . $source_raw . ' tgt_raw=' . $target_raw . ' src=' . $source_canon . ' tgt=' . $target_canon . ' items=' . count($items));
+                        yuz_tra_release_error_log('[YUZ][AJAX][TM] req=' . $req_id . ' src_raw=' . $source_raw . ' tgt_raw=' . $target_raw . ' src=' . $source_canon . ' tgt=' . $target_canon . ' items=' . count($items));
                     }
 
                     // Prépare les objets de langue (réutilisés pour fallback et persistance)
@@ -4253,7 +4253,7 @@ public function yuz_tra_ts_start_translation() {
                                 if (is_string($fallback) && $fallback !== '') {
                                     $translated = $fallback;
                                     if (defined('WP_DEBUG') && WP_DEBUG) {
-                                        error_log('[YUZ][AJAX][TM] req=' . $req_id . ' fallback translate OK idx=' . $idx);
+                                        yuz_tra_release_error_log('[YUZ][AJAX][TM] req=' . $req_id . ' fallback translate OK idx=' . $idx);
                                     }
                                 }
                             } catch (\Throwable $fallbackEx) {
@@ -4372,7 +4372,7 @@ public function yuz_tra_ts_start_translation() {
                                 $first_err = $diag_first;
                             }
                         }
-                        error_log('[YUZ][AJAX][TM] req=' . $req_id . ' empty_diag src=' . $source_canon . ' tgt=' . $target_canon . ' first=' . $diag_first);
+                        yuz_tra_release_error_log('[YUZ][AJAX][TM] req=' . $req_id . ' empty_diag src=' . $source_canon . ' tgt=' . $target_canon . ' first=' . $diag_first);
                         $this->trace_log('AUTO.BATCH.OUT', [
                             'req'   => $req_id,
                             'from'  => $source_canon,
@@ -4384,9 +4384,9 @@ public function yuz_tra_ts_start_translation() {
                         ]);
                         if (defined('WP_DEBUG') && WP_DEBUG) {
                             $raw = substr(wp_json_encode($response, JSON_UNESCAPED_UNICODE), 0, 1024);
-                            error_log('[YUZ][AJAX][TM] req=' . $req_id . ' empty_translation RAW=' . $raw);
+                            yuz_tra_release_error_log('[YUZ][AJAX][TM] req=' . $req_id . ' empty_translation RAW=' . $raw);
                             $payload_raw = substr(wp_json_encode($payload, JSON_UNESCAPED_UNICODE), 0, 1024);
-                            error_log('[YUZ][AJAX][TM] req=' . $req_id . ' empty_translation PAYLOAD=' . $payload_raw);
+                            yuz_tra_release_error_log('[YUZ][AJAX][TM] req=' . $req_id . ' empty_translation PAYLOAD=' . $payload_raw);
                         }
                         // SAFETY NET: if raw text exists, fallback to echo source as translation to avoid blocking UI
                         $fallback = [];
@@ -4509,7 +4509,7 @@ public function yuz_tra_ts_start_translation() {
 
                     if (defined('WP_DEBUG') && WP_DEBUG && $single_translation === '') {
                         $raw = substr(wp_json_encode($response, JSON_UNESCAPED_UNICODE), 0, 1024);
-                        error_log('[YUZ][AJAX][TM] req=' . $req_id . ' single_empty RAW=' . $raw);
+                        yuz_tra_release_error_log('[YUZ][AJAX][TM] req=' . $req_id . ' single_empty RAW=' . $raw);
                     }
 
                     return [
@@ -4532,7 +4532,7 @@ public function yuz_tra_ts_start_translation() {
                     $trace_req_id = isset($data['req_id']) ? sanitize_text_field($data['req_id']) : '';
                     $nonce_raw = isset($_REQUEST['_ajax_nonce']) ? (string) $_REQUEST['_ajax_nonce'] : '';
                     $action_raw = isset($_REQUEST['action']) ? (string) $_REQUEST['action'] : '';
-                    error_log('[YUZ][AJAX] nonce=' . $nonce_raw . ' action=' . $action_raw . ' user=' . get_current_user_id());
+                    yuz_tra_release_error_log('[YUZ][AJAX] nonce=' . $nonce_raw . ' action=' . $action_raw . ' user=' . get_current_user_id());
                     if (!current_user_can('yuz_translate_content')) {
                         if (!headers_sent()) {
                             wp_send_json_error(['message' => 'forbidden', 'code' => 'forbidden'], 403);
@@ -4646,7 +4646,7 @@ public function yuz_tra_ts_start_translation() {
                     $provider_source = $source_canon;
                     $provider_target = $target_canon;
 
-                    error_log('[YUZ][AJAX] yuz_translate req=' . $req_id . ' from=' . ($sourceLang ?: $provider_source) . ' to=' . $target_code . ' len=' . strlen($text));
+                    yuz_tra_release_error_log('[YUZ][AJAX] yuz_translate req=' . $req_id . ' from=' . ($sourceLang ?: $provider_source) . ' to=' . $target_code . ' len=' . strlen($text));
 
                     $sourceId = (int) $srcObj->id;
                     $targetId = (int) $dstObj->id;
@@ -5308,7 +5308,7 @@ public function yuz_tra_ts_start_translation() {
         public function yuz_get_regular() {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                 $orig = isset($_POST['originals']) ? json_decode(stripslashes((string) $_POST['originals']), true) : []; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-                error_log('[YUZ_AJAX][yuz_get_regular][IN] ' . wp_json_encode([
+                yuz_tra_release_error_log('[YUZ_AJAX][yuz_get_regular][IN] ' . wp_json_encode([
                     'request_uri'       => $_SERVER['REQUEST_URI'] ?? '',
                     'language'          => $_POST['language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
                     'original_language' => $_POST['original_language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
@@ -5960,7 +5960,7 @@ public function yuz_tra_ts_start_translation() {
 
                     $rows = $results;
                     if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-                        error_log('[YUZ_AJAX][yuz_get_regular][OUT] ' . wp_json_encode([
+                        yuz_tra_release_error_log('[YUZ_AJAX][yuz_get_regular][OUT] ' . wp_json_encode([
                             'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
                             'language'    => $_POST['language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
                             'rows'        => is_array($rows ?? null) ? count($rows) : 0,
@@ -7360,7 +7360,7 @@ public function yuz_save_translation() {
             $context = array_merge(self::trace_meta(), $details);
             $logger->log($level, "[AJAX][{$action}][OUT]", $context);
         } catch (\Throwable $e) {
-            error_log('[YUZ_AJAX][TRACE_EXIT_FAIL] '.$e->getMessage());
+            yuz_tra_release_error_log('[YUZ_AJAX][TRACE_EXIT_FAIL] '.$e->getMessage());
         }
     }
 
@@ -7549,10 +7549,10 @@ public function yuz_save_translation() {
             $logger = $this->logger ?: (class_exists('YUZ_Logger') ? new \YUZ_Logger() : new \YUZTRA\Fallbacks\NullLogger());
             $logger->log('info', "[AJAX][{$action}][IN]", $details);
         } catch (\Throwable $e) {
-            error_log('[YUZ_AJAX]['.$action.'][ENTRY_LOG_FAIL] '.$e->getMessage());
+            yuz_tra_release_error_log('[YUZ_AJAX]['.$action.'][ENTRY_LOG_FAIL] '.$e->getMessage());
         }
         $encoded = function_exists('wp_json_encode') ? wp_json_encode($details) : json_encode($details);
-        error_log('[YUZ_AJAX]['.$action.'][IN] '.$encoded);
+        yuz_tra_release_error_log('[YUZ_AJAX]['.$action.'][IN] '.$encoded);
     }
 
     /**
@@ -7572,10 +7572,10 @@ public function yuz_save_translation() {
             $logger = $this->logger ?: (class_exists('YUZ_Logger') ? new \YUZ_Logger() : new \YUZTRA\Fallbacks\NullLogger());
             $logger->log('critical', "[AJAX][{$action}][EXCEPTION]", $payload);
         } catch (\Throwable $logError) {
-            error_log('[YUZ_AJAX]['.$action.'][LOGGER_FAILURE] '.$logError->getMessage());
+            yuz_tra_release_error_log('[YUZ_AJAX]['.$action.'][LOGGER_FAILURE] '.$logError->getMessage());
         }
         $encoded = function_exists('wp_json_encode') ? wp_json_encode($payload) : json_encode($payload);
-        error_log('[YUZ_AJAX]['.$action.'][EXCEPTION] '.$encoded);
+        yuz_tra_release_error_log('[YUZ_AJAX]['.$action.'][EXCEPTION] '.$encoded);
     }
 } // fin class YUZ_Ajax
 } // fin if (!class_exists('YUZ_Ajax'))

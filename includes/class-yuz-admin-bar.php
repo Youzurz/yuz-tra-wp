@@ -110,7 +110,7 @@ if (!class_exists('YUZ_Admin_Bar')) {
                     }
                 }
             } catch (\Throwable $e) {
-                error_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
+                yuz_tra_release_error_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
             }
 
             // Flag optionnel : par défaut on laisse l’admin-bar activée

@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /**
  * assets/js/widgets/yuz-language-switcher.js
  * Front-end language switcher (shortcode/menu/floating).
@@ -32,7 +35,7 @@
   // ---- Guards minimales
   if (!window || !document) return;
   if (!window.yuzSW) {
-    console.warn('[YUZ][SWITCHER] window.yuzSW absent. Aborting.');
+    yuz_release_console.warn('[YUZ][SWITCHER] window.yuzSW absent. Aborting.');
     return;
   }
 
@@ -250,8 +253,8 @@
     const ts = new Date().toISOString();
     let s = `${LOG[level] || ''} ${message} at ${ts}`;
     if (ctx) { try { s += ` | ${JSON.stringify(ctx)}`; } catch(_){} }
-    (level === 'critical' ? console.error :
-     level === 'warning'  ? console.warn  : console.log)(s);
+    (level === 'critical' ? yuz_release_console.error :
+     level === 'warning'  ? yuz_release_console.warn  : yuz_release_console.log)(s);
   }
 
   const ACTION_RESOLVE = (Y && Y.endpoints && Y.endpoints.resolve_url) || 'yuz_tra_sw_resolve_url';

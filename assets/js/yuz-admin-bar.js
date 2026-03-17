@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /**
  * assets/js/yuz-admin-bar.js
  * Admin bar helpers (standard).
@@ -13,9 +16,9 @@
   'use strict';
 
   const AB = window.yuzAB || {};
-  const log   = (...a) => console.log('[YUZ][ADMINBAR]', ...a);
-  const warn  = (...a) => console.warn('[YUZ][ADMINBAR]', ...a);
-  const error = (...a) => console.error('[YUZ][ADMINBAR]', ...a);
+  const log   = (...a) => yuz_release_console.log('[YUZ][ADMINBAR]', ...a);
+  const warn  = (...a) => yuz_release_console.warn('[YUZ][ADMINBAR]', ...a);
+  const error = (...a) => yuz_release_console.error('[YUZ][ADMINBAR]', ...a);
 
   // ---- Guards ---------------------------------------------------------------
   if (!window.jQuery) { error('jQuery unavailable, aborting'); return; }

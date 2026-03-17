@@ -1,3 +1,5 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
 /**
  * yuz-automatic-translation.js
  * Manages the Automatic Translation tab interface for YUZ Translation.

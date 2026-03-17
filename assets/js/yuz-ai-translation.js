@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /**
  * assets/js/yuz-ai-translation.js
  *
@@ -16,14 +19,14 @@
   /* --------------------------------- Guards --------------------------------- */
   const y = window.yuzAI || null;
   if (!y || !y.ajax_url) {
-    console.warn('[YUZ][AI] yuzAI manquant ou ajax_url absent, arrêt.');
+    yuz_release_console.warn('[YUZ][AI] yuzAI manquant ou ajax_url absent, arrêt.');
     return;
   }
   // Ne s’exécute que sur l’onglet AI (ou si un conteneur AI est présent dans le DOM)
   const isAITab = (y.current_tab || '').toString() === 'ai-translation' || !!document.getElementById('yuz_ai_panel');
 
   if (!isAITab) {
-    console.log('[YUZ][AI] Onglet AI inactif, skip init.');
+    yuz_release_console.log('[YUZ][AI] Onglet AI inactif, skip init.');
     return;
   }
 
@@ -38,7 +41,7 @@
     const ts = new Date().toISOString();
     const line = `${LOG[level] || ''} ${message} @ ${ts}`;
     // eslint-disable-next-line no-console
-    (level === 'critical' ? console.error : level === 'warning' ? console.warn : console.log)(
+    (level === 'critical' ? yuz_release_console.error : level === 'warning' ? yuz_release_console.warn : yuz_release_console.log)(
       context ? `${line} | ${safeStringify(context)}` : line
     );
   }

@@ -80,7 +80,7 @@ if (!function_exists('yuz_tra_diag_log')) {
         if (!yuz_tra_diag_enabled()) {
             return;
         }
-        error_log($message);
+        yuz_tra_release_error_log($message);
     }
 }
 

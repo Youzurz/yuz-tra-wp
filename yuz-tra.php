@@ -20,6 +20,12 @@ defined('YUZ_TRA_LOG_DISABLED') || define('YUZ_TRA_LOG_DISABLED', true);
 defined('YUZ_TRA_LOG_LEVEL') || define('YUZ_TRA_LOG_LEVEL', 'error');
 defined('YUZ_DEBUG') || define('YUZ_DEBUG', false);
 
+if (!function_exists('yuz_tra_release_error_log')) {
+    function yuz_tra_release_error_log(...$args): bool {
+        return true;
+    }
+}
+
 require_once __DIR__ . '/includes/class-yuz-plugin.php';
 
 YUZ_Plugin::boot(__FILE__);
@@ -102,7 +108,7 @@ if (!function_exists('yuz_tra_bridge_log')) {
             return;
         }
         if ((defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG)) {
-            error_log($message);
+            yuz_tra_release_error_log($message);
         }
     }
 }

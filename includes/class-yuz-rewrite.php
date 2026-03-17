@@ -509,7 +509,7 @@ class YUZ_Rewrite implements RewriteInterface {
             return $this->url_converter->get_url_for_language($active_locale, $url, $context);
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[YUZ-TRA][WARN] convert_url failed: ' . $e->getMessage());
+                yuz_tra_release_error_log('[YUZ-TRA][WARN] convert_url failed: ' . $e->getMessage());
             }
             return $url;
         } finally {

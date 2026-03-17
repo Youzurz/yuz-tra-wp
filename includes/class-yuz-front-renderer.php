@@ -285,7 +285,7 @@ if (!class_exists('YUZ_Front_Renderer')) {
                     ]);
                 }
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('[YUZ-TRA] convert_url failure: ' . $e->getMessage());
+                    yuz_tra_release_error_log('[YUZ-TRA] convert_url failure: ' . $e->getMessage());
                 }
                 return $url;
             }

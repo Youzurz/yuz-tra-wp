@@ -113,7 +113,7 @@ class YUZ_Advanced implements AdvancedInterface {
         self::$booted = true;
 
         if ( ! defined('YUZ_TRA_INCLUDES') || ! defined('YUZ_TRA_PLUGIN_FILE') ) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZ_Advanced::init');
+            yuz_tra_release_error_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZ_Advanced::init');
             return;
         }
 

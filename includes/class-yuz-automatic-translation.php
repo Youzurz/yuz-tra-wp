@@ -132,7 +132,7 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
 
         // Gardes minimales
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Automatic_Translation::init');
+            yuz_tra_release_error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Automatic_Translation::init');
             wp_die(__('Critical error: YUZ-TRA constants missing.', 'yuz_translation'));
         }
 

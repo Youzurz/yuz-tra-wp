@@ -433,7 +433,7 @@ if (!class_exists('YUZ_Plugin')) {
                     require_once $path;
                 } else {
                     if ((defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG)) {
-                        error_log('🟨 [WARNING] YUZ-TRA: missing include ' . $relative);
+                        yuz_tra_release_error_log('🟨 [WARNING] YUZ-TRA: missing include ' . $relative);
                     }
                 }
             }
@@ -455,7 +455,7 @@ if (!class_exists('YUZ_Plugin')) {
                     require_once $path;
                 } else {
                     if ((defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG)) {
-                        error_log('🟨 [WARNING] YUZ-TRA: missing hook file ' . $file);
+                        yuz_tra_release_error_log('🟨 [WARNING] YUZ-TRA: missing hook file ' . $file);
                     }
                 }
             }
@@ -519,7 +519,7 @@ if (!class_exists('YUZ_Plugin')) {
                     return YUZ_Front_Renderer::translate_post_field((string)$content, $post_id, 'content');
                 } catch (\Throwable $e) {
                     if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('[YUZ-TRA] render_block_core/post-content filter failed: ' . $e->getMessage());
+                        yuz_tra_release_error_log('[YUZ-TRA] render_block_core/post-content filter failed: ' . $e->getMessage());
                     }
                     return $content;
                 }
@@ -567,7 +567,7 @@ if (!class_exists('YUZ_Plugin')) {
                     YUZ_Languages::enforce_invariants();
                 } catch (\Throwable $e) {
                     if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('[YUZ-TRA] enforce_invariants failed: ' . $e->getMessage());
+                        yuz_tra_release_error_log('[YUZ-TRA] enforce_invariants failed: ' . $e->getMessage());
                     }
                 }
             }
@@ -584,7 +584,7 @@ if (!class_exists('YUZ_Plugin')) {
                     }
                 } catch (\Throwable $e) {
                     if (defined('WP_DEBUG') && WP_DEBUG) {
-                        error_log('[YUZ-TRA] guard_language_flags failed: ' . $e->getMessage());
+                        yuz_tra_release_error_log('[YUZ-TRA] guard_language_flags failed: ' . $e->getMessage());
                     }
                 }
             }
@@ -631,7 +631,7 @@ if (!class_exists('YUZ_Plugin')) {
             $hc     = class_exists('YUZ_Health_Check') ? new YUZ_Health_Check($logger) : null;
 
             if (!class_exists('YUZ_DB')) {
-                error_log('🟨 [WARNING] YUZ-TRA: YUZ_DB class not available.');
+                yuz_tra_release_error_log('🟨 [WARNING] YUZ-TRA: YUZ_DB class not available.');
                 return false;
             }
 
@@ -649,7 +649,7 @@ if (!class_exists('YUZ_Plugin')) {
 
                 delete_option('tables_ok');
             } catch (\Throwable $e) {
-                error_log('🟥 [CRITICAL] YUZ-TRA DB ensure error: ' . $e->getMessage());
+                yuz_tra_release_error_log('🟥 [CRITICAL] YUZ-TRA DB ensure error: ' . $e->getMessage());
                 delete_option('tables_ok');
             }
 

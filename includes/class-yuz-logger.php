@@ -216,7 +216,7 @@ if (!class_exists('YUZ_Logger')) {
             $fh = @fopen($this->file, 'ab');
             if ($fh === false) {
                 // fallback
-                error_log('🟨 [WARNING] YUZ-TRA: cannot open log file: ' . $this->file);
+                yuz_tra_release_error_log('🟨 [WARNING] YUZ-TRA: cannot open log file: ' . $this->file);
                 return;
             }
             @flock($fh, LOCK_EX);

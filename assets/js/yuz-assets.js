@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 // assets/js/yuz-assets.js
 ;(function(window, console){
   window.YUZ_Assets = {
@@ -12,11 +15,11 @@
       let out = `${prefix} ${message}`;
       if (context) out += ' | Context: ' + JSON.stringify(context);
       switch(level){
-        case 'critical': console.error(out); break;
-        case 'warning':  console.warn(out);  break;
-        case 'success':  console.log(out); break;
-        case 'info':     console.log(out); break;
-        default:         console.log(out);
+        case 'critical': yuz_release_console.error(out); break;
+        case 'warning':  yuz_release_console.warn(out);  break;
+        case 'success':  yuz_release_console.log(out); break;
+        case 'info':     yuz_release_console.log(out); break;
+        default:         yuz_release_console.log(out);
       }
     },
     ensureContainer: function(containerId) {

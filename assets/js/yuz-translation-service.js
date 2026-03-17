@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /**
  * assets/js/yuz-translation-service.js
  *
@@ -220,7 +223,7 @@ async function startTranslation(opts = {}) {
   for (const [key, value] of Object.entries(required)) {
     if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
       // eslint-disable-next-line no-console
-      console.error(`Paramètre ${key} manquant`, required);
+      yuz_release_console.error(`Paramètre ${key} manquant`, required);
       throw new Error(`Paramètre ${key} manquant`);
     }
   }

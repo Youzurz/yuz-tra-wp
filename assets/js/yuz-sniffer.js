@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 /*! YUZ Sniffer QQOQCCP – lightweight live debugger */
 (function () {
   if (!/(\byuz-sniffer=1\b)/.test(location.search) && localStorage.getItem('yuzSniffer') !== 'on') return;
@@ -106,7 +109,7 @@
   on('ajax:request', (d)=>{ S.ajaxReq++; updStat(); LOG.push({t:'ajax:req', d}); addRow('ajax:request', d); });
   on('ajax:response', (d)=>{ (d && d.ok ? S.ajaxResOK : S.ajaxResKO)++; updStat(); LOG.push({t:'ajax:res', d}); addRow('ajax:response', d); });
 
-  console.info('[YUZ Sniffer] ON. Add “?yuz-sniffer=1” or localStorage.setItem("yuzSniffer","on") to auto-start.');
+  yuz_release_console.info('[YUZ Sniffer] ON. Add “?yuz-sniffer=1” or localStorage.setItem("yuzSniffer","on") to auto-start.');
 })();
 
 // Sniffer safe (prod-friendly)
@@ -122,7 +125,7 @@
     const scope = params.get('scope') || '';
     const q     = params.get('q') || '';
     const idx   = parseInt(params.get('index')||'0',10);
-    console.groupCollapsed(`[SMART-SNIFFER] ${scope}#${idx} q="${q}"`);
+    yuz_release_console.groupCollapsed(`[SMART-SNIFFER] ${scope}#${idx} q="${q}"`);
   });
   $(document).ajaxComplete(async function(_e, xhr, settings){
     const d = settings && settings.data;
@@ -138,9 +141,9 @@
         ctx: x.context, page: x.page_url,
         orig: (x.original_text || x.original || '').slice(0,80)
       }));
-      console.log({ total: data.total, has_more: !!data.has_more, index: data.index, count: results.length, sample });
+      yuz_release_console.log({ total: data.total, has_more: !!data.has_more, index: data.index, count: results.length, sample });
     } catch(e){}
-    console.groupEnd();
+    yuz_release_console.groupEnd();
   });
-  console.log('[SMART-SNIFFER] prêt');
+  yuz_release_console.log('[SMART-SNIFFER] prêt');
 })();

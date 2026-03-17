@@ -1,3 +1,6 @@
+var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+
+
 (function($){
   // Guard: only run on YUZ Translation settings page (General tab context)
   if (
@@ -12,7 +15,7 @@
    * General tab only – uses window.yuzGS + per-action nonces.
    * Disciplines: ACT-02, ACT-03, ACT-04, ACT-11
    */
-  console.log('[YUZ][JS][GENERAL][LOAD] yuz-general-settings.js loaded at ' + new Date().toISOString());
+  yuz_release_console.log('[YUZ][JS][GENERAL][LOAD] yuz-general-settings.js loaded at ' + new Date().toISOString());
   /* ===========================================================================================
      --- SAFE LOGGER (ne jette jamais) ---
      =========================================================================================== */
@@ -43,9 +46,9 @@
   catch (_) { head += ' | [ctx unserializable]'; }
       }
   var fn = (level === 'critical' || level === 'error') ? 'error' : (level === 'warning' ? 'warn' : 'log');
-      (console && console[fn] ? console[fn] : console.log)(head);
+      (console && console[fn] ? console[fn] : yuz_release_console.log)(head);
     } catch (e) {
-  try { console.log('[LOG-FAILSAFE]', level, message); } catch (_) {}
+  try { yuz_release_console.log('[LOG-FAILSAFE]', level, message); } catch (_) {}
     }
   }
 
@@ -196,7 +199,7 @@
   // Only handle YUZ plugin actions to avoid interfering with WP core (e.g., heartbeat)
   if (!/^yuz_/.test(action)) return;
     const n = nonceFor(action);
-    if (!n) { console.warn('[YUZ][AJAX] No nonce found for action:', action); return; }
+    if (!n) { yuz_release_console.warn('[YUZ][AJAX] No nonce found for action:', action); return; }
   if (orig.data instanceof FormData) { orig.data.append('nonce', n); return; }
   if (typeof orig.data === 'string') {
   const p = new URLSearchParams(orig.data); p.set('nonce', n);
@@ -214,7 +217,7 @@
   jQuery(document).ajaxSend(function(e, xhr, settings) {
   try {
   if (settings && typeof settings.data === 'string' && settings.data.indexOf('action=yuz_tra_') >= 0) {
-  console.log('[TRACE AJAX SEND]', settings.data); // doit contenir &nonce=xxxxxxxx
+  yuz_release_console.log('[TRACE AJAX SEND]', settings.data); // doit contenir &nonce=xxxxxxxx
       }
     } catch (_) {}
   });
@@ -279,7 +282,7 @@
   'use strict';
   /* ========== HARD GUARDS ========== */
   if (!window.yuzGS) {
-  console.warn('[YUZ][GENERAL] window.yuzGS absent. Aborting.');
+  yuz_release_console.warn('[YUZ][GENERAL] window.yuzGS absent. Aborting.');
   return;
     }
   // Ensure legacy entry points (window.yuzTraSettings.*) remain populated for mixed-era scripts.
@@ -304,7 +307,7 @@
   legacy.capabilities = jQuery.extend(true, {}, origin.capabilities, legacy.capabilities || {});
     }
   } catch (syncErr) {
-  console.warn('[YUZ][GENERAL] Failed to mirror yuzTraSettings bridge', syncErr);
+  yuz_release_console.warn('[YUZ][GENERAL] Failed to mirror yuzTraSettings bridge', syncErr);
   }
   /* ========== CONSTANTS ========== */
   const ACTION = {
@@ -721,9 +724,9 @@
   update: function(){ saveWeights(sel, y, msg); }
         });
   if (typeof $list.disableSelection === 'function') $list.disableSelection();
-  console.log('🟩[OK] Sortable ready (handle:', hasHandle, ')');
+  yuz_release_console.log('🟩[OK] Sortable ready (handle:', hasHandle, ')');
       } catch (err) {
-  console.error('🟥[CRIT] Sortable init failed', err);
+  yuz_release_console.error('🟥[CRIT] Sortable init failed', err);
       }
     }
   /* ========== INIT CHAINS (désormais via ajaxPost + nonce auto) ========== */
@@ -736,12 +739,12 @@
           }
   cb((r.data.languages || []), (r.data.non_translatable || []));
         } else {
-  console.warn('🟧[WARN] get_languages returned', r);
+  yuz_release_console.warn('🟧[WARN] get_languages returned', r);
   alert(msg.ajax_error + ' ' + (r && r.data && r.data.message ? r.data.message : msg.unknown_error));
   cb([], []);
         }
       }, function (xhr) {
-  console.error('🟥[CRIT] fetchTranslatableLanguages error', xhr && xhr.responseText);
+  yuz_release_console.error('🟥[CRIT] fetchTranslatableLanguages error', xhr && xhr.responseText);
   alert(msg.ajax_error + ' ' + (xhr && xhr.statusText ? xhr.statusText : ''));
   cb([], []);
       });
