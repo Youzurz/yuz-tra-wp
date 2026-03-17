@@ -21,6 +21,12 @@ YUZ Translation helps manage multilingual content inside WordPress with:
 This package is a release-oriented build intended for distribution and excludes
 development artifacts, diagnostic snapshots, and internal debugging payloads.
 
+Current connector status:
+
+* LibreTranslate: available
+* Google Translate connector: present in the codebase but not currently validated for release use
+* DeepL connector: present in the codebase but not currently validated for release use
+
 == Installation ==
 
 1. Upload the plugin folder to `/wp-content/plugins/`.
@@ -34,6 +40,12 @@ development artifacts, diagnostic snapshots, and internal debugging payloads.
 Depending on your configuration, the plugin can integrate with external
 translation providers. Review your plugin settings before enabling those
 integrations.
+
+= Which provider is currently supported in this release-oriented build? =
+
+LibreTranslate is the currently operable connector. Google Translate and DeepL
+connectors exist in the codebase, but they are not yet considered release-ready
+for public distribution.
 
 == Changelog ==
 
