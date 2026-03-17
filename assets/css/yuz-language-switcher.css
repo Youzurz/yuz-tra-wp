@@ -1,0 +1,276 @@
+:root{ --yuz-flags-url: "../flags/"; } /* chemin relatif depuis assets/css/ vers assets/flags/ */
+/* Fallback quand l'image de drapeau échoue */
+.yuz-flag-fallback{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:18px;
+    height:12px;
+    font-size:10px;
+    font-weight:600;
+    line-height:1;
+    border:1px solid #dee2e6;
+    border-radius:2px;
+    user-select:none;
+}
+
+/**
+ * yuz-language-switcher.css
+ * Styles for the YUZ Translation language switcher.
+ */
+.yuz-language-switcher {
+    position: relative;
+    display: inline-block;
+    font-family: 'SF Pro Text', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    line-height: 1.2;
+    z-index: 1000;
+    box-sizing: border-box;
+    --yuz-bg: #ffffff;
+    --yuz-fg: #111827;
+    --yuz-border: #e5e7eb;
+    --yuz-hover: #f3f4f6;
+    --yuz-shadow: 0 10px 25px rgba(0,0,0,.12);
+}
+.yuz-language-switcher *, .yuz-language-switcher *::before, .yuz-language-switcher *::after { box-sizing: inherit; }
+.yuz-language-switcher.open { z-index: 1005; }
+
+.yuz-language-switcher.yuz-theme-dark { --yuz-bg:#111827; --yuz-fg:#f9fafb; --yuz-border:#374151; --yuz-hover:#1f2937; }
+.yuz-language-switcher.yuz-theme-light { --yuz-bg:#ffffff; --yuz-fg:#111827; --yuz-border:#e5e7eb; --yuz-hover:#f3f4f6; }
+
+.yuz-language-switcher.yuz-theme-dark,
+.yuz-language-switcher.yuz-theme-light {
+    background: var(--yuz-bg);
+    color: var(--yuz-fg);
+    border: 1px solid var(--yuz-border);
+    border-radius: 12px;
+    backdrop-filter: saturate(180%) blur(8px);
+}
+
+.yuz-position-bottom-right {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+}
+
+.yuz-position-top-right {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+}
+
+.yuz-position-bottom-left {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+}
+
+.yuz-position-top-left {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+}
+
+.yuz-switcher-stealth-toggle {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--yuz-border);
+    border-radius: 999px;
+    background: var(--yuz-bg);
+    color: var(--yuz-fg);
+    font-size: 11px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: .65;
+    transition: opacity .2s ease, transform .2s ease, background .2s ease;
+    z-index: 1006;
+}
+
+.yuz-switcher-stealth-toggle:hover,
+.yuz-switcher-stealth-toggle:focus {
+    opacity: 1;
+    transform: scale(1.05);
+    background: var(--yuz-hover);
+}
+
+.yuz-language-switcher.yuz-stealth-mode:not(.open) {
+    opacity: .38;
+}
+
+.yuz-language-switcher.yuz-stealth-mode:not(.open):hover,
+.yuz-language-switcher.yuz-stealth-mode:not(.open):focus-within {
+    opacity: 1;
+}
+
+.yuz-language-switcher.yuz-stealth-mode:not(.open) .yuz-current-lang {
+    min-width: 0;
+    padding: 8px 10px;
+    gap: 6px;
+}
+
+.yuz-language-switcher.yuz-stealth-mode:not(.open) .yuz-current-lang .yuz-flagline-text,
+.yuz-language-switcher.yuz-stealth-mode:not(.open) .yuz-current-lang .yuz-arrow {
+    display: none;
+}
+
+.yuz-current-lang {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    min-height: 40px;
+    min-width: 140px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background .2s ease, color .2s ease;
+    color: var(--yuz-fg);
+    white-space: nowrap; /* évite le passage sur 2 lignes */
+}
+.yuz-current-lang .yuz-flag { margin-right: 2px; }
+
+.yuz-current-lang:hover {
+    background: var(--yuz-hover);
+}
+
+.yuz-current-lang .yuz-arrow {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.yuz-current-lang[aria-expanded="true"] .yuz-arrow {
+    transform: rotate(180deg);
+}
+
+.yuz-language-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: auto;
+    min-width: 220px;
+    background: var(--yuz-bg);
+    border: 1px solid var(--yuz-border);
+    border-radius: 12px;
+    box-shadow: var(--yuz-shadow);
+    list-style: none;
+    padding: 8px 0;
+    margin: 0;
+    z-index: 1001;
+    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity .18s ease, transform .18s ease;
+    max-height: min(60vh, calc(100vh - 24px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.yuz-language-dropdown.drop-up {
+    bottom: calc(100% + 8px);
+    top: auto;
+    transform: translateY(8px);
+    transform-origin: bottom center;
+}
+
+.yuz-language-dropdown.drop-down {
+    top: calc(100% + 8px);
+    bottom: auto;
+    transform-origin: top center;
+}
+
+.yuz-language-dropdown.align-right {
+    left: auto;
+    right: 0;
+}
+
+/* Open states (aria + JS open class). Keeps focus-within for keyboard nav */
+.yuz-language-switcher:focus-within .yuz-language-dropdown,
+.yuz-current-lang[aria-expanded="true"] + .yuz-language-dropdown,
+.yuz-language-switcher.open .yuz-language-dropdown {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+}
+
+.yuz-language-switcher:focus-within .yuz-language-dropdown.drop-up,
+.yuz-current-lang[aria-expanded="true"] + .yuz-language-dropdown.drop-up,
+.yuz-language-switcher.open .yuz-language-dropdown.drop-up {
+    transform: translateY(0);
+}
+
+.yuz-language-switcher:focus-within .yuz-language-dropdown.drop-down,
+.yuz-current-lang[aria-expanded="true"] + .yuz-language-dropdown.drop-down,
+.yuz-language-switcher.open .yuz-language-dropdown.drop-down {
+    transform: translateY(0);
+}
+
+.yuz-language-dropdown li {
+    padding: 8px 16px;
+}
+
+.yuz-language-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--yuz-fg);
+    text-decoration: none;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background .2s ease, color .2s ease;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.yuz-language-dropdown a:hover,
+.yuz-language-dropdown a:focus {
+    background: var(--yuz-hover);
+}
+
+.yuz-flag {
+    width: 18px;
+    height: 12px;
+    object-fit: cover;
+}
+
+.yuz-powered-by {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #6b7280;
+    text-align: center;
+    border-top: 1px solid var(--yuz-border);
+}
+
+.yuz-powered-by a {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.yuz-powered-by a:hover {
+    text-decoration: underline;
+}
+
+/* Accessibility */
+.yuz-language-switcher:focus-within {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+    .yuz-language-switcher {
+        font-size: 14px;
+    }
+    .yuz-language-dropdown {
+        min-width: 150px;
+    }
+}

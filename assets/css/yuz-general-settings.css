@@ -1,0 +1,408 @@
+/* === Règles globales (inchangées) === */
+.yuz-section {
+    margin-bottom: 48px;
+    padding: 32px;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.yuz-section-title {
+    display: flex;
+    align-items: center;
+    font-size: 1.375em;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 24px;
+}
+
+.yuz-field,
+.yuz-settings-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 0.5em;
+  flex-wrap: wrap;
+}
+
+/* DESCRIPTION SOUS LE LABEL */
+.yuz-field .description,
+.yuz-settings-checkbox .description {
+  display: block;
+  width: 100%;
+  font-size: 13px;
+  color: #6c757d;
+  margin-top: 0.25em;
+  line-height: 1.4;
+}
+
+.yuz-field select,
+.yuz-field input[type="text"] {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    width: 100%;
+    max-width: 320px;
+    background-color: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.yuz-field select:focus,
+.yuz-field input[type="text"]:focus {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* Liste des langues traduisibles */
+.yuz-language-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.yuz-language-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.yuz-language-row:last-child {
+    border-bottom: none;
+}
+
+.yuz-drag-handle {
+    cursor: grab;
+    font-size: 16px;
+    color: #adb5bd;
+    user-select: none;
+}
+
+.yuz-language-label {
+    flex: 1;
+    font-weight: 500;
+    color: #212529;
+}
+
+.yuz-language-name {
+    min-width: 120px;
+}
+
+.yuz-language-code {
+    flex: 0 0 100px;
+    max-width: 100px;
+    text-align: center;
+    color: #495057;
+    font-family: monospace;
+}
+
+.yuz-language-slug {
+    flex: 0 0 80px;
+    max-width: 80px;
+    margin-right: auto;
+}
+
+.yuz-remove-language {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+    margin-left: 8px;
+}
+
+.yuz-remove-language:hover,
+.yuz-remove-language:focus {
+    background: #c82333;
+    outline: none;
+    transform: scale(1.05);
+}
+
+.yuz-add-language {
+    margin-left: 12px;
+    padding: 8px 16px;
+    font-size: 14px;
+    border: none;
+    background: #0d6efd;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.yuz-add-language:hover {
+    background: #0b5ed7;
+}
+
+/* ====== Wrapper et cartes ====== */
+.wrap form .yuz-settings-options__wrapper {
+    display: block !important;
+}
+
+.wrap form .yuz-settings-options-item {
+    display: block !important;
+    padding: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+    background: #fff !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+
+.yuz-settings-options-item > input[type="checkbox"] {
+    position: static !important;
+    clip: auto !important;
+    margin-right: 0.5em;
+}
+
+.wrap form .yuz-settings-options-item > label {
+    display: block !important;
+    cursor: pointer !important;
+}
+
+/* ====== Conteneur principal pour un alignement side-by-side ====== */
+.yuz-settings-checkbox {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    flex-wrap: nowrap !important;
+}
+
+/* ====== Contenu interne (titre, sélecteur, description) ====== */
+.yuz-checkbox-content {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+}
+
+.yuz-checkbox-content .yuz-primary-text-bold {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5em !important;
+    font-size: 1.125em !important;
+    font-weight: 600 !important;
+    color: #212529 !important;
+    margin: 0 !important;
+}
+
+.yuz-checkbox-content .yuz-select {
+    max-width: 260px !important;
+    min-width: 200px !important;
+    width: 100% !important;
+}
+
+.yuz-select-group {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+}
+
+.yuz-select-group .yuz-select {
+    flex: 1 1 180px !important;
+    max-width: 260px !important;
+}
+
+.yuz-checkbox-content .yuz-description-text {
+    font-size: 0.875rem !important;
+    color: #6c757d !important;
+    line-height: 1.4 !important;
+    margin-top: 0.5rem !important;
+    width: 100% !important;
+}
+
+.yuz-settings-checkbox .switch {
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+}
+
+@media (max-width: 782px) {
+    .yuz-settings-checkbox {
+        flex-wrap: wrap !important;
+        align-items: flex-start !important;
+    }
+    .yuz-settings-checkbox .switch {
+        margin-top: 0 !important;
+    }
+    .yuz-checkbox-content {
+        margin-top: 0.5rem !important;
+    }
+}
+
+/* ====== Toggle Switch Apple-like ====== */
+.yuz-field input[type="checkbox"] {
+  appearance: none;
+  width: 2.75em;
+  height: 1.5em;
+  min-width: 2.75em;
+  background: #e5e5e5;
+  border-radius: 0.75em;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin: 0;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.yuz-field input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 5%;
+  width: 35%;
+  height: 88%;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transform: translateY(-50%);
+  transition: all 0.2s ease;
+}
+
+.yuz-field input[type="checkbox"]:checked::before {
+  left: auto;
+  right: 5%;
+  transform: translateY(-50%);
+}
+
+.yuz-field input[type="checkbox"]:checked {
+  background-color: #34c759;
+}
+
+/* ==== Nouveau style switch générique ==== */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  vertical-align: middle;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: 0.2s;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+}
+.switch input:checked + .slider {
+   background-color: #34c759;
+}
+.switch input:checked + .slider:before {
+  transform: translateX(26px);
+}
+/* arrondir si nécessaire */
+.slider.round {
+  border-radius: 24px;
+}
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* === Ajustement tables et boutons inchangés === */
+.yuz-translate-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1em;
+}
+.yuz-translate-table th,
+.yuz-translate-table td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+.yuz-btn-remove {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+.yuz-btn-remove:hover {
+    background: #dc3545;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    transform: scale(1.05);
+}
+.yuz-btn-remove:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);
+}
+
+
+
+
+/* === PATCH 2025-10-21: Align .switch with labels and avoid conflicts === */
+/* === Fix global : aligner le switch sur la 1ère ligne du label et neutraliser le Apple-like === */
+.yuz-settings-checkbox { align-items: flex-start !important; }
+
+/* Neutralise le style "Apple-like" sur l'input DANS le composant .switch (spécificité ↑) */
+.yuz-settings-checkbox label.switch input[type="checkbox"] {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  margin: 0 !important;
+}
+
+/* Alignement visuel propre */
+.yuz-settings-checkbox .switch {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 24px !important;
+}
+.yuz-settings-checkbox .slider.round { vertical-align: middle !important; }
+
+/* (Option de finition) garder le titre sur une ligne propre */
+.yuz-settings-checkbox label.yuz-primary-text-bold {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+/* Probe : point bleu pour confirmer que l'override est bien chargé */
+.yuz-section-title::after { content: " •"; color: #fd610d; font-weight: 700; margin-left: 6px; }

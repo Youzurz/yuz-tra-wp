@@ -1,0 +1,21 @@
+#yuz-dock{position:fixed;top:0;right:0;width:420px;height:100vh;background:#fff;box-shadow:-20px 0 60px rgba(0,0,0,.25);z-index:2147483647;display:flex;flex-direction:column;font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111}
+#yuz-dock.hidden{display:none}
+#yuz-dock .yuz-dock-hd{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e5e7eb}
+#yuz-dock .yuz-tabs{display:flex;gap:6px}
+#yuz-dock .yuz-tabs button{border:0;border-radius:999px;background:#f3f4f6;padding:6px 12px;font-weight:600;cursor:pointer}
+#yuz-dock .yuz-tabs button.is-active{background:#111;color:#fff}
+#yuz-dock .yuz-close{margin-left:auto;border:0;background:#f87171;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:700}
+#yuz-dock .yuz-dock-body{flex:1;overflow:auto;padding:16px 20px} /* #yuz-dock .yuz-dock-body{flex:1;overflow:auto;padding:10px 14px}*/
+#yuz-dock .yuz-tab.hidden{display:none}
+#yuz-dock .yuz-tbl{width:100%;border-collapse:collapse;font-size:13px}
+#yuz-dock .yuz-tbl th,#yuz-dock .yuz-tbl td{border-bottom:1px solid #e5e7eb;padding:6px 4px;vertical-align:top}
+#yuz-dock textarea,#yuz-dock input[type="text"]{width:100%;border:1px solid #d1d5db;border-radius:6px;padding:6px;font:13px/1.3 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#yuz-dock .yuz-mono{font-family:"SFMono-Regular",Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px}
+/*#yuz-dock .yuz-dock-ft{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid #e5e7eb;gap:10px;font-size:12px}*/
+#yuz-dock .yuz-dock-ft{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-top:1px solid #e5e7eb;gap:10px;font-size:12px}
+#yuz-dock .yuz-actions button{border:0;border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer;background:#f3f4f6}
+#yuz-dock .yuz-actions button[data-action="publish"]{background:#111;color:#fff}
+#yuz-dock .yuz-status{color:#2563eb;min-height:18px}
+#yuz-dock .yuz-pager{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px}
+#yuz-dock .yuz-pager button{border:0;background:#f3f4f6;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:600}
+
