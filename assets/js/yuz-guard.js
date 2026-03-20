@@ -1,4 +1,3 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
 
 /**
  * YUZ Guard — shared sanitization and translation metadata helpers.

@@ -57,7 +57,6 @@ class YUZ_General implements GeneralInterface {
         self::$booted = true;
 
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            yuz_tra_release_error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_General::init');
             wp_die('Critical error: YUZ-TRA constants missing.');
         }
 

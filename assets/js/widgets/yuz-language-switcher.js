@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 /**
@@ -35,7 +35,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   // ---- Guards minimales
   if (!window || !document) return;
   if (!window.yuzSW) {
-    yuz_release_console.warn('[YUZ][SWITCHER] window.yuzSW absent. Aborting.');
     return;
   }
 

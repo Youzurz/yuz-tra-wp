@@ -103,10 +103,7 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
     // public function translate(string $text, string $source_lang, string $target_lang, array $settings) {
     public function translate($text, $source_lang, $target_lang, $settings): ?string {
         // DO: Perform translation using Google Translate API
-        yuz_tra_release_error_log('YUZ-TRA: [DO] Translating using Google Translate API at ' . current_time('mysql'));
-
         if (empty($this->apiKey)) {
-            yuz_tra_release_error_log('YUZ-TRA: [ERROR] Google Translate API key not provided');
             return null;
         }
 
@@ -143,7 +140,6 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
         );
 
         if (is_wp_error($response)) {
-            yuz_tra_release_error_log('YUZ-TRA: [ERROR] Google Translate API request failed: ' . $response->get_error_message());
             return null;
         }
 
@@ -152,18 +148,14 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
 
         // Check for errors in the response
         if (isset($data['error'])) {
-            yuz_tra_release_error_log('YUZ-TRA: [ERROR] Google Translate API error: ' . $data['error']['message']);
             return null;
         }
 
         // Extract the translated text
         if (!isset($data['data']['translations'][0]['translatedText'])) {
-            yuz_tra_release_error_log('YUZ-TRA: [ERROR] Google Translate API response invalid: ' . print_r($body, true));
             return null;
         }
 
-        yuz_tra_release_error_log("YUZ-TRA: [CHECK] Google Translate translation succeeded: " . $data['data']['translations'][0]['translatedText'] . ' at ' . current_time('mysql'));
-        yuz_tra_release_error_log("YUZ-TRA: [ACT] Google Translate translation completed successfully at " . current_time('mysql'));
         return $data['data']['translations'][0]['translatedText'];
     }
 
@@ -179,12 +171,9 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
 public function test_api_conn(array $settings): bool
 {
     // DO: Perform connection test using Google Translate API
-    yuz_tra_release_error_log('YUZ-TRA: [DO] Testing Google Translate connection at ' . current_time('mysql'));
-
     // Récupère la clé API (injectée ou passée en settings)
     $apiKey = $settings['api_key'] ?? $this->apiKey;
     if (empty($apiKey)) {
-        yuz_tra_release_error_log('YUZ-TRA: [ERROR] Google Translate API key not provided for connection test');
         return false;
     }
 
@@ -205,8 +194,6 @@ public function test_api_conn(array $settings): bool
 
     if (is_wp_error($response)) {
         $error_message = $response->get_error_message();
-        yuz_tra_release_error_log("YUZ-TRA: [CHECK] Google Translate connection test failed: " . $error_message . ' at ' . current_time('mysql'));
-        yuz_tra_release_error_log("YUZ-TRA: [ACT] Google Translate connection test failed at " . current_time('mysql'));
         return false;
     }
 
@@ -217,13 +204,9 @@ public function test_api_conn(array $settings): bool
     // Échec si HTTP ≠ 200 ou réponse d’erreur
     if ($code !== 200 || isset($data['error'])) {
         $message = isset($data['error']['message']) ? $data['error']['message'] : 'Invalid response code: ' . $code;
-        yuz_tra_release_error_log("YUZ-TRA: [CHECK] Google Translate connection test failed with status: " . $code . ' - ' . $message . ' at ' . current_time('mysql'));
-        yuz_tra_release_error_log("YUZ-TRA: [ACT] Google Translate connection test failed at " . current_time('mysql'));
         return false;
     }
 
-    yuz_tra_release_error_log("YUZ-TRA: [CHECK] Google Translate connection test succeeded at " . current_time('mysql'));
-    yuz_tra_release_error_log("YUZ-TRA: [ACT] Google Translate connection test completed successfully at " . current_time('mysql'));
     return true;
 }
 }

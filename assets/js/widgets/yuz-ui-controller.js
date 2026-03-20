@@ -1,4 +1,3 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
 
 
 (function () {
@@ -35,7 +34,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
     try { document.documentElement.dataset.yuzUi = datasetMode; }
     catch (_) {}
     document.dispatchEvent(new CustomEvent('yuz:ui:mount', { detail: { mode: canonical, legacyMode: legacy } }));
-    try { yuz_release_console.log('[YUZ-CTRL] mode=', canonical, '(legacy:', legacy + ')'); } catch (_) {}
   };
 
   const urlMode = q.get('yuz-mode');

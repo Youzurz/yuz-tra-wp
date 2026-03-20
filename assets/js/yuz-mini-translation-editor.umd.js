@@ -1,4 +1,3 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
 
 /*! YUZ String Translation Editor — UMD (zero‑deps)
  *  Works in old browsers (loaded with nomodule). Uses optional jQuery if present.
@@ -14,8 +13,7 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var log = function(){ try{ yuz_release_console.info.apply(console, ['[YUZ-UMD]'].concat([].slice.call(arguments))); }catch(e){} };
-
+var log=function(){};
   var Y = (typeof window !== 'undefined' && window.yuzTraSettings) ? window.yuzTraSettings : {
     ajax_url: (typeof ajaxurl !== 'undefined' ? ajaxurl : ''),
     nonces: {},

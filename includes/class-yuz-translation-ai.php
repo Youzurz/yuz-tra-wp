@@ -216,7 +216,6 @@ if (!class_exists('YUZ_Translation_AI')) {
             if (!empty($context)) {
                 $log_message .= ' | Context: ' . print_r($context, true);
             }
-            yuz_tra_release_error_log($log_message);
         }
     }
 }

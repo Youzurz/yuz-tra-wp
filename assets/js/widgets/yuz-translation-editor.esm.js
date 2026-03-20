@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 /* =======================================================================================
@@ -35,7 +35,6 @@ import $ from 'jquery';
   }
 
   if (!Y.ajax_url) {
-    yuz_release_console.error('[YUZ][TE] ajax_url manquant — abandon.');
     return;
   }
 
@@ -161,7 +160,6 @@ import $ from 'jquery';
   // Traduction instantanée → tolérante à toutes les formes de réponse
   async function translateAjax({ text, from, to }) {
     const cleaned = stripCssJsNoise(text || '');
-    try { yuz_release_console.debug('[YUZ][translateAjax] cleaned', cleaned.slice(0, 160)); } catch (_) {}
     if (!cleaned) throw new Error('empty_payload');
 
     const response = await tmTranslateAjax({
@@ -205,7 +203,6 @@ import $ from 'jquery';
     const backendError = response?.error || response?.data?.error || response?.message || response?.data?.message;
     if (backendError) throw new Error(`translate_failed:${backendError}`);
 
-    try { yuz_release_console.warn('[YUZ][translateAjax] RAW JSON (no translated_text)', response); } catch (_) {}
     throw new Error('empty_translation');
   }
 
@@ -266,9 +263,6 @@ import $ from 'jquery';
       body.set('source', src || 'auto');
       body.set('target', tgt);
 
-      yuz_release_console.groupCollapsed('[YUZ][TM] ⇢ POST', reqId);
-      yuz_release_console.debug('[YUZ][TM] params', { source: src || 'auto', target: tgt, items: items.length });
-
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -279,8 +273,6 @@ import $ from 'jquery';
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success !== true) {
         const err = json?.data?.message || json?.data?.error || json?.message || `HTTP ${res.status}`;
-        yuz_release_console.warn('[YUZ][TM] ✗', err);
-        yuz_release_console.groupEnd();
         throw new Error(err || 'tm_failed');
       }
 
@@ -306,18 +298,14 @@ import $ from 'jquery';
 
       if (translatedSingle) {
         json.translated_text = translatedSingle;
-        yuz_release_console.debug('[YUZ][TM] ✓ translatedSingle', translatedSingle);
       } else {
-        try { yuz_release_console.warn('[YUZ][TM] ✓ but no translatedSingle — RAW JSON', json); } catch (_) {}
       }
 
-      yuz_release_console.groupEnd();
       return json;
     }
 
     let json = await postOnce(fromCanon, toCanon);
     if (!json?.translated_text && (fromCanon !== from0 || toCanon !== to0)) {
-      yuz_release_console.info('[YUZ][TM] retry with canonical codes', { fromCanon, toCanon, reqId });
       json = await postOnce(fromCanon, toCanon);
     }
 
@@ -484,7 +472,6 @@ import $ from 'jquery';
     let n;
     try { n = nonceFor(action); }
     catch (e) {
-      try { yuz_release_console.error('[YUZ][TE] Sécurité: nonce manquant pour', action); } catch(_){ }
       return $.Deferred().reject(e).promise();
     }
 
@@ -497,8 +484,6 @@ import $ from 'jquery';
     }
 
     const data = { action, nonce: n, yuz_tra_nonce: n, _ajax_nonce: n, ...payload };
-    try { yuz_release_console.debug('[YUZ][TE][POST]', { url: url.toString(), ...data }); } catch(_) {}
-
     return $.ajax({
       url: url.toString(),
       type: 'POST',
@@ -1353,9 +1338,6 @@ if (pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy ent
     app.onSearchEnter = function () { this.onSearchClick(); };
 
     app._smartSearchInstalled = true;
-    try {
-      yuz_release_console.log(`[SMART][ESM] one-button search installed (phases: ${app.phaseOrder.join('→')})`);
-    } catch (_) {}
   }
 
   let lastApp = null;
@@ -1413,7 +1395,6 @@ if (pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy ent
       body: body.toString()
     });
     const j = await res.json().catch(() => ({}));
-    yuz_release_console.log('[INSTANT][ESM] persisted', j && j.data);
     return j && j.data;
   }
 

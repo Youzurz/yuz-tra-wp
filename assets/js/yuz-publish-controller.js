@@ -1,4 +1,3 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
 
 
 /**
@@ -9,8 +8,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
  * Compatible avec : éditeur, inspecteur DOM, gettext
  * ===========================================================
  */
-yuz_release_console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Date());
-
 (function () {
     if (typeof window === 'undefined') {
         return;
@@ -18,9 +15,6 @@ yuz_release_console.log("🗞️ yuz-publish-controller.js chargé avec succès 
 
     // Si déjà initialisé, on ne rebinde rien (évite les collisions)
     if (window.YUZ_PUBLISH && window.YUZ_PUBLISH.__v93hardened) {
-        try {
-            yuz_release_console.info('[YUZ_PUBLISH] Déjà initialisé, on saute le bootstrap dupliqué.');
-        } catch (_) { }
         return;
     }
 
@@ -100,7 +94,6 @@ yuz_release_console.log("🗞️ yuz-publish-controller.js chargé avec succès 
                         credentials: 'include'
                     }).catch(() => { });
                 } catch (probeErr) {
-                    try { yuz_release_console.debug('[YUZ][PIPELINE][probe_failed]', probeErr); } catch (_) { }
                 }
             };
             send.enabled = true;
@@ -358,12 +351,6 @@ yuz_release_console.log("🗞️ yuz-publish-controller.js chargé avec succès 
 
         async function publishBatch(ids = [], options = {}) {
             const normalized = normalizeIds(ids);
-            yuz_release_console.debug('[YUZ_PUBLISH] publishBatch called', {
-                ids: normalized,
-                options,
-                now: Date.now(),
-                lastPublishAt
-            });
             pipelineProbe('publish_attempt', {
                 count: normalized.length,
                 ids: normalized,
@@ -394,13 +381,6 @@ yuz_release_console.log("🗞️ yuz-publish-controller.js chargé avec succès 
             } catch (authError) {
                 toast(AUTH_ERROR_MESSAGE, true);
                 pipelineProbe('publish_skip', { reason: 'not_logged_in', message: authError?.message || '' });
-                try {
-                    yuz_release_console.warn('[YUZ_PUBLISH] Authentication check failed', {
-                        message: authError?.message,
-                        code: authError?.code,
-                        status: authError?.status
-                    });
-                } catch (_) { }
                 return { success: false, error: authError, code: 'not_logged_in' };
             }
 
@@ -502,13 +482,6 @@ yuz_release_console.log("🗞️ yuz-publish-controller.js chargé avec succès 
                 pipelineProbe('dock_skip', { reason: 'empty_ids' });
                 return;
             }
-
-            try {
-                yuz_release_console.info('[YUZ_PUBLISH] showDockReview called', {
-                    idsCount: normalizedIds.length,
-                    sample: normalizedIds.slice(0, 5)
-                });
-            } catch (_) { }
 
             const normalizedItems = normalizeItems(items, normalizedIds);
             const oldPanel = document.querySelector(SELECTORS.reviewPanel);

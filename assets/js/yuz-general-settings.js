@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 (function($){
@@ -15,7 +15,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
    * General tab only – uses window.yuzGS + per-action nonces.
    * Disciplines: ACT-02, ACT-03, ACT-04, ACT-11
    */
-  yuz_release_console.log('[YUZ][JS][GENERAL][LOAD] yuz-general-settings.js loaded at ' + new Date().toISOString());
   /* ===========================================================================================
      --- SAFE LOGGER (ne jette jamais) ---
      =========================================================================================== */
@@ -48,7 +47,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   var fn = (level === 'critical' || level === 'error') ? 'error' : (level === 'warning' ? 'warn' : 'log');
       (console && console[fn] ? console[fn] : yuz_release_console.log)(head);
     } catch (e) {
-  try { yuz_release_console.log('[LOG-FAILSAFE]', level, message); } catch (_) {}
     }
   }
 
@@ -282,7 +280,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   'use strict';
   /* ========== HARD GUARDS ========== */
   if (!window.yuzGS) {
-  yuz_release_console.warn('[YUZ][GENERAL] window.yuzGS absent. Aborting.');
   return;
     }
   // Ensure legacy entry points (window.yuzTraSettings.*) remain populated for mixed-era scripts.
@@ -307,7 +304,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   legacy.capabilities = jQuery.extend(true, {}, origin.capabilities, legacy.capabilities || {});
     }
   } catch (syncErr) {
-  yuz_release_console.warn('[YUZ][GENERAL] Failed to mirror yuzTraSettings bridge', syncErr);
   }
   /* ========== CONSTANTS ========== */
   const ACTION = {
@@ -724,9 +720,7 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   update: function(){ saveWeights(sel, y, msg); }
         });
   if (typeof $list.disableSelection === 'function') $list.disableSelection();
-  yuz_release_console.log('🟩[OK] Sortable ready (handle:', hasHandle, ')');
       } catch (err) {
-  yuz_release_console.error('🟥[CRIT] Sortable init failed', err);
       }
     }
   /* ========== INIT CHAINS (désormais via ajaxPost + nonce auto) ========== */
@@ -739,12 +733,10 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
           }
   cb((r.data.languages || []), (r.data.non_translatable || []));
         } else {
-  yuz_release_console.warn('🟧[WARN] get_languages returned', r);
   alert(msg.ajax_error + ' ' + (r && r.data && r.data.message ? r.data.message : msg.unknown_error));
   cb([], []);
         }
       }, function (xhr) {
-  yuz_release_console.error('🟥[CRIT] fetchTranslatableLanguages error', xhr && xhr.responseText);
   alert(msg.ajax_error + ' ' + (xhr && xhr.statusText ? xhr.statusText : ''));
   cb([], []);
       });

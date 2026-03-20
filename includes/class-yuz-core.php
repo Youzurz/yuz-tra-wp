@@ -486,7 +486,6 @@ self::log_colored('critical', $msg);
         if (!empty($context)) {
             $log_message .= ' | Context: ' . (is_string($context) ? $context : print_r($context, true));
         }
-        yuz_tra_release_error_log($log_message);
     }
 /** N’écrase pas les valeurs déjà présentes */
     public static function ensure_default_settings(): void {

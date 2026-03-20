@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 /**
@@ -19,14 +19,12 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   /* --------------------------------- Guards --------------------------------- */
   const y = window.yuzAI || null;
   if (!y || !y.ajax_url) {
-    yuz_release_console.warn('[YUZ][AI] yuzAI manquant ou ajax_url absent, arrêt.');
     return;
   }
   // Ne s’exécute que sur l’onglet AI (ou si un conteneur AI est présent dans le DOM)
   const isAITab = (y.current_tab || '').toString() === 'ai-translation' || !!document.getElementById('yuz_ai_panel');
 
   if (!isAITab) {
-    yuz_release_console.log('[YUZ][AI] Onglet AI inactif, skip init.');
     return;
   }
 

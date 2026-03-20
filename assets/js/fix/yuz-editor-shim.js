@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 /*! YUZ-TE bootstrap shim (safe overlay if main script crashed) */
@@ -67,7 +67,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
     const NO_TARGETS = !TGTS.length;
 
     if (NO_TARGETS && !QUIET) {
-      yuz_release_console.warn('[YUZ-TE shim] Aucune langue cible détectée immédiatement (diagnostic uniquement, sans blocage).');
     }
 
     // Host + styles
@@ -174,12 +173,10 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
       const badge = host.querySelector('[data-y-no-targets]');
       if (badge) badge.style.display = 'block';
       if (!QUIET) {
-        yuz_release_console.info('[YUZ-TE shim] En attente des langues définitives (le widget principal gère les fallbacks).');
       }
     }
 
     if (!QUIET) {
-      yuz_release_console.log('[YUZ-TE shim] mounted → From=%s, To choices=%o', FROM, TGTS.filter(t=>t!==FROM));
     }
   } catch (e) {
     if (!QUIET) yuz_release_console.error('[YUZ-TE shim] failed:', e);

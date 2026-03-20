@@ -493,13 +493,11 @@ class YUZ_Settings implements SettingsInterface {
     }
 
     public function ajax_router() {
-        yuz_tra_release_error_log('[YUZ][AJAX] handling ' . ($_POST['action'] ?? '(none)') . ' with data=' . wp_json_encode($_POST));
         $action = sanitize_text_field($_POST['action'] ?? '');
         $nonce  = $_POST['nonce'] ?? '';
 
         $nonce_ok = wp_verify_nonce($nonce, 'yuz_tra_nonce') || wp_verify_nonce($nonce, 'yuz_con_nonce');
         if (!$nonce_ok) {
-            yuz_tra_release_error_log('[YUZ][AJAX] invalid nonce for ' . $action);
             wp_send_json_error(['error' => 'Invalid nonce']);
         }
 
@@ -525,7 +523,6 @@ class YUZ_Settings implements SettingsInterface {
                 break;
 
             default:
-                yuz_tra_release_error_log('[YUZ][AJAX] unknown action ' . $action);
                 wp_send_json_error(['error' => 'Unknown action']);
         }
     }
@@ -544,8 +541,6 @@ class YUZ_Settings implements SettingsInterface {
             : $merged;
 
         update_option($option_name, $sanitized);
-        yuz_tra_release_error_log('[YUZ][UPDATE] ' . $option_name . '=' . wp_json_encode($sanitized));
-
         wp_send_json_success([
             'updated' => $sanitized,
             'option'  => $option_name,
@@ -1408,7 +1403,6 @@ class YUZ_Settings implements SettingsInterface {
             if (empty($current)) {
                 add_option($option_name, $defaults, false);
                 if (function_exists('error_log')) {
-                    yuz_tra_release_error_log('🟩 YUZ_Settings: création de yuz_tra_settings (defaults).');
                 }
                 return;
             }
@@ -1417,7 +1411,6 @@ class YUZ_Settings implements SettingsInterface {
             if ($updated !== $current) {
                 update_option($option_name, $updated, false);
                 if (function_exists('error_log')) {
-                    yuz_tra_release_error_log('🟨 YUZ_Settings: ajout de clés manquantes dans yuz_tra_settings.');
                 }
             }
         }

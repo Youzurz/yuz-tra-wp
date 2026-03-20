@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 /* UMD minimal — mounts a compact translation bar into #yuz-editor-container */
@@ -13,15 +13,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   try { searchParams = new URLSearchParams(window.location.search); } catch (e) { searchParams = null; }
 
   // TEMP TRACE — boot diagnostics (remove after validation)
-  try {
-    yuz_release_console.log('[YUZ UMD][boot]', {
-      param: hasParam,
-      container: !!document.getElementById('yuz-editor-container'),
-      haveSettings: !!window.yuzTraSettings,
-      haveTE: !!window.yuzTE
-    });
-  } catch (_) {}
-
   function ensureContainer() {
     var el = document.getElementById('yuz-editor-container');
     if (!el) {
@@ -52,7 +43,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   }
 
   function buildToolbar(progressOnly) {
-    try { yuz_release_console.log('[YUZ UMD] buildToolbar:start', progressOnly ? '(progress-only)' : ''); } catch (_) {}
     var names = CFG.language_names || {};
     var langs = CFG.translation_langs || [];
     var def = CFG.default_language || '';
@@ -106,7 +96,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
           try { yuz_release_console.log('[YUZ][OK]', action, JSON.parse(xhr.responseText)); }
           catch (_) { yuz_release_console.log('[YUZ][OK]', action, xhr.responseText); }
         } else {
-          yuz_release_console.error('[YUZ][ERR]', action, xhr.status, xhr.responseText);
         }
       };
       xhr.send(p.toString());
@@ -129,14 +118,12 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
       });
     }
 
-    try { yuz_release_console.log('[YUZ UMD] mounted OK'); } catch (_) {}
     return wrap;
   }
 
   function mountMini(opts) {
     var cfg = opts || {};
     if (!hasParam) {
-      try { yuz_release_console.log('[YUZ UMD] skip: ?yuz-edit-translation=1 missing'); } catch (_) {}
       return;
     }
     var root = buildToolbar(!!cfg.progressOnly);
@@ -154,7 +141,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
       };
     }
 
-    try { yuz_release_console.log('[YUZ-MINI] mounted', cfg.progressOnly ? '(progress-only)' : ''); } catch (_) {}
   }
 
   function overlayHandlesXpress() {

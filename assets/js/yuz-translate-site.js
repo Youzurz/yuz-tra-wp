@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 /**
@@ -30,7 +30,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   // Tolerant bootstrap: allow late localization (fallback attached to yuz-global)
   let Y = window.yuzTS;
   if (Y) {
-    yuz_release_console.log('[YUZ][SITE] bootstrap global yuzTS', { hasNonces: !!(Y.nonces && Object.keys(Y.nonces||{}).length), nonceKeys: Object.keys(Y.nonces || {}) });
   }
   // Fallback: build from yuzTraSettings/yuzAS when localization was blocked by CSP
   function buildFromGlobalFallback() {
@@ -40,7 +39,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
       const nonces   = (G.nonces && typeof G.nonces === 'object') ? G.nonces : {};
       // Require at least the two TS nonces
       if (!nonces['yuz_tra_ts_get_settings'] && !nonces['yuz_tra_ts_upd_settings']) return null;
-      yuz_release_console.log('[YUZ][SITE] fallback constructed from yuzTraSettings/yuzAS', { ajax_url, nonceKeys: Object.keys(nonces || {}) });
       return { ajax_url, nonces, site_settings: (G.site_settings || {}) };
     } catch(_) { return null; }
   }
@@ -54,13 +52,11 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
       if (!Y && window.yuzTS) {
         // If it appears late, initialize now
         Y = window.yuzTS;
-        yuz_release_console.log('[YUZ][SITE] bootstrap late yuzTS', { nonceKeys: Object.keys(Y.nonces || {}) });
       } else if (!Y) {
         const fb2 = buildFromGlobalFallback();
         if (fb2) { Y = fb2; }
       }
       if (Y) {
-        yuz_release_console.log('[YUZ][SITE] init with yuzTS', { nonceKeys: Object.keys(Y.nonces || {}) });
         try { fetchAndInit(); bindChangeHandlers(); bindTranslateNow(); } catch (_) {}
       }
     });
@@ -69,7 +65,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   }
 
   if (!Y.ajax_url) {
-    yuz_release_console.error('[YUZ][SITE] ajax_url manquant dans yuzTS. Abandon.');
     return;
   }
 

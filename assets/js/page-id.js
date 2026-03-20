@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 (function (window, document) {
@@ -32,6 +32,5 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
     }
 
     if (window.CLAR && window.CLAR.debug && window.console && yuz_release_console.info) {
-        yuz_release_console.info("CLAR page-id fallback initialised.", pageId);
     }
 })(window, document);

@@ -1,4 +1,4 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
+var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
 
 
 window.CLAR = window.CLAR || {};
@@ -25,7 +25,6 @@ window.CLAR = window.CLAR || {};
                     item(window.CLAR);
                 } catch (err) {
                     if (window.console && yuz_release_console.error) {
-                        yuz_release_console.error("CLAR.ready callback error:", err);
                     }
                 }
             }
@@ -54,7 +53,6 @@ window.CLAR = window.CLAR || {};
         window.CLAR.toast = function (message, options) {
             var type = options && options.type ? options.type : "info";
             if (window.console && yuz_release_console.log) {
-                yuz_release_console.log("[CLAR][" + type + "]", message);
             }
         };
     }
@@ -76,6 +74,5 @@ window.CLAR = window.CLAR || {};
 
     window.CLAR.debug = window.CLAR.debug || false;
     if (window.CLAR.debug && window.console && yuz_release_console.info) {
-        yuz_release_console.info("CLAR global fallback initialised.", window.CLAR);
     }
 })(window, document);

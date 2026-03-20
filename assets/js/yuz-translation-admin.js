@@ -1,4 +1,3 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
 
 
 /* assets/js/yuz-translation-admin.js */
@@ -7,7 +6,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
 
   const CFG = window.yuzTS || {};
   if (!CFG.ajax_url) {
-    yuz_release_console.warn('[YUZ][TS] ajax_url manquant. Handlers will still attach for redirect-only actions.');
   }
 
   // Map logique → action AJAX
@@ -38,16 +36,13 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
       try {
         const url = new URL(target, window.location.origin);
         url.searchParams.set('yuz-edit-translation', '1');
-        yuz_release_console.log('[YUZ][TS] gotoEditor → redirect', { target: url.href });
         window.location.href = url.href;
       } catch (_) {
         // Fallback ultra-simple
         const href = String(target) + (String(target).indexOf('?')===-1?'?':'&') + 'yuz-edit-translation=1';
-        yuz_release_console.log('[YUZ][TS] gotoEditor (fallback) → redirect', { target: href });
         window.location.href = href;
       }
     } catch (e) {
-      yuz_release_console.error('[YUZ][TS] gotoEditor failed', e);
     }
   }
 
@@ -150,7 +145,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
         document.dispatchEvent(new CustomEvent('yuz:ts:done', { detail: { action: actionKey, payload, text: json } }));
       }
     } catch (e) {
-      yuz_release_console.error(e);
       toast('error', `${actionKey} exception`);
       document.dispatchEvent(new CustomEvent('yuz:ts:error', { detail: { action: actionKey, payload, error: e } }));
     } finally {
@@ -168,7 +162,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
     if (!el) return;
     e.preventDefault();
     const actionKey = el.getAttribute('data-yuz-ts-action');
-    yuz_release_console.log('[YUZ][TS] click captured', { actionKey, id: el.id, classes: el.className });
     handleAction(actionKey, el, e);
   });
 
@@ -204,6 +197,4 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
     } catch (_) {}
   });
 
-  yuz_release_console.log('[YUZ][TS] delegated handlers ready');
-  yuz_release_console.log('[YUZ][TS] CFG snapshot', { ajax_url: CFG.ajax_url, hasHome: !!CFG.home_url, nonceKeys: Object.keys(CFG.nonces || {}) });
 })();

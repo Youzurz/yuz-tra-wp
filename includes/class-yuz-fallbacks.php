@@ -353,7 +353,6 @@ class NullLogger implements LoggerInterface {
         if (!$enabled) {
             return;
         }
-        yuz_tra_release_error_log(sprintf('[%s] %s: %s', $level, __CLASS__, $message));
     }
     public function setLevel(string $level): void {
         // no-op
@@ -396,7 +395,6 @@ class FallbackTranslateProvider {
 
         if (!$is_canonical($source) || !$is_canonical($target)) {
             $msg = sprintf('[YUZ][FALLBACK] non-canonical req=%s src=%s tgt=%s', $req_id, $source, $target);
-            yuz_tra_release_error_log($msg);
             return new \WP_Error('yuz_non_canonical', $msg);
         }
 
@@ -418,13 +416,6 @@ class FallbackTranslateProvider {
         }
 
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            yuz_tra_release_error_log(sprintf('[YUZ][FALLBACK] req=%s src=%s tgt=%s count=%d RAW=%s',
-                $req_id,
-                $source,
-                $target,
-                count($normalized),
-                substr(wp_json_encode($normalized, JSON_UNESCAPED_UNICODE), 0, 512)
-            ));
         }
 
         return [

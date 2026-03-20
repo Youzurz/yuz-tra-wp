@@ -1,4 +1,3 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
 
 
 (()=>{
@@ -6,7 +5,6 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   const ajaxurl = CFG.ajax_url || window.ajaxurl || '/wp-admin/admin-ajax.php';
   const nonce = CFG.nonce || '';
   if (!nonce) {
-    yuz_release_console.warn('[YUZ][strings] missing nonce, dock disabled');
     return;
   }
 

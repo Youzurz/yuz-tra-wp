@@ -1,4 +1,3 @@
-var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function(){},info:function(){},warn:function(){},error:function(){}}; var yuz_release_console = console;
 
 
 /**
@@ -16,10 +15,9 @@ var console = window.__YUZ_RELEASE_CONSOLE__ || {log:function(){},debug:function
   'use strict';
 
   const AB = window.yuzAB || {};
-  const log   = (...a) => yuz_release_console.log('[YUZ][ADMINBAR]', ...a);
-  const warn  = (...a) => yuz_release_console.warn('[YUZ][ADMINBAR]', ...a);
-  const error = (...a) => yuz_release_console.error('[YUZ][ADMINBAR]', ...a);
-
+const log = () => {};
+const warn = () => {};
+const error = () => {};
   // ---- Guards ---------------------------------------------------------------
   if (!window.jQuery) { error('jQuery unavailable, aborting'); return; }
   if (!AB || (AB.can_manage_options === false && AB.can_translate === false)) {
