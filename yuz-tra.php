@@ -5,6 +5,8 @@
  * Description: Translation management plugin with language switching and publishing review tools.
  * Version: 1.2.1
  * Author: YUZ
+ * Requires at least: 6.0
+ * Requires PHP: 8.0
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: yuz_translation

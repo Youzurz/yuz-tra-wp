@@ -2,6 +2,7 @@
 Contributors: youzurz
 Tags: translation, multilingual, localization, language switcher
 Requires at least: 6.0
+Tested up to: 6.7.1
 Requires PHP: 8.0
 Stable tag: 1.2.1
 License: GPLv2 or later
@@ -40,6 +41,12 @@ Current connector status:
 Depending on your configuration, the plugin can integrate with external
 translation providers. Review your plugin settings before enabling those
 integrations.
+
+= What data is sent to LibreTranslate? =
+
+When a site administrator enables LibreTranslate, text selected for translation
+and the requested source and target language codes are sent to the configured
+LibreTranslate endpoint. No provider connection is enabled by default.
 
 = Which provider is currently supported in this release-oriented build? =
 

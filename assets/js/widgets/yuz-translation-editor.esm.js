@@ -78,7 +78,6 @@ import $ from 'jquery';
         window.CLAR.toast(message, { type });
       } else {
         const m = (type === 'error') ? 'error' : (type === 'warning' ? 'warn' : 'log');
-        console[m]('[toast]', message);
       }
     } catch (_) {}
   };
@@ -1167,7 +1166,6 @@ if (pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy ent
   const toastFallback = (msg, lvl = 'info') => {
     try {
       const method = lvl === 'error' ? 'error' : lvl === 'warning' ? 'warn' : 'log';
-      console[method](`[toast:${lvl}]`, msg);
     } catch (_) {}
   };
 

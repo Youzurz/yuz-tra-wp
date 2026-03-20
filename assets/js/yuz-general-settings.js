@@ -45,7 +45,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   catch (_) { head += ' | [ctx unserializable]'; }
       }
   var fn = (level === 'critical' || level === 'error') ? 'error' : (level === 'warning' ? 'warn' : 'log');
-      (console && console[fn] ? console[fn] : yuz_release_console.log)(head);
+      (console && yuz_release_console[fn] ? yuz_release_console[fn] : yuz_release_console.log)(head);
     } catch (e) {
     }
   }

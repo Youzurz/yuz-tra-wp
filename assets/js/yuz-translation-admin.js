@@ -110,7 +110,6 @@
   function toast(type, msg) {
     // placeholder non intrusif (console)
     const tag = (type === 'error') ? 'error' : (type === 'warn' ? 'warn' : 'log');
-    console[tag](`[YUZ][TS][${type.toUpperCase()}] ${msg}`);
   }
 
   // Handler principal (click / change / submit)

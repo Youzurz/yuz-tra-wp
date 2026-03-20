@@ -9,9 +9,9 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   const mutePrefixes = [/^\[YUZ/i, /^\[yuz/i, /^\[toast]/i, /^\[INSTANT]/i, /^\[SMART]/i];
   const shouldMute = (first) => typeof first === 'string' && mutePrefixes.some((rx) => rx.test(first));
   ['warn', 'info', 'log', 'debug'].forEach((level) => {
-    const orig = console[level];
+    const orig = yuz_release_console[level];
     if (!orig) return;
-    console[level] = function (...args) {
+    yuz_release_console[level] = function (...args) {
       if (args.length && shouldMute(args[0])) return;
       try { return orig.apply(console, args); } catch (_) { /* silent */ }
     };
@@ -23,7 +23,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   const DBG = /\byuzdebug=1\b/.test(window.location.search || '');
   const log = (level, msg, ctx) => {
     if (!DBG) return;
-    const fn = console[level] || yuz_release_console.log;
+    const fn = yuz_release_console[level] || yuz_release_console.log;
     try { fn.call(console, '[YUZ][TE][DBG]', msg, ctx || {}); } catch (_) { }
   };
   log('info', '✏️ yuz-translation-editor.js chargé', { ts: new Date().toISOString() });
@@ -766,7 +766,6 @@ const $ = window.jQuery;
         window.CLAR.toast(message, { type });
       } else {
         const m = (type === 'error') ? 'error' : (type === 'warning' ? 'warn' : 'log');
-        console[m]('[toast]', message);
       }
     } catch (_) { }
   };
@@ -4957,7 +4956,6 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
   const toastFallback = (msg, lvl = 'info') => {
     try {
       const method = lvl === 'error' ? 'error' : lvl === 'warning' ? 'warn' : 'log';
-      console[method](`[toast:${lvl}]`, msg);
     } catch (_) { }
   };
 
