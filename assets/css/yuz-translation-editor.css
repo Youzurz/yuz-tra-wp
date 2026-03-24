@@ -1,0 +1,301 @@
+  /* ====== YUZ TE (scope dur) — #yuz-te-advanced ====== */
+  /* Filet de sécurité overlay : toujours interactif et centré par défaut */
+  #yuz-editor-container {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    pointer-events: none !important;
+    /* laisse passer les clics vers la page, la modale reste interactive via ses propres pointer-events */
+  }
+
+  #yuz-editor-container .yuz-modal {
+    pointer-events: auto !important;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  #yuz-editor-container .yuz-mask {
+    pointer-events: none !important;
+  }
+
+  /* Conteneur modal : largeur & hauteur */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced {
+    --pad-v: 16px;
+    --pad-h: 16px;
+    --gap: 12px;
+    --btn-pad-y: .55em;
+    --btn-pad-x: .9em;
+
+    /* largeur demandée ~905 px, centrée */
+    width: min(505px, 92vw) !important;
+    max-width: 505px !important;
+    height: min(965px, 92vh) !important;
+    max-height: 905px !important;
+    margin-inline: auto !important;
+
+    /* hauteur demandée ~965 px, scroll interne si besoin */
+    max-height: 965px !important;
+    height: auto !important;
+    overflow: auto !important;
+
+    box-sizing: border-box;
+  }
+
+  /* Un peu d’air en haut du header */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header {
+    padding: 20px var(--pad-h) 16px !important;
+  }
+
+  /* Sections alignées (respiration homogène) */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-section {
+    padding: var(--pad-v) var(--pad-h) !important;
+    box-sizing: border-box;
+  }
+
+  /* Textareas contenus (pas de saignement) */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-field .yuz-textarea,
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-translation-form textarea {
+    width: 100%;
+    min-height: 96px !important;
+    box-sizing: border-box;
+    resize: vertical;
+  }
+
+  /* ---------- Rangée Lock / Reset / Close : 2/4 – 1/4 – 1/4 ---------- */
+  /* Sélecteur robuste : la rangée du header qui contient exactement 3 boutons */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-section-row:has(.yuz-btn:nth-of-type(3)) {
+    display: grid !important;
+    grid-template-columns: 2fr 1fr 1fr !important;
+    gap: var(--gap) !important;
+    align-items: center !important;
+  }
+
+  /* Boutons élastiques (pas de min-width bloquante) */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-section-row .yuz-btn {
+    min-width: 0 !important;
+    width: 100% !important;
+    padding: var(--btn-pad-y) var(--btn-pad-x) !important;
+    white-space: nowrap !important;
+    line-height: 1.15 !important;
+  }
+
+  /* ---------- Barre d’actions (bas) : une seule ligne ---------- */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-actions {
+    display: grid !important;
+    grid-template-columns: auto 1fr auto !important;
+    /* left | spacer | right */
+    align-items: center !important;
+    gap: var(--gap) !important;
+    padding: 8px 8px !important;
+    /* demandé */
+    border-top: 1px solid rgba(226, 232, 240, .65) !important;
+    white-space: nowrap !important;
+    /* anti-wrap global */
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-actions-left {
+    display: inline-flex !important;
+    gap: var(--gap) !important;
+    min-width: 0 !important;
+    flex-wrap: nowrap !important;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-actions-right {
+    display: flex !important;
+    gap: var(--gap) !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-actions .yuz-btn {
+    min-width: 0 !important;
+    padding: var(--btn-pad-y) var(--btn-pad-x) !important;
+    white-space: nowrap !important;
+    line-height: 1.15 !important;
+  }
+
+  /* ---------- Search en “footer” visuel ---------- */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-section--search {
+    padding: var(--pad-v) var(--pad-h) !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .94), rgba(248, 250, 252, .97)) !important;
+    border-top: 1px solid rgba(226, 232, 240, .65) !important;
+    border-bottom: 0 !important;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-search {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: var(--gap) !important;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-search-input {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ---------- Breakpoints (tablette/téléphone) ---------- */
+  @media (max-width: 1024px) {
+    #yuz-te-advanced.yuz-modal.yuz-te--advanced {
+      width: min(760px, 92vw) !important;
+      max-height: min(80vh, 965px) !important;
+    }
+  }
+
+  @media (max-width: 768px) {
+    #yuz-te-advanced.yuz-modal.yuz-te--advanced {
+      width: 92vw !important;
+      max-height: 84vh !important;
+    }
+
+    /* sur mobile, on accepte l’empilement de la rangée header si trop étroit */
+    #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-section-row:has(.yuz-btn:nth-of-type(3)) {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+
+  .yuz-header-row.yuz-header-row--brand {
+    padding: 16px 0px !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Mode row : Advanced + Strings must stay on the same line on desktop */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-header-row--mode {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    align-items: center !important;
+    gap: var(--gap) !important;
+    flex-wrap: nowrap !important;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-header-row--mode .yuz-mode {
+    min-width: 0 !important;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-header-row--mode .yuz-btn--mode {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-header-row--mode .yuz-header-strings {
+    min-width: 0 !important;
+    justify-self: end !important;
+    white-space: nowrap !important;
+  }
+
+  @media (max-width: 640px) {
+    #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-header-row--mode {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+
+    #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-header .yuz-header-row--mode .yuz-header-strings {
+      width: 100% !important;
+      justify-self: stretch !important;
+    }
+  }
+
+  #yuz-editor-container .yuz-header .yuz-header-row--main {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  #yuz-editor-container .yuz-header .yuz-header-row--main .yuz-btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #yuz-editor-container .yuz-header .yuz-header-close-square {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, .35);
+    background: #ef4444;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all .18s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, .12);
+  }
+
+  #yuz-editor-container .yuz-header .yuz-header-close-square:hover {
+    background: #dc2626;
+  }
+
+  #yuz-editor-container .yuz-header .yuz-header-close-square:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .25);
+  }
+
+  #yuz-editor-container .yuz-header .yuz-header-preview.is-active {
+    background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+    color: #fff;
+    border-color: #0284c7;
+    box-shadow: 0 8px 18px rgba(14, 165, 233, .25);
+  }
+
+  /* ===== Selects "modernes" façon iOS/macOS ===== */
+  /* Scope sûr : uniquement dans le modal avancé */
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced select.yuz-select,
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-position-select {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 36px;
+    padding: 0 34px 0 12px;
+    border: 1px solid #d1d1d6;
+    border-radius: 10px;
+    background: #fff;
+    box-sizing: border-box;
+    font: 500 13px/1 "SF Pro Text", -apple-system, system-ui, "Segoe UI", sans-serif;
+    color: #1d1d1f;
+    /* caret (flèche) YUZ */
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 6 5-6' fill='none' stroke='%230EA5E9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px 8px;
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, .02);
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced select.yuz-select:focus,
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-position-select:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, .18);
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced select.yuz-select:hover,
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced .yuz-position-select:hover {
+    border-color: #c7c7cc;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced select.yuz-select:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  #yuz-te-advanced.yuz-modal.yuz-te--advanced select.yuz-select::-ms-expand {
+    display: none;
+  }
+
+  /* logo dimensions */
+  #yuz-editor-container .yuz-header .yuz-logo {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  /* petit ajustement d’alignement vertical si besoin */
+  #yuz-editor-container .yuz-header .yuz-header-brand {
+    gap: 14px;
+    /* +2px d’air à gauche du texte */
+  }

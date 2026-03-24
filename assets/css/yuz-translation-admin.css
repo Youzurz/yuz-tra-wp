@@ -1,0 +1,18 @@
+/* Reprise du bump Admin Bar, mais en fichier (0-inline) */
+@media screen {
+  html.admin-bar { margin-top: 32px !important; }
+}
+@media screen and (max-width: 782px) {
+  html.admin-bar { margin-top: 46px !important; }
+}
+@media print {
+  #wpadminbar { display: none; }
+}
+
+/* Optionnel : s'assurer que la barre est bien en haut en front */
+html.admin-bar #wpadminbar {
+  position: fixed;
+  top: 0;
+  left: 0; right: 0;
+}
+

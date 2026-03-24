@@ -1,0 +1,15 @@
+.git
+.github
+.gitlab
+.gitlab-ci.yml
+.gitattributes
+.gitignore
+.distignore
+.wordpress-org
+dist
+docs
+node_modules
+tests
+tmp
+vendor
+scripts

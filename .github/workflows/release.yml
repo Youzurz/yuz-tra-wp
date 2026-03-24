@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install release tooling
+        run: sudo apt-get update && sudo apt-get install -y rsync zip subversion
+
+      - name: Validate tagged release
+        run: scripts/check-release.sh "${GITHUB_REF_NAME}"
+
+      - name: Build ZIP
+        id: build
+        run: echo "zip_path=$(scripts/build-zip.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yuz-tra-wp-${{ github.ref_name }}
+          path: ${{ steps.build.outputs.zip_path }}
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${{ steps.build.outputs.zip_path }}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${{ steps.build.outputs.zip_path }}" \
+              --title "YUZ Translation ${GITHUB_REF_NAME}" \
+              --notes-file docs/release-notes.md
+          fi
+
+      - name: Deploy to WordPress.org
+        if: ${{ vars.WPORG_DEPLOY_ON_TAG == '1' && secrets.WPORG_SVN_USERNAME != '' && secrets.WPORG_SVN_PASSWORD != '' }}
+        env:
+          WPORG_SLUG: ${{ vars.WPORG_SLUG || 'yuz-tra-wp' }}
+          WPORG_SVN_USERNAME: ${{ secrets.WPORG_SVN_USERNAME }}
+          WPORG_SVN_PASSWORD: ${{ secrets.WPORG_SVN_PASSWORD }}
+        run: scripts/deploy-wporg.sh
