@@ -1,4 +1,5 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Class YUZ_Libre_Translate_Adapter
  * LibreTranslate translation adapter for the YUZ-TRA plugin.
@@ -65,7 +66,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 // Include necessary files
 require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-yuz-translate-adapter.php';
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
@@ -76,6 +77,7 @@ if (!function_exists('yuz_tra_adapter_log')) {
         if (!$enabled) {
             return;
         }
+        error_log(...$args);
     }
 }
 // Assuming HttpClientInterface is defined elsewhere or needs to be added
@@ -161,22 +163,15 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             $target_lang = $mapped_target;
             // Validate endpoint
             $endpoint = rtrim($effective_settings['endpoint'] ?? '', '/');
-            $default_endpoint = 'https://ltr.fastendclear.com';
-            if (empty($endpoint)) {
-                $endpoint = $default_endpoint;
-            } else {
-                $host = parse_url($endpoint, PHP_URL_HOST);
-                if (in_array($host, ['libretranslate.com', 'ltr.youzurz.com', 'youzurz.com'], true)) {
-                    $endpoint = $default_endpoint;
-                }
+            $endpoint = rtrim((string) apply_filters('yuz_tra_libre_translate_endpoint', $endpoint, $effective_settings), '/');
+            if ($endpoint === '') {
+                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate endpoint is not configured');
+                return null;
             }
             // Construct URL
             $url = preg_match('#/translate/?$#', $endpoint) ? $endpoint : $endpoint . '/translate';
             yuz_tra_adapter_log('YUZ-TRA: [INFO] Constructed LibreTranslate URL: ' . $url);
-            $api_key = $effective_settings['api_key'] ?? '';
-            if ($api_key === '') {
-                $api_key = '837689f1-8f52-4db4-8b5a-b12ed806ed06';
-            }
+            $api_key = (string) apply_filters('yuz_tra_libre_translate_api_key', $effective_settings['api_key'] ?? '', $effective_settings);
             // Prepare request
             $args = [
                 'method' => 'POST',
@@ -189,7 +184,7 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
                     'source' => $source_lang,
                     'target' => $target_lang,
                     'format' => 'text',
-                    'alternatives' => 3,
+                    'alternatives' => min(3, max(0, (int) ($effective_settings['alternatives'] ?? 0))),
                     'api_key' => $api_key,
                 ]),
             ];
@@ -203,14 +198,14 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             if (is_wp_error($response)) {
                 $msg = $response->get_error_message();
                 yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate translation failed: ' . $msg);
-                throw new \RuntimeException('LT_HTTP_ERR:' . $msg);
+                throw new \RuntimeException( esc_html( 'LT_HTTP_ERR:' . $msg ) );
             }
             $status_code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
             yuz_tra_adapter_log('YUZ-TRA: [INFO] LibreTranslate translation response: Status ' . $status_code . ', Body: ' . $body);
             if ($status_code !== 200) {
                 yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate translation failed with status: ' . $status_code);
-                throw new \RuntimeException('LT_HTTP_' . $status_code);
+                throw new \RuntimeException( esc_html( 'LT_HTTP_' . $status_code ) );
             }
             $data = json_decode($body, true);
             // Accept multiple response shapes from Libre-compatible providers
@@ -341,20 +336,13 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             if (empty($texts)) return [];
             $effective_settings = array_merge($this->config, $settings);
             $endpoint = rtrim($effective_settings['endpoint'] ?? '', '/');
-            $default_endpoint = 'https://ltr.fastendclear.com';
-            if (empty($endpoint)) {
-                $endpoint = $default_endpoint;
-            } else {
-                $host = parse_url($endpoint, PHP_URL_HOST);
-                if (in_array($host, ['libretranslate.com', 'ltr.youzurz.com', 'youzurz.com'], true)) {
-                    $endpoint = $default_endpoint;
-                }
+            $endpoint = rtrim((string) apply_filters('yuz_tra_libre_translate_endpoint', $endpoint, $effective_settings), '/');
+            if ($endpoint === '') {
+                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate endpoint is not configured');
+                return array_fill_keys($texts, null);
             }
             $url = preg_match('#/translate/?$#', $endpoint) ? $endpoint : $endpoint . '/translate';
-            $api_key = $effective_settings['api_key'] ?? '';
-            if ($api_key === '') {
-                $api_key = '837689f1-8f52-4db4-8b5a-b12ed806ed06';
-            }
+            $api_key = (string) apply_filters('yuz_tra_libre_translate_api_key', $effective_settings['api_key'] ?? '', $effective_settings);
             $payload = [
                 'q' => array_values($texts),
                 'source' => $this->map_language_code($source_lang, 'auto'),

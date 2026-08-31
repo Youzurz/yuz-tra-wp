@@ -1,4 +1,3 @@
-
 /**
  * yuz-automatic-translation.js
  * Manages the Automatic Translation tab interface for YUZ Translation.
@@ -37,7 +36,7 @@
 
         function toggleProviderFields() {
             var provider = $('#yuz_tra_api_provider').val();
-            $('.yuz-api-provider-field').hide();
+            $('.yuz-tra-api-provider-field').hide();
             $('.yuz-' + provider).show();
         }
 
@@ -68,7 +67,13 @@
                 (Y.nonces && (Y.nonces[action] || Y.nonces['yuz_api_nonce'])) || ''
             );
             Object.entries(payload || {}).forEach(([k,v])=>{
-                body.set(k, (v !== null && typeof v === 'object') ? JSON.stringify(v) : String(v));
+                if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+                    Object.entries(v).forEach(([nestedKey, nestedValue]) => {
+                        body.set(`${k}[${nestedKey}]`, nestedValue == null ? '' : String(nestedValue));
+                    });
+                    return;
+                }
+                body.set(k, v == null ? '' : String(v));
             });
             YUZ_Assets.log_colored('info', '[AT][POST]', { action, cid, keys: Object.keys(payload||{}) });
             const res = await fetch((window.ajaxurl || Y.ajax_url), { method:'POST', body });
@@ -87,13 +92,19 @@
             let apiKey = '';
             const extraSettings = {};
             switch (provider) {
+                case 'ollama':
+                    endpoint = $('#yuz_tra_ollama_url').val().trim();
+                    extraSettings.model = $('#yuz_tra_model').val().trim();
+                    break;
                 case 'libretranslate':
                     endpoint = $('#yuz_tra_libre_url').val().trim();
                     apiKey = $('#yuz_tra_libre_key').val().trim();
                     extraSettings.alternatives = $('#yuz_tra_alternatives').val().trim();
                     break;
                 case 'deepl':
-                    endpoint = 'https://api-free.deepl.com/v2/translate';
+                    endpoint = $('#yuz_tra_deepl_free').is(':checked')
+                        ? 'https://api-free.deepl.com/v2/translate'
+                        : 'https://api.deepl.com/v2/translate';
                     apiKey = $('#yuz_tra_deepl_key').val().trim();
                     extraSettings.deepl_free = $('#yuz_tra_deepl_free').is(':checked') ? '1' : '0';
                     break;
@@ -124,7 +135,12 @@
                 YUZ_Assets.log_colored('warning', 'API key missing');
                 return;
             }
-            YUZ_Assets.log_colored('info', 'Test connection payload', { provider, endpoint, apiKey, extraSettings });
+            YUZ_Assets.log_colored('info', 'Test connection payload', {
+                provider,
+                endpoint,
+                apiKeyPresent: Boolean(apiKey),
+                extraSettings
+            });
             try {
                 const response = await postAT('yuz_tra_at_get_api_test', {
                     provider: provider,
@@ -206,4 +222,3 @@
         initAutoTrans($);
     });
 })(window, document);
-

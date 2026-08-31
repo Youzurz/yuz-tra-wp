@@ -66,7 +66,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 use YUZTRA\Interfaces\LoggerInterface;
 if (!class_exists('YUZ_Logger')) {
@@ -108,9 +108,12 @@ if (!class_exists('YUZ_Logger')) {
             // 1) Fichier de log (constante > option > défaut uploads/)
             $uploads = function_exists('wp_upload_dir') ? wp_upload_dir() : ['basedir' => WP_CONTENT_DIR . '/uploads'];
             $defaultPath = rtrim($uploads['basedir'] ?? (WP_CONTENT_DIR . '/uploads'), '/').'/yuz-log.log';
-            $this->file = defined('YUZ_TRA_LOG_FILE') && is_string(YUZ_TRA_LOG_FILE) && YUZ_TRA_LOG_FILE
+            $selectedFile = defined('YUZ_TRA_LOG_FILE') && is_string(YUZ_TRA_LOG_FILE) && YUZ_TRA_LOG_FILE
                 ? YUZ_TRA_LOG_FILE
                 : ($file ?: $defaultPath);
+            $fallbackPath = rtrim($uploads['basedir'] ?? (WP_CONTENT_DIR . '/uploads'), '/') . '/yuz-logs/yuz-log.log';
+            $tempPath = rtrim(sys_get_temp_dir(), '/') . '/yuz-tra.log';
+            $this->file = $this->resolveWritableLogFile([$selectedFile, $fallbackPath, $tempPath]);
             // 2) Niveau (constante > option > défaut)
             $optLevel = function_exists('get_option') ? (string) get_option('yuz_tra_log_level', self::DEFAULT_LEVEL) : self::DEFAULT_LEVEL;
             $this->setLevel(defined('YUZ_TRA_LOG_LEVEL') ? (string) YUZ_TRA_LOG_LEVEL : $optLevel);
@@ -121,15 +124,6 @@ if (!class_exists('YUZ_Logger')) {
             $this->rateMax = (int) (defined('YUZ_TRA_LOG_RATE_MAX') ? YUZ_TRA_LOG_RATE_MAX : (function_exists('get_option') ? (int) get_option('yuz_tra_log_rate_max', self::DEFAULT_RATE_MAX) : self::DEFAULT_RATE_MAX));
             $this->ctxMaxLen = (int) (defined('YUZ_TRA_LOG_CTX_MAXLEN') ? YUZ_TRA_LOG_CTX_MAXLEN : (function_exists('get_option') ? (int) get_option('yuz_tra_log_ctx_maxlen', self::DEFAULT_CTX_MAXLEN) : self::DEFAULT_CTX_MAXLEN));
             $this->ctxMaxKeys = (int) (defined('YUZ_TRA_LOG_CTX_MAXKEYS') ? YUZ_TRA_LOG_CTX_MAXKEYS : (function_exists('get_option') ? (int) get_option('yuz_tra_log_ctx_maxkeys', self::DEFAULT_CTX_MAXKEYS) : self::DEFAULT_CTX_MAXKEYS));
-            // 4) Assurer présence du dossier + fichier
-            $dir = dirname($this->file);
-            if (!is_dir($dir)) {
-                if (function_exists('wp_mkdir_p')) @wp_mkdir_p($dir); else @mkdir($dir, 0755, true);
-            }
-            if (!file_exists($this->file)) {
-                @touch($this->file);
-                @chmod($this->file, 0644);
-            }
             // 5) Flush de fin si besoin (aujourd’hui inutile: on flush par fenêtre)
             if (!self::$shutdownHooked && function_exists('add_action')) {
                 self::$shutdownHooked = true;
@@ -212,16 +206,11 @@ if (!class_exists('YUZ_Logger')) {
                 $message,
                 empty($context) ? '' : (' ' . json_encode($context, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))
             );
-            // Écriture avec verrou pour éviter la corruption
-            $fh = @fopen($this->file, 'ab');
-            if ($fh === false) {
-                // fallback
+            // Écriture avec verrou pour éviter la corruption.
+            if (@file_put_contents($this->file, $line, FILE_APPEND | LOCK_EX) === false) {
+                error_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
                 return;
             }
-            @flock($fh, LOCK_EX);
-            @fwrite($fh, $line);
-            @flock($fh, LOCK_UN);
-            @fclose($fh);
         }
         public static function flushSuppressed(): void {
             // On ne garde pas d’état global à flush ici: chaque bascule de fenêtre écrit déjà un résumé.
@@ -240,21 +229,79 @@ if (!class_exists('YUZ_Logger')) {
             clearstatcache(true, $this->file);
             $size = @filesize($this->file);
             if ($size === false || $size < $this->maxBytes) return;
+            $filesystem = $this->filesystem();
+            if (!$filesystem) {
+                return;
+            }
             // Renommer .(n-1) -> .n
             for ($i = $this->maxFiles - 1; $i >= 1; $i--) {
                 $src = $this->file . '.' . $i;
                 $dst = $this->file . '.' . ($i + 1);
-                if (file_exists($src)) @rename($src, $dst);
+                if (file_exists($src)) {
+                    $filesystem->move($src, $dst, true);
+                }
             }
             // Pivot -> .1
-            @rename($this->file, $this->file . '.1');
+            $filesystem->move($this->file, $this->file . '.1', true);
             // Nouveau fichier vide
-            @file_put_contents($this->file, "");
-            @chmod($this->file, 0644);
+            $filesystem->put_contents($this->file, '', defined('FS_CHMOD_FILE') ? FS_CHMOD_FILE : 0644);
             // Supprimer au-delà du max
             $overflow = $this->file . '.' . ($this->maxFiles + 1);
-            if (file_exists($overflow)) @unlink($overflow);
+            if (file_exists($overflow)) {
+                wp_delete_file($overflow);
+            }
+        }
+
+        private function resolveWritableLogFile(array $candidates): string {
+            foreach ($candidates as $candidate) {
+                if (!is_string($candidate) || $candidate === '') {
+                    continue;
+                }
+                if ($this->prepareLogFile($candidate)) {
+                    return $candidate;
+                }
+            }
+
+            return (string) reset($candidates);
+        }
+
+        private function prepareLogFile(string $path): bool {
+            $filesystem = $this->filesystem();
+            if (!$filesystem) {
+                return false;
+            }
+            $dir = dirname($path);
+            if (!is_dir($dir)) {
+                if (function_exists('wp_mkdir_p')) {
+                    wp_mkdir_p($dir);
+                }
+            }
+
+            if (!is_dir($dir) || !$filesystem->is_writable($dir)) {
+                return false;
+            }
+
+            if (!file_exists($path)) {
+                if (@file_put_contents($path, '', FILE_APPEND) === false) {
+                    return false;
+                }
+            }
+
+            return $filesystem->is_writable($path);
+        }
+
+        private function filesystem() {
+            global $wp_filesystem;
+
+            if (!function_exists('WP_Filesystem')) {
+                require_once ABSPATH . 'wp-admin/includes/file.php';
+            }
+
+            if (!is_object($wp_filesystem)) {
+                WP_Filesystem();
+            }
+
+            return is_object($wp_filesystem) ? $wp_filesystem : null;
         }
     }
 }
-

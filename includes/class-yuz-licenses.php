@@ -64,7 +64,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 // Contrats + Fallbacks (idempotents)
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
@@ -105,7 +105,8 @@ if (self::$booted) {
 self::$booted = true;
 // Gardes minimales
 if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-wp_die(__('Critical error: YUZ-TRA constants missing.', 'yuz_translation'));
+error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Licenses::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
+wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-translation'));
             }
         // Logger
         $logger = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
@@ -156,4 +157,3 @@ public function render_tab() {
 
     }
 }
-

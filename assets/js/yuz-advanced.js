@@ -1,4 +1,3 @@
-
 (function($){
   function hasEnv() {
     var okUrl = (typeof yuzAdv !== 'undefined' && yuzAdv && yuzAdv.ajaxurl) || (typeof ajaxurl !== 'undefined' && ajaxurl);

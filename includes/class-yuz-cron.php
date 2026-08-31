@@ -1,182 +1,80 @@
 <?php
-/**
- * Class YUZ_Cron
- * Enregistrement & handlers des tâches WP-Cron.
- *
- * @package YUZ_Translation
- */
-
-/**
- * YUZ CORE RULES — DO NOT VIOLATE
- *
- * Objectif :
- *   Verrouiller par VERBES les actions autorisées par fichier central.
- *   Tout verbe non listé ci-dessous est INTERDIT dans ce fichier.
- *
- * Exclusivités (fichiers centraux) — autorité unique :
- *
- * - class-yuz-assets.php  (Rôle: Assets)
- *     VERBES AUTORISÉS UNIQUEMENT ICI :
- *       - wp_register_script, wp_register_style
- *       - wp_enqueue_script, wp_enqueue_style
- *       - wp_localize_script
- *       - wp_add_inline_script, wp_add_inline_style
- *       - wp_set_script_translations
- *       - add_action('admin_enqueue_scripts' | 'wp_enqueue_scripts' | 'enqueue_block_editor_assets')
- *       - add_filter('script_loader_tag' | 'style_loader_tag' | 'clar_inline_script_hashes')
- *     INTERDIT ailleurs : tout enregistrement/enfilage/localisation/altération <script>/<link>.
- *
- * - class-yuz-ajax.php  (Rôle: AJAX)
- *     VERBES AUTORISÉS UNIQUEMENT ICI :
- *       - add_action('wp_ajax_*' | 'wp_ajax_nopriv_*')
- *       - check_ajax_referer
- *       - current_user_can
- *       - sanitize_* (toutes variantes), esc_* (toutes variantes)
- *       - wp_send_json, wp_send_json_success, wp_send_json_error
- *       - wp_die (uniquement fin d’endpoint)
- *     INTERDIT ailleurs : tout câblage d'actions AJAX, émission JSON des endpoints, contrôle caps pour AJAX.
- *
- * - class-yuz-renderer.php  (Rôle: Rendu Admin)
- *     VERBES AUTORISÉS UNIQUEMENT ICI :
- *       - add_menu_page, add_submenu_page
- *       - add_settings_section, add_settings_field (déclaration UI)
- *       - render_* (fonctions de sortie/templates), require template admin
- *       - wp_nonce_field (pour les formulaires d’admin)
- *     INTERDIT ailleurs : ajout de pages/menus d’admin ou de sections/champs Settings API.
- *
- * - class-yuz-contracts.php  (Rôle: Contrats)
- *     VERBES AUTORISÉS :
- *       - interface, trait (déclarations uniquement)
- *     INTERDIT : logique, hooks, sorties, accès WP_*.
- *
- * - class-yuz-fallbacks.php  (Rôle: Nulls/Fallbacks)
- *     VERBES AUTORISÉS : 
- *       - class Null Fallback* (implémentations minimales des contrats) 
- *     INTERDIT : hooks, I/O, enqueues, endpoints.
- *
- * Règle d’or (globale) :
- *   Aucun autre fichier ne doit enregistrer/enfiler/localiser des assets,
- *   ni câbler des hooks AJAX/menus d’admin,
- *   ni altérer les balises <script>/<link>,
- *   ni émettre des réponses JSON d’endpoint.
- *
- * Conseils :
- *   — Toute logique transverse doit passer par services/contrats, jamais par un hook non autorisé.
- *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
- */
-
-defined( 'ABSPATH' ) or exit;
+defined('ABSPATH') || exit;
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 
-use YUZTRA\Interfaces\CronInterface;
-use YUZTRA\Interfaces\SettingsInterface;
-use YUZTRA\Interfaces\LanguagesInterface;
-use YUZTRA\Interfaces\TranslationManagerInterface;
-
-if ( ! class_exists( 'YUZ_Cron' ) ) {
-    class YUZ_Cron implements CronInterface {
-        /**
-         * Initialise la gestion du Cron.
-         */
-        public static function init() {
-            // Hook du handler sur l'événement
-            add_action( 'yuz_tra_batch_translate', [ __CLASS__, 'run_batch' ] );
-            // Si besoin d'un intervalle sur mesure, on peut l'ajouter ici :
-            add_filter( 'cron_schedules', [ __CLASS__, 'add_cron_intervals' ] );
-            // Planification initiale (ex. après activation)
-            $settings = get_option( 'yuz_tra_api_settings', [] );
-            $mode = $settings['translation_mode'] ?? 'manual';
-            $interval = $settings['cron_interval'] ?? 'hourly';
-            if ( in_array( $mode, [ 'silent', 'all' ], true ) && ! wp_next_scheduled( 'yuz_tra_batch_translate' ) ) {
-                wp_schedule_event( time(), $interval, 'yuz_tra_batch_translate' );
-            }
+/** Bounded pending-string worker. No rescanning of posts and no implicit publication of manual drafts. */
+class YUZ_Cron {
+    private static $booted = false;
+    public static function init() {
+        if (self::$booted) return;
+        self::$booted = true;
+        add_action('yuz_tra_run_job', ['YUZ_Translation_Jobs', 'run']);
+        add_action('yuz_tra_batch_translate', [__CLASS__, 'run_batch']);
+        add_action('yuz_auto_translation_tick', [__CLASS__, 'run_batch']);
+        add_filter('cron_schedules', [__CLASS__, 'add_cron_intervals']);
+        add_action('update_option_yuz_tra_at_settings', [__CLASS__, 'reconcile_schedule'], 20, 0);
+        self::reconcile_schedule();
+    }
+    public static function reconcile_schedule(): void {
+        $s = YUZ_Translation_Budget::settings();
+        $enabled = !empty($s['enable_auto_translate']) && in_array($s['translation_mode'] ?? 'manual', ['silent','all','auto'], true);
+        if (!$enabled) {
+            if (wp_next_scheduled('yuz_tra_batch_translate')) wp_clear_scheduled_hook('yuz_tra_batch_translate');
+            if (wp_next_scheduled('yuz_auto_translation_tick')) wp_clear_scheduled_hook('yuz_auto_translation_tick');
+            return;
         }
-
-        /**
-         * Exemple : ajouter un intervalle personnalisé si besoin.
-         *
-         * @param array $schedules
-         * @return array
-         */
-        public static function add_cron_intervals( $schedules ) {
-            $schedules['every_five_minutes'] = [
-                'interval' => 300,
-                'display' => __( 'Every Five Minutes', 'yuz_translation' ),
-            ];
-            return $schedules;
-        }
-
-        /**
-         * Récupère une langue source valide, fallback si nécessaire.
-         *
-         * @return string
-         */
-        private static function get_valid_source_language() {
-            $settings = get_option( 'yuz_tra_general', [] );
-            $source_lang = $settings['source_language'] ?? '';
-            $valid_langs = array_column( YUZ_Languages::get_translatable_languages(), 'language_code' );
-            if ( $source_lang && in_array( $source_lang, $valid_langs, true ) ) {
-                return $source_lang;
-            }
-            $site_locale = get_locale();
-            $site_lang = substr( $site_locale, 0, 2 );
-            if ( in_array( $site_lang, $valid_langs, true ) ) {
-                return $site_lang;
-            }
-            if ( in_array( 'en', $valid_langs, true ) ) {
-                return 'en';
-            }
-            return '';
-        }
-
-        /**
-         * Handler principal du batch.
-         */
-        public static function run_batch() {
-            if (!wp_doing_cron()) {
-                return;
-            }
-            // MODIF: Lock transient 60s + backoff 15s (Phase 8: lock/backoff)
-            $lock_key = 'yuz_tra_batch_lock';
-            if (get_transient($lock_key)) {
-                wp_schedule_single_event(time() + 15, 'yuz_tra_batch_translate'); // Backoff 15s
-                return;
-            }
-            set_transient($lock_key, true, 60); // Lock 60s
-            $source = self::get_valid_source_language();
-            if ( ! $source ) {
-                delete_transient($lock_key);
-                return;
-            }
-            $targets = YUZ_Languages::get_translatable_languages();
-            $posts = get_posts( [
-                'post_type' => 'any',
-                'posts_per_page' => 10,
-                'post_status' => 'publish',
-            ] );
-            global $wpdb;
-            foreach ( $posts as $post ) {
-                foreach ( $targets as $lang ) {
-                    $code = is_object( $lang ) ? $lang->language_code : $lang;
-                    $translated = YUZ_API_Manager::translate( $post->post_content, $source, $code );
-                    if ( $translated ) {
-                        $wpdb->insert(
-                            $wpdb->prefix . 'yuz_tra_translations',
-                            [
-                                'post_id' => $post->ID,
-                                'language_code' => $code,
-                                'translated_text' => $translated,
-                                'status' => 1,
-                                'created_at' => current_time( 'mysql' ),
-                            ]
-                        );
+        $interval = $s['cron_interval'] ?? 'hourly';
+        if (!isset(wp_get_schedules()[$interval])) $interval = 'hourly';
+        $event = wp_get_scheduled_event('yuz_tra_batch_translate');
+        if ($event && $event->schedule !== $interval) wp_clear_scheduled_hook('yuz_tra_batch_translate');
+        if (!wp_next_scheduled('yuz_tra_batch_translate')) wp_schedule_event(time()+60, $interval, 'yuz_tra_batch_translate');
+    }
+    public static function add_cron_intervals($schedules) {
+        $schedules['every_five_minutes'] = ['interval'=>300,'display'=>'Every five minutes'];
+        return $schedules;
+    }
+    public static function run_batch() {
+        $s = YUZ_Translation_Budget::settings();
+        if (!wp_doing_cron() || empty($s['enable_auto_translate']) || !in_array($s['translation_mode'] ?? 'manual',['silent','all','auto'],true)) return ['processed'=>0,'reason'=>'disabled'];
+        return self::process(min(10,max(1,(int)($s['worker_batch_size'] ?? 3))));
+    }
+    public static function process(int $limit = 3, int $status = 4): array {
+        global $wpdb;
+        if (!YUZ_DB::ensure_string_tables()) throw new RuntimeException('strings_storage_unavailable');
+        $lock = 'yuz-tra-worker-' . substr(hash('sha256',$wpdb->prefix),0,40);
+        if ((int)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,0)',$lock)) !== 1) return ['processed'=>0,'reason'=>'busy'];
+        $report=['processed'=>0,'failed'=>0,'errors'=>[]];
+        $settings=YUZ_Translation_Budget::settings();
+        $seconds=min(120,max(5,(int)($settings['worker_time_budget'] ?? 35)));
+        try {
+            $sources=$wpdb->prefix.'yuz_tra_string_sources'; $targets=$wpdb->prefix.'yuz_tra_string_targets';
+            $langs=$wpdb->get_results("SELECT language_code AS code FROM {$wpdb->prefix}yuz_tra_languages WHERE is_translatable=1 ORDER BY language_weight,id",ARRAY_A) ?: [];
+            $cursor=(int)get_option('yuz_tra_worker_language',0);
+            $started=microtime(true);
+            for($offset=0;$offset<count($langs) && $report['processed']+$report['failed']<min(10,max(1,$limit));$offset++) {
+                $index=($cursor+$offset)%count($langs); $lang=YUZ_String_Catalog::locale($langs[$index]['code']);
+                $remaining=min(10,max(1,$limit))-$report['processed']-$report['failed'];
+                $ids=$wpdb->get_col($wpdb->prepare("SELECT s.id FROM $sources s LEFT JOIN $targets t ON t.source_id=s.id AND t.lang=%s WHERE t.id IS NULL OR (t.status=0 AND t.attempts<3 AND (t.retry_after IS NULL OR t.retry_after<=UTC_TIMESTAMP())) ORDER BY s.id LIMIT %d",$lang,$remaining));
+                foreach($ids as $id) {
+                    if(microtime(true)-$started>$seconds) break 2;
+                    try {
+                        YUZ_String_Catalog::translate((int)$id,$lang,$status,$started+$seconds);
+                        $report['processed']++;
+                    } catch(Throwable $e) {
+                        $message=substr($e->getMessage(),0,150);
+                        $report['failed']++; $report['errors'][]=$message;
+                        if(in_array($message,['daily_character_limit','minute_request_limit','budget_busy','translation_time_budget','translation_in_progress'],true)) break 2;
+                        $wpdb->query($wpdb->prepare("INSERT INTO $targets (source_id,lang,forms,status,origin,attempts,retry_after,last_error,updated_at) VALUES (%d,%s,'[]',0,'machine',1,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE),%s,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE attempts=IF(status=0,attempts+1,attempts),retry_after=IF(status=0,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 MINUTE),retry_after),last_error=IF(status=0,VALUES(last_error),last_error)",$id,$lang,$message));
                     }
                 }
             }
-            delete_transient($lock_key); // Release lock
-        }
+            if($langs) update_option('yuz_tra_worker_language',($cursor+1)%count($langs),false);
+            update_option('yuz_tra_worker_last',['time'=>gmdate('c'),'result'=>$report],false);
+            // Retention keeps the usage ledger bounded without touching translation content.
+            $wpdb->query("DELETE FROM {$wpdb->prefix}yuz_tra_translation_usage WHERE bucket LIKE 'minute:%' AND bucket < CONCAT('minute:',DATE_FORMAT(UTC_TIMESTAMP()-INTERVAL 2 DAY,'%Y-%m-%d-%H-%i'))");
+            return $report;
+        } finally { $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock)); }
     }
 }
 // On hook tout de suite l'init() pour charger le Cron
 add_action( 'init', [ 'YUZ_Cron', 'init' ], 15 );
-

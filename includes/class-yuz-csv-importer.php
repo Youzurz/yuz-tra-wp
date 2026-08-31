@@ -68,7 +68,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Assume class-yuz-contracts.php contains CsvImporterInterface and LanguageManagerInterface
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
@@ -99,8 +99,8 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
         public function add_import_page(): void {
             add_submenu_page(
                 'yuz-translation',                     // parent slug defined by your plugin
-                __( 'Import Languages', 'yuz_translation' ),
-                __( 'Import CSV', 'yuz_translation' ),
+                __( 'Import Languages', 'yuz-translation' ),
+                __( 'Import CSV', 'yuz-translation' ),
                 'manage_options',
                 'yuz-import-csv',
                 [ $this, 'render_import_form' ]
@@ -112,7 +112,7 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
          */
         public function render_import_form(): void {
             if ( ! current_user_can( 'manage_options' ) ) {
-                wp_die( __( 'Unauthorized', 'yuz_translation' ) );
+                wp_die( esc_html__( 'Unauthorized', 'yuz-translation' ) );
             }
 
             // Check for transient messages
@@ -126,7 +126,7 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
             }
             ?>
             <div class="wrap">
-                <h1><?php _e( 'Import Languages from CSV', 'yuz_translation' ); ?></h1>
+                <h1><?php esc_html_e( 'Import Languages from CSV', 'yuz-translation' ); ?></h1>
                 <?php if ( $success_message ) : ?>
                     <div class="notice notice-success">
                         <p><?php echo esc_html( $success_message ); ?></p>
@@ -143,11 +143,11 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
                     <input type="hidden" name="action" value="yuz_import_csv">
                     <table class="form-table">
                         <tr>
-                            <th scope="row"><label for="csv_file"><?php _e( 'CSV File', 'yuz_translation' ); ?></label></th>
+                            <th scope="row"><label for="csv_file"><?php esc_html_e( 'CSV File', 'yuz-translation' ); ?></label></th>
                             <td><input type="file" name="csv_file" id="csv_file" accept=".csv" required></td>
                         </tr>
                     </table>
-                    <?php submit_button( __( 'Import', 'yuz_translation' ) ); ?>
+                    <?php submit_button( __( 'Import', 'yuz-translation' ) ); ?>
                 </form>
             </div>
             <?php
@@ -158,11 +158,11 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
          */
         public function handle_import(): void {
             if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'yuz_hvy_nonce', 'nonce' ) ) {
-                wp_die( __( 'Unauthorized', 'yuz_translation' ) );
+                wp_die( esc_html__( 'Unauthorized', 'yuz-translation' ) );
             }
 
             if ( empty( $_FILES['csv_file'] ) || empty( $_FILES['csv_file']['tmp_name'] ) ) {
-                set_transient( 'yuz_import_error', __( 'No file uploaded.', 'yuz_translation' ), 30 );
+                set_transient( 'yuz_import_error', __( 'No file uploaded.', 'yuz-translation' ), 30 );
                 wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
                 exit;
             }
@@ -170,7 +170,7 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
             // Validate file type
             $file_info = wp_check_filetype( basename( $_FILES['csv_file']['name'] ) );
             if ( ! $file_info || 'csv' !== $file_info['ext'] ) {
-                set_transient( 'yuz_import_error', __( 'Invalid file type. Please upload a CSV file.', 'yuz_translation' ), 30 );
+                set_transient( 'yuz_import_error', __( 'Invalid file type. Please upload a CSV file.', 'yuz-translation' ), 30 );
                 wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
                 exit;
             }
@@ -178,7 +178,8 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
             // Check file size against max upload size
             $max_size = wp_max_upload_size();
             if ( $_FILES['csv_file']['size'] > $max_size ) {
-                set_transient( 'yuz_import_error', sprintf( __( 'File too large. Maximum size is %s.', 'yuz_translation' ), size_format( $max_size ) ), 30 );
+                /* translators: %s: maximum upload size. */
+                set_transient( 'yuz_import_error', sprintf( __( 'File too large. Maximum size is %s.', 'yuz-translation' ), size_format( $max_size ) ), 30 );
                 wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
                 exit;
             }
@@ -186,9 +187,11 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
             $result = $this->import_csv( $_FILES['csv_file']['tmp_name'] );
 
             if ( $result['success'] ) {
-                set_transient( 'yuz_import_success', sprintf( __( 'Import completed. %d languages imported.', 'yuz_translation' ), $result['count'] ), 30 );
+                /* translators: %d: number of imported languages. */
+                set_transient( 'yuz_import_success', sprintf( __( 'Import completed. %d languages imported.', 'yuz-translation' ), $result['count'] ), 30 );
             } else {
-                set_transient( 'yuz_import_error', sprintf( __( 'Import failed. Errors: %s', 'yuz_translation' ), implode( '; ', $result['errors'] ) ), 30 );
+                /* translators: %s: import error messages. */
+                set_transient( 'yuz_import_error', sprintf( __( 'Import failed. Errors: %s', 'yuz-translation' ), implode( '; ', $result['errors'] ) ), 30 );
             }
 
             wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
@@ -208,15 +211,22 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
                 'errors' => [],
             ];
 
-            if ( ( $handle = fopen( $file_path, 'r' ) ) === false ) {
+            try {
+                $csv = new SplFileObject( $file_path, 'r' );
+                $csv->setFlags( SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE );
+                $csv->setCsvControl( ',' );
+            } catch ( RuntimeException $e ) {
                 $this->logger->log( 'error', 'Unable to open CSV: ' . $file_path );
-                $result['errors'][] = __( 'Unable to open file.', 'yuz_translation' );
+                $result['errors'][] = __( 'Unable to open file.', 'yuz-translation' );
                 $result['success'] = false;
                 return $result;
             }
 
             $row = 0;
-            while ( ( $data = fgetcsv( $handle, 2000, ',' ) ) !== false ) {
+            foreach ( $csv as $data ) {
+                if ( ! is_array( $data ) || $data === [ null ] ) {
+                    continue;
+                }
                 $row++;
                 // Skip header if it matches
                 if ( $row === 1 && preg_match( '/language_code/i', implode( ',', $data ) ) ) {
@@ -228,7 +238,8 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
                 $name = sanitize_text_field( $data[1] ?? '' );
 
                 if ( ! $code || ! $name ) {
-                    $error = sprintf( __( 'Line %d ignored: invalid data.', 'yuz_translation' ), $row );
+                    /* translators: %d: CSV line number. */
+                    $error = sprintf( __( 'Line %d ignored: invalid data.', 'yuz-translation' ), $row );
                     $this->logger->log( 'warning', $error );
                     $result['errors'][] = $error;
                     continue;
@@ -239,13 +250,12 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
                     $this->language_manager->add_language( $code, $name );
                     $result['count']++;
                 } catch ( Exception $e ) {
-                    $error = sprintf( __( 'Failed to import %s on line %d: %s', 'yuz_translation' ), $code, $row, $e->getMessage() );
+                    /* translators: %1$s: language code, %2$d: CSV line number, %3$s: error message. */
+                    $error = sprintf( __( 'Failed to import %1$s on line %2$d: %3$s', 'yuz-translation' ), $code, $row, $e->getMessage() );
                     $this->logger->log( 'error', $error );
                     $result['errors'][] = $error;
                 }
             }
-
-            fclose( $handle );
 
             if ( ! empty( $result['errors'] ) ) {
                 $result['success'] = false;

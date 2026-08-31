@@ -65,7 +65,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';

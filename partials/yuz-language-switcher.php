@@ -5,7 +5,7 @@
  *
  * @package YUZ_Translation
  */
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 if (!function_exists('yuz_locale_to_flag_code')) {
     function yuz_locale_to_flag_code(string $locale): string {
@@ -84,10 +84,12 @@ $mode = isset($mode) ? esc_attr($mode) : 'shortcode';
 $use_native_name = isset($use_native_name) ? (bool)$use_native_name : !empty(get_option('yuz_tra_settings', [])['native_language_name']);
 $languages = isset($languages) ? $languages : [];
 $translated_strings = isset($translated_strings) ? $translated_strings : [
-    'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz_translation'),
-    'switch_to_label'    => esc_html__('Switch to %s', 'yuz_translation'),
-    'powered_by'         => esc_html__('Powered by', 'yuz_translation'),
-    'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz_translation'),
+    /* translators: %s: current language name or code. */
+    'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-translation'),
+    /* translators: %s: target language name or code. */
+    'switch_to_label'    => esc_html__('Switch to %s', 'yuz-translation'),
+    'powered_by'         => esc_html__('Powered by', 'yuz-translation'),
+    'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-translation'),
 ];
 $current_url_for_switcher = isset($current_url_for_switcher) ? (string) $current_url_for_switcher : '';
 if ($current_url_for_switcher === '' && isset($this) && isset($this->url_converter) && method_exists($this->url_converter, 'cur_page_url')) {
@@ -220,7 +222,7 @@ $resolve_display_label = static function ($lang, bool $force_native, string $act
   data-auto-flip="1"
   data-align="auto"
   data-ssr="1"
-  aria-label="<?php esc_attr_e('Language switcher', 'yuz_translation'); ?>"
+  aria-label="<?php esc_attr_e('Language switcher', 'yuz-translation'); ?>"
 >
   <button
     class="yuz-current-lang"
@@ -252,7 +254,7 @@ $resolve_display_label = static function ($lang, bool $force_native, string $act
       } else {
         $display = $want_short ? esc_html($current_lang_obj->get_code()) : esc_html($current_label);
       }
-      echo $display;
+      echo wp_kses_post( $display );
     ?>
     <span class="yuz-arrow">▼</span>
   </button>
@@ -306,7 +308,7 @@ $resolve_display_label = static function ($lang, bool $force_native, string $act
             } else {
               $display_item = (strpos($format, 'short') !== false ? esc_html($lang->get_code()) : esc_html($label_item));
             }
-            echo $display_item;
+            echo wp_kses_post( $display_item );
           ?>
         </a>
       </li>

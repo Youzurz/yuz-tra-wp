@@ -1,0 +1,65 @@
+name: Verify and package
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.1', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build installable archive and lint
+        run: bash tools/build-release.sh
+      - name: Regression tests
+        run: |
+          mkdir -p release
+          ln -s .. release/yuz-tra
+          node --test tests/editor-late-response.cjs
+          npm ci --prefix tests/browser
+          cd tests/browser
+          npx playwright install --with-deps chromium
+          export CHROMIUM_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")
+          node workspace.cjs
+          node overlay.cjs
+          node transport.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yuz-tra-php-${{ matrix.php }}
+          path: |
+            dist/yuz-tra-*.zip
+            dist/yuz-tra-*.sha256
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: yuz-tra-php-8.3
+          path: dist
+      - name: Publish immutable evaluation release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^ \* Version: //p' yuz-tra.php)
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo 'Release already exists; its files are never overwritten.'
+            exit 0
+          fi
+          gh release create "v$version" dist/*.zip dist/*.sha256 --target "$GITHUB_SHA" --prerelease --title "YUZ-TRA $version — évaluation indépendante" --notes-file RELEASE-NOTES.md

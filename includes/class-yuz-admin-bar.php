@@ -65,7 +65,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Contrats + fallbacks uniquement (dépendances légères)
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
@@ -110,6 +110,7 @@ if (!class_exists('YUZ_Admin_Bar')) {
                     }
                 }
             } catch (\Throwable $e) {
+                error_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
             }
 
             // Flag optionnel : par défaut on laisse l’admin-bar activée
@@ -150,7 +151,7 @@ public function add_admin_items($wp_admin_bar): void
 
     // URL de contexte fiable (front = URL courante ; admin = home)
     $scheme      = is_ssl() ? 'https' : 'http';
-    $host        = $_SERVER['HTTP_HOST']  ?? parse_url( home_url(), PHP_URL_HOST );
+    $host        = $_SERVER['HTTP_HOST']  ?? wp_parse_url( home_url(), PHP_URL_HOST );
     $uri         = $_SERVER['REQUEST_URI'] ?? '/';
     $current_url = $scheme . '://' . $host . $uri;
 
@@ -177,11 +178,11 @@ public function add_admin_items($wp_admin_bar): void
     $wp_admin_bar->add_menu([
         'id'     => 'yuz_translate_now',
         'parent' => 'yuz_translation',
-        'title'  => __( 'Translate Page', 'yuz_tra' ),
+        'title'  => __( 'Translate Page', 'yuz-translation' ),
         'href'   => esc_url($editor_url),
         'meta'   => [
             'class' => 'yuz-translate-now',
-            'title' => __( 'Open translation editor for this page', 'yuz_tra' ),
+            'title' => __( 'Open translation editor for this page', 'yuz-translation' ),
         ],
     ]);
 
@@ -194,7 +195,7 @@ public function add_admin_items($wp_admin_bar): void
     $wp_admin_bar->add_menu([
         'id'     => 'yuz_translation_settings',
         'parent' => 'yuz_translation',
-        'title'  => __( 'Translation Settings', 'yuz_tra' ),
+        'title'  => __( 'Translation Settings', 'yuz-translation' ),
         'href'   => esc_url($settings_url),
         'meta'   => [ 'class' => 'yuz-translation-settings' ],
     ]);
@@ -219,7 +220,7 @@ public function add_admin_items($wp_admin_bar): void
         $wp_admin_bar->add_menu([
             'id'     => 'yuz_translate_admin',
             'parent' => 'yuz_translation',
-            'title'  => __( 'Strings', 'yuz_tra' ),
+            'title'  => __( 'Strings', 'yuz-translation' ),
             'href'   => esc_url($admin_url),
             'meta'   => [ 'class' => 'yuz-translate-admin' ],
         ]);

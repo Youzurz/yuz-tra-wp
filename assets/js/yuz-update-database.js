@@ -1,5 +1,3 @@
-
-
 /**
  * yuz-update-database.js
  * Manages database update functionality for YUZ Translation.
@@ -14,6 +12,9 @@
 (function (w) {
   var s = w && w.yuzTraSettings;
   if (!s || typeof s.ajax_url !== 'string' || !s.nonces) {
+    console.error('[YUZ-TRA][TRANSVERSE] yuzTraSettings missing or invalid. ' +
+      'class-yuz-assets must inject the minimal config BEFORE this script. ' +
+      'Expected shape: {ajax_url:string, nonces:object}');
     return; // hard stop: prevents undefined access later
   }
 })(window);

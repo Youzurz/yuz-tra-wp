@@ -71,7 +71,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 // MODIF: Fondations minimales (interfaces secours logs/guards) — Phase 1: stubs Null* pour casser circularités
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
@@ -96,6 +96,19 @@ private static array $plan_state = [
 'source_lang' => null,
 'flags' => [],
     ];
+
+private static function can_run_runtime_maintenance(): bool {
+if (defined('WP_CLI') && WP_CLI) {
+return true;
+        }
+if (defined('DOING_CRON') && DOING_CRON) {
+return true;
+        }
+if (defined('DOING_AJAX') && DOING_AJAX) {
+return false;
+        }
+return is_admin();
+    }
 /* ========================================================================================
      * INIT === PLAN → DO → CHECK → ACT
      * ====================================================================================== */
@@ -123,7 +136,7 @@ if (class_exists('YUZ_DB')) {
 $db = new YUZ_DB($logger, $health);
 if (method_exists($db, 'ensure_tables')) {
 // MODIF: Gate sur tables_ok pour éviter DDL runtime (Phase 4)
-if (!get_option('tables_ok', false)) {
+if (!get_option('tables_ok', false) && self::can_run_runtime_maintenance()) {
 $db->ensure_tables();
 update_option('tables_ok', true); // Flag après succès
                     }
@@ -196,7 +209,7 @@ if (!self::$plan_state['viable']) {
 // Dégradation douce : brancher uniquement l’ADMIN pour que l’utilisateur corrige
 add_action('admin_notices', function () {
 $msg = 'YUZ-TRA a démarré en mode dégradé (ADMIN-only) :<br>'.esc_html(implode(' | ', self::$plan_state['issues']));
-echo '<div class="notice notice-error"><p><strong>YUZ-TRA:</strong> '.$msg.'</p></div>';
+echo '<div class="notice notice-error"><p><strong>YUZ-TRA:</strong> ' . wp_kses_post( $msg ) . '</p></div>';
             });
 self::register_admin_hooks(self::$plan_state['flags']);
         } else {
@@ -228,12 +241,12 @@ self::log_colored('success', 'YUZ_Core — bootstrap terminé (PDCA).');
      * DISPATCHER (XOR)
      * ====================================================================================== */
 private static function dispatch_context(array $flags): void {
-if (is_admin()) {
-self::register_admin_hooks($flags);
-return;
-        }
 if (defined('DOING_AJAX') && DOING_AJAX) {
 self::handle_ajax_branch($flags);
+return;
+        }
+if (is_admin()) {
+self::register_admin_hooks($flags);
 return;
         }
 if (defined('WP_CLI') && WP_CLI) {
@@ -271,7 +284,6 @@ self::log_colored('warning','YUZ_Ajax::init(front): '.$e->getMessage());
             'YUZ_Switcher',
             'YUZ_Blocks',
             'YUZ_Translation_Manager',
-            'YUZ_Translate_Site',
             'YUZ_Rewrite',
             'YUZ_Editor',
             'YUZ_Admin_Bar',
@@ -486,6 +498,7 @@ self::log_colored('critical', $msg);
         if (!empty($context)) {
             $log_message .= ' | Context: ' . (is_string($context) ? $context : print_r($context, true));
         }
+        error_log($log_message);
     }
 /** N’écrase pas les valeurs déjà présentes */
     public static function ensure_default_settings(): void {

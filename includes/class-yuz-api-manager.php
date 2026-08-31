@@ -119,7 +119,101 @@ class YUZ_API_Manager implements TranslationManagerInterface {
         return false;
     }
 
-    public function set_api_settings($settings) { $this->api_settings = $settings; }
+    public function set_api_settings($settings) {
+        $this->api_settings = $this->resolve_api_settings(is_array($settings) ? $settings : []);
+    }
+
+    private function normalize_api_settings(array $settings): array {
+        $normalized = $settings;
+        $extra = [];
+
+        if (isset($normalized['extra_settings'])) {
+            if (is_array($normalized['extra_settings'])) {
+                $extra = $normalized['extra_settings'];
+            } elseif (is_string($normalized['extra_settings'])) {
+                $decoded = json_decode($normalized['extra_settings'], true);
+                if (is_array($decoded)) {
+                    $extra = $decoded;
+                }
+            }
+        }
+
+        foreach ($extra as $key => $value) {
+            if (!array_key_exists($key, $normalized) || $normalized[$key] === '' || $normalized[$key] === null) {
+                $normalized[$key] = $value;
+            }
+        }
+
+        // The canonical selector wins over stale legacy aliases merged by the options bridge.
+        $provider = $normalized['api_provider']
+            ?? $normalized['provider']
+            ?? $normalized['api_type']
+            ?? $normalized['api_adapter']
+            ?? null;
+
+        if ($provider) {
+            if (!empty($normalized['api_type']) && $normalized['api_type'] !== $provider) {
+                unset($normalized['endpoint'], $normalized['api_key']);
+            }
+            $normalized['api_type'] = $provider;
+            $normalized['provider'] = $provider;
+            $normalized['api_provider'] = $provider;
+
+            $prefix = $provider === 'libretranslate' ? 'libre' : $provider;
+            $endpoint_key = $prefix . '_url';
+            $api_key_key = $prefix . '_key';
+
+            if (empty($normalized[$endpoint_key]) && !empty($normalized[$provider . '_url'])) {
+                $normalized[$endpoint_key] = $normalized[$provider . '_url'];
+            }
+            if (empty($normalized[$api_key_key]) && !empty($normalized[$provider . '_key'])) {
+                $normalized[$api_key_key] = $normalized[$provider . '_key'];
+            }
+
+            if (empty($normalized['endpoint']) && !empty($normalized[$endpoint_key])) {
+                $normalized['endpoint'] = $normalized[$endpoint_key];
+            }
+
+            if (empty($normalized['api_key']) && !empty($normalized[$api_key_key])) {
+                $normalized['api_key'] = $normalized[$api_key_key];
+            }
+
+            if (empty($normalized['endpoint'])) {
+                if ($provider === 'google') {
+                    $normalized['endpoint'] = 'https://translation.googleapis.com/language/translate/v2';
+                } elseif ($provider === 'deepl') {
+                    $normalized['endpoint'] = !empty($normalized['deepl_free'])
+                        ? 'https://api-free.deepl.com/v2/translate'
+                        : 'https://api.deepl.com/v2/translate';
+                }
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function resolve_api_settings(array $settings = []): array {
+        $explicit = $this->normalize_api_settings($settings);
+        if (!empty($explicit['api_type']) && isset($this->adapters[$explicit['api_type']])) {
+            return $explicit;
+        }
+
+        $current = $this->normalize_api_settings($this->api_settings);
+        if (!empty($current['api_type']) && isset($this->adapters[$current['api_type']])) {
+            return array_merge($current, $explicit);
+        }
+
+        $stored = get_option('yuz_tra_at_settings', []);
+        if (!is_array($stored) || empty($stored)) {
+            $stored = get_option('yuz_tra_api_settings', []);
+        }
+
+        if (!is_array($stored)) {
+            $stored = [];
+        }
+
+        return $this->normalize_api_settings(array_merge($stored, $current, $explicit));
+    }
 
     public function translate(string $text, int $source_lang_id, int $target_lang_id): ?string {
         $flags = $this->settings->runtime_flags();
@@ -127,18 +221,50 @@ class YUZ_API_Manager implements TranslationManagerInterface {
         $source_lang = $this->get_language_code($source_lang_id);
         $target_lang = $this->get_language_code($target_lang_id);
         if (!$source_lang || !$target_lang) return null;
-        if (empty($this->api_settings['api_type']) || !isset($this->adapters[$this->api_settings['api_type']])) return null;
-        $source_lang = str_replace('-', '_', $source_lang); $target_lang = str_replace('-', '_', $target_lang);
-        $adapter = $this->adapters[$this->api_settings['api_type']];
-        $translated_text = $adapter->translate($text, $source_lang, $target_lang, $this->api_settings);
-        if ($translated_text === null) {
-            foreach (array_keys($this->adapters) as $alt_adapter) {
-                if ($alt_adapter === $this->api_settings['api_type']) continue;
-                $translated_text = $this->adapters[$alt_adapter]->translate($text, $source_lang, $target_lang, $this->api_settings);
-                if ($translated_text !== null) break;
-            }
+        return $this->translate_text($text, $source_lang, $target_lang);
+    }
+
+    /** Single provider channel shared by editors and background jobs. */
+    public function translate_text(string $text, string $source, string $target, array $context = []): string {
+        if ($text === '' || strlen($text) > 20000 || $target === '' || $target === 'auto') throw new InvalidArgumentException('invalid_translation_request');
+        $source = str_replace('-', '_', $source);
+        $target = str_replace('-', '_', $target);
+        if (strcasecmp($source, $target) === 0) return $text;
+        $api = $this->resolve_api_settings();
+        $provider = $api['api_type'] ?? '';
+        require_once YUZ_TRA_INCLUDES . 'class-yuz-translation-budget.php';
+        $context = array_intersect_key($context, array_flip(['domain','context','original','placeholders','deadline']));
+        $retrieved = YUZ_Translation_Memory::retrieve($text,$source,$target,$context);
+        if ($retrieved['exact'] !== null) {
+            return strtr($retrieved['exact'], array_flip($context['placeholders'] ?? []));
         }
-        return $translated_text ?? null;
+        if (!$provider || !isset($this->adapters[$provider]) || empty($api['endpoint'])) throw new RuntimeException('translation_provider_not_configured');
+        if (in_array($provider, ['libre','libretranslate','google','deepl'], true) &&
+            strcasecmp(explode('_', $source)[0], explode('_', $target)[0]) === 0) {
+            throw new RuntimeException('provider_does_not_support_regional_translation');
+        }
+        $api['translation_context']=$context;
+        $api['retrieved_context']=$retrieved;
+        $api['deadline']=$context['deadline'] ?? 0;
+        $cache_api=array_intersect_key($api,array_flip(['endpoint','model','model_revision','api_key',
+            'num_ctx','num_predict','temperature','deepl_free','alternatives','google_project',
+            'custom_auth','custom_method','custom_format','translation_context','retrieved_context']));
+        unset($cache_api['deadline'],$cache_api['translation_context']['deadline']);
+        $fingerprint = wp_json_encode([$provider,hash('sha256',wp_json_encode($cache_api)), $source, $target, 'translation-1']);
+        return YUZ_Translation_Budget::run($text, $fingerprint, function () use ($text,$source,$target,$api,$provider) {
+            $result=$this->adapters[$provider]->translate($text, $source, $target, $api);
+            if (!is_string($result) || trim($result)==='') throw new RuntimeException('empty_provider_translation');
+            if (strlen($result)>40000) throw new RuntimeException('translation_output_too_large');
+            if (YUZ_String_Catalog::tokens($text)!==YUZ_String_Catalog::tokens($result)) throw new RuntimeException('provider_changed_placeholder');
+            preg_match_all('/YUZKEEP[0-9]+TOKEN/',$text,$before);
+            preg_match_all('/YUZKEEP[0-9]+TOKEN/',$result,$after);
+            sort($before[0]); sort($after[0]);
+            if ($before[0]!==$after[0]) throw new RuntimeException('provider_changed_placeholder');
+            return $result;
+        });
+    }
+    public function requires_review(): bool {
+        return ($this->resolve_api_settings()['api_type'] ?? '') === 'ollama';
     }
 
     /**
@@ -146,73 +272,14 @@ class YUZ_API_Manager implements TranslationManagerInterface {
      */
     public function translate_batch(array $texts, int $source_lang_id, int $target_lang_id): array {
         $result = [];
-        if (empty($texts)) return $result;
-
-        $flags = $this->settings->runtime_flags();
-        if (!$flags['mode_manual_enabled'] && !$flags['mode_semi_enabled'] && !$flags['mode_background_enabled']) {
-            return $result;
-        }
-
-        $source_lang = $this->get_language_code($source_lang_id);
-        $target_lang = $this->get_language_code($target_lang_id);
-        if (!$source_lang || !$target_lang) return $result;
-        $source_lang = str_replace('-', '_', $source_lang);
-        $target_lang = str_replace('-', '_', $target_lang);
-
-        $provider = $this->api_settings['api_type'] ?? null;
-        $adapters = $provider && isset($this->adapters[$provider]) ? [$provider] : [];
-        foreach (array_keys($this->adapters) as $alt) {
-            if (!in_array($alt, $adapters, true)) $adapters[] = $alt;
-        }
-        $is_list = static function (array $arr): bool {
-            return array_keys($arr) === range(0, count($arr) - 1);
-        };
-
-        foreach ($adapters as $adapter_key) {
-            if (!isset($this->adapters[$adapter_key])) continue;
-            $adapter = $this->adapters[$adapter_key];
-            try {
-                if (method_exists($adapter, 'translate_batch')) {
-                    $translated = $adapter->translate_batch($texts, $source_lang, $target_lang, $this->api_settings);
-                    if (is_array($translated)) {
-                        if (isset($translated['translatedText']) && is_array($translated['translatedText'])) {
-                            foreach ($texts as $idx => $orig) {
-                                $result[$orig] = $translated['translatedText'][$idx] ?? null;
-                            }
-                            return $result;
-                        }
-                        if ($is_list($translated)) {
-                            foreach ($texts as $idx => $orig) {
-                                $val = $translated[$idx] ?? null;
-                                if (is_array($val) && isset($val['translatedText'])) {
-                                    $val = $val['translatedText'];
-                                }
-                                $result[$orig] = is_string($val) ? $val : null;
-                            }
-                            return $result;
-                        }
-                        return $translated;
-                    }
-                }
-            } catch (\Throwable $e) {
-                $this->logger->log('warning', 'translate_batch adapter error', [
-                    'adapter' => $adapter_key,
-                    'message' => $e->getMessage()
-                ]);
-            }
-        }
-
-        // Fallback to per-item translate to preserve behaviour
-        foreach ($texts as $t) {
-            $result[$t] = $this->translate($t, $source_lang_id, $target_lang_id);
-        }
+        foreach (array_unique($texts) as $text) $result[$text] = $this->translate($text, $source_lang_id, $target_lang_id);
         return $result;
     }
 
     public function isConfigured(): bool {
         try {
-            $api = get_option('yuz_tra_api_settings', []);
-            $provider = $api['api_provider'] ?? ($this->api_settings['api_type'] ?? null);
+            $api = $this->resolve_api_settings();
+            $provider = $api['api_provider'] ?? ($api['api_type'] ?? null);
             if (!$provider) return false;
             return isset($this->adapters[$provider]);
         } catch (\Throwable $e) {
@@ -229,13 +296,10 @@ class YUZ_API_Manager implements TranslationManagerInterface {
      */
     public function test_api_conn(array $settings) {
         try {
-            // Resolve provider from explicit settings, instance settings, or stored option
-            $api_opt  = is_array($settings) ? $settings : [];
-            $api_db   = get_option('yuz_tra_api_settings', []);
+            $api_opt  = $this->resolve_api_settings(is_array($settings) ? $settings : []);
             $provider = $api_opt['provider']
                 ?? $api_opt['engine']
-                ?? ($this->api_settings['api_type'] ?? null)
-                ?? ($api_db['api_provider'] ?? null);
+                ?? ($api_opt['api_type'] ?? null);
 
             if (!$provider || !isset($this->adapters[$provider])) {
                 return [ 'success' => false, 'message' => 'Adapter not found or provider missing' ];
@@ -245,13 +309,15 @@ class YUZ_API_Manager implements TranslationManagerInterface {
 
             // Primary path: adapter exposes test_api_conn(array): bool
             if (method_exists($adapter, 'test_api_conn')) {
-                $ok = (bool) $adapter->test_api_conn($settings);
+                $result = $adapter->test_api_conn($api_opt);
+                $ok = is_array($result) ? (($result['success'] ?? false) === true) : $result === true;
                 return [ 'success' => $ok, 'message' => $ok ? 'OK' : 'Connection failed' ];
             }
 
             // Fallbacks: legacy/test methods sometimes named differently
             if (method_exists($adapter, 'testConnection')) {
-                $ok = (bool) $adapter->testConnection($settings);
+                $result = $adapter->testConnection($api_opt);
+                $ok = is_array($result) ? (($result['success'] ?? false) === true) : $result === true;
                 return [ 'success' => $ok, 'message' => $ok ? 'OK' : 'Connection failed' ];
             }
             if (method_exists($adapter, 'ping')) {
@@ -259,8 +325,7 @@ class YUZ_API_Manager implements TranslationManagerInterface {
                 return [ 'success' => $ok, 'message' => $ok ? 'OK' : 'Ping failed' ];
             }
 
-            // Last resort: no-op success but explicit
-            return [ 'success' => true, 'message' => 'No dedicated test. Using noop.' ];
+            return [ 'success' => false, 'message' => 'Provider connection test unavailable' ];
         } catch (\Throwable $e) {
             if (class_exists('WP_Error')) {
                 return new \WP_Error('yuz_api_test', $e->getMessage());
@@ -270,12 +335,18 @@ class YUZ_API_Manager implements TranslationManagerInterface {
     }
 
     public function run_full_site_translation(): void {
-        // Minimal placeholder: real batch logic can be provided by dedicated class (Automatic Translation)
-        if (method_exists('YUZ_Automatic_Translation','queue_full_site')) {
-            try { \YUZ_Automatic_Translation::queue_full_site(); return; } catch (\Throwable $e) {}
+        // WP-Cron already owns the worker at this point; do not requeue a no-op.
+        if (function_exists("wp_doing_cron") && wp_doing_cron()
+            && class_exists("YUZ_Cron") && method_exists("YUZ_Cron", "run_batch")) {
+            \YUZ_Cron::run_batch();
+            return;
         }
-        if ($this->logger) {
-            $this->logger->log('info', '[API] run_full_site_translation invoked (no-op placeholder)');
+        if (method_exists("YUZ_Automatic_Translation", "queue_full_site")) {
+            try { \YUZ_Automatic_Translation::queue_full_site(); } catch (\Throwable $e) {
+                if ($this->logger) {
+                    $this->logger->log("warning", "[API] Unable to queue full-site translation", ["error" => $e->getMessage()]);
+                }
+            }
         }
     }
 }

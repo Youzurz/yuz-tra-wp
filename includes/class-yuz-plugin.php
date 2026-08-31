@@ -34,13 +34,15 @@ if (!class_exists('YUZ_Plugin')) {
             add_action('plugins_loaded', [__CLASS__, 'load_hook_packs'], 5);
             add_action('plugins_loaded', [__CLASS__, 'init_modules'], 20);
             add_action('plugins_loaded', [__CLASS__, 'ensure_tables_if_needed'], 1);
+            add_action('plugins_loaded', ['YUZ_String_Catalog', 'init'], 25);
+            add_action('plugins_loaded', ['YUZ_Cron', 'init'], 26);
 
             add_action('init', [__CLASS__, 'guard_language_flags'], 5);
             add_action('init', [__CLASS__, 'load_textdomain'], 20);
             add_action('init', ['YUZ_Core', 'init'], 30);
             add_action('init', [__CLASS__, 'sync_caps_from_option'], 20);
 
-            if (defined('WP_CLI') && WP_CLI && !(defined('YUZ_TRA_WP_ORG_BUILD') && YUZ_TRA_WP_ORG_BUILD)) {
+            if (defined('WP_CLI') && WP_CLI) {
                 require_once YUZ_TRA_INCLUDES . 'cli/front-doctor.php';
                 $cli_mirror = YUZ_TRA_INCLUDES . 'cli/class-yuz-cli-mirror.php';
                 if (file_exists($cli_mirror)) {
@@ -387,6 +389,10 @@ if (!class_exists('YUZ_Plugin')) {
             }
 
             register_activation_hook(self::$plugin_file, [__CLASS__, 'on_activation']);
+            register_deactivation_hook(self::$plugin_file, static function () {
+                wp_clear_scheduled_hook('yuz_tra_batch_translate');
+                wp_clear_scheduled_hook('yuz_auto_translation_tick');
+            });
         }
 
         /**
@@ -400,9 +406,9 @@ if (!class_exists('YUZ_Plugin')) {
             defined('YUZ_TRA_ASSETS_DIR')  || define('YUZ_TRA_ASSETS_DIR', YUZ_TRA_DIR . 'assets/');
             defined('YUZ_TRA_ASSETS_URL')  || define('YUZ_TRA_ASSETS_URL', YUZ_TRA_URL . 'assets/');
             defined('YUZ_TRA_ASSETS')      || define('YUZ_TRA_ASSETS', YUZ_TRA_ASSETS_URL);
-            defined('YUZ_TRA_VERSION')     || define('YUZ_TRA_VERSION', '1.2.1');
-            defined('YUZ_LOG_ENABLED')     || define('YUZ_LOG_ENABLED', false);
-            defined('YUZ_LOG_LEVEL')       || define('YUZ_LOG_LEVEL', 'error');
+            defined('YUZ_TRA_VERSION')     || define('YUZ_TRA_VERSION', '1.5.0');
+            defined('YUZ_LOG_ENABLED')     || define('YUZ_LOG_ENABLED', true);
+            defined('YUZ_LOG_LEVEL')       || define('YUZ_LOG_LEVEL', 'warning');
             defined('YUZ_REWRITE_DEBUG')   || define('YUZ_REWRITE_DEBUG', false);
         }
 
@@ -412,11 +418,18 @@ if (!class_exists('YUZ_Plugin')) {
         private static function include_core_files(): void {
             $includes = [
                 'helpers/settings-helpers.php',
+                'helpers/settings-helpers-debug.php',
                 'helpers/lang-helpers.php',
                 'helpers/status-helpers.php',
                 'services/class-yuz-settings-service.php',
                 'class-yuz-contracts.php',
                 'class-yuz-core.php',
+                'class-yuz-translation-budget.php',
+                'class-yuz-string-catalog.php',
+                'class-yuz-string-scanner.php',
+                'class-yuz-translation-jobs.php',
+                'class-yuz-translation-memory.php',
+                'class-yuz-cron.php',
                 'class-yuz-options-bridge.php',
                 'class-yuz-assets.php',
                 'class-yuz-ajax.php',
@@ -425,6 +438,8 @@ if (!class_exists('YUZ_Plugin')) {
                 'class-yuz-front-renderer.php',
                 'class-yuz-front-buffer.php',
                 'class-yuz-frontend.php',
+                'class-yuz-debug-probe.php',
+                'class-yuz-rest-monitoring.php',
             ];
 
             foreach ($includes as $relative) {
@@ -433,9 +448,26 @@ if (!class_exists('YUZ_Plugin')) {
                     require_once $path;
                 } else {
                     if ((defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG)) {
+                        error_log('🟨 [WARNING] YUZ-TRA: missing include ' . $relative);
                     }
                 }
             }
+        }
+
+        private static function can_run_runtime_maintenance(): bool {
+            if (defined('WP_CLI') && WP_CLI) {
+                return true;
+            }
+
+            if (defined('DOING_CRON') && DOING_CRON) {
+                return true;
+            }
+
+            if (defined('DOING_AJAX') && DOING_AJAX) {
+                return false;
+            }
+
+            return is_admin();
         }
 
         /**
@@ -446,6 +478,7 @@ if (!class_exists('YUZ_Plugin')) {
             $files = [
                 'yuz-payloads.php',
                 'yuz-ajax-guard.php',
+                'yuz-request-trace.php',
             ];
 
             foreach ($files as $file) {
@@ -454,6 +487,7 @@ if (!class_exists('YUZ_Plugin')) {
                     require_once $path;
                 } else {
                     if ((defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG)) {
+                        error_log('🟨 [WARNING] YUZ-TRA: missing hook file ' . $file);
                     }
                 }
             }
@@ -517,6 +551,7 @@ if (!class_exists('YUZ_Plugin')) {
                     return YUZ_Front_Renderer::translate_post_field((string)$content, $post_id, 'content');
                 } catch (\Throwable $e) {
                     if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('[YUZ-TRA] render_block_core/post-content filter failed: ' . $e->getMessage());
                     }
                     return $content;
                 }
@@ -527,6 +562,10 @@ if (!class_exists('YUZ_Plugin')) {
          * Ensures DB tables exist at runtime when needed.
          */
         public static function ensure_tables_if_needed(): void {
+            if (!self::can_run_runtime_maintenance()) {
+                return;
+            }
+
             global $wpdb;
             $lang_table = $wpdb->prefix . 'yuz_tra_languages';
 
@@ -554,6 +593,10 @@ if (!class_exists('YUZ_Plugin')) {
          * Keep language flags consistent (source/default must remain translatable).
          */
         public static function guard_language_flags(): void {
+            if (!self::can_run_runtime_maintenance()) {
+                return;
+            }
+
             $transient_key = 'yuz_lang_guard_run';
             if (get_transient($transient_key)) {
                 return;
@@ -564,6 +607,7 @@ if (!class_exists('YUZ_Plugin')) {
                     YUZ_Languages::enforce_invariants();
                 } catch (\Throwable $e) {
                     if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('[YUZ-TRA] enforce_invariants failed: ' . $e->getMessage());
                     }
                 }
             }
@@ -580,6 +624,7 @@ if (!class_exists('YUZ_Plugin')) {
                     }
                 } catch (\Throwable $e) {
                     if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('[YUZ-TRA] guard_language_flags failed: ' . $e->getMessage());
                     }
                 }
             }
@@ -626,6 +671,7 @@ if (!class_exists('YUZ_Plugin')) {
             $hc     = class_exists('YUZ_Health_Check') ? new YUZ_Health_Check($logger) : null;
 
             if (!class_exists('YUZ_DB')) {
+                error_log('🟨 [WARNING] YUZ-TRA: YUZ_DB class not available.');
                 return false;
             }
 
@@ -643,6 +689,7 @@ if (!class_exists('YUZ_Plugin')) {
 
                 delete_option('tables_ok');
             } catch (\Throwable $e) {
+                error_log('🟥 [CRITICAL] YUZ-TRA DB ensure error: ' . $e->getMessage());
                 delete_option('tables_ok');
             }
 
@@ -677,6 +724,10 @@ if (!class_exists('YUZ_Plugin')) {
          * Syncs translator capabilities from stored options.
          */
         public static function sync_caps_from_option(): void {
+            if (!self::can_run_runtime_maintenance()) {
+                return;
+            }
+
             if (!function_exists('get_editable_roles')) {
                 require_once ABSPATH . 'wp-admin/includes/user.php';
             }

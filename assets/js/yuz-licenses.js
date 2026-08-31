@@ -1,4 +1,3 @@
-
 (function (w, $) {
   'use strict';
   const LC = w.yuzLC || {};

@@ -80,6 +80,7 @@ if (!function_exists('yuz_tra_diag_log')) {
         if (!yuz_tra_diag_enabled()) {
             return;
         }
+        error_log($message);
     }
 }
 
@@ -503,6 +504,16 @@ if (!function_exists('yuz_settings_registry')) {
                     'cron_interval'         => ['type' => 'string', 'default' => 'hourly'],
                     'enable_auto_translate' => ['type' => 'bool',   'default' => false],
                     'api_provider'          => ['type' => 'string', 'default' => 'libretranslate'],
+                    'ollama_url'            => ['type' => 'url', 'default' => ''],
+                    'model'                 => ['type' => 'string', 'default' => ''],
+                    'model_revision'        => ['type' => 'string', 'default' => ''],
+                    'provider_timeout'      => ['type' => 'int', 'default' => 45],
+                    'num_ctx'               => ['type' => 'int', 'default' => 2048],
+                    'num_predict'           => ['type' => 'int', 'default' => 512],
+                    'num_thread'            => ['type' => 'int', 'default' => 2],
+                    'daily_token_limit'     => ['type' => 'int', 'default' => 100000],
+                    'worker_batch_size'     => ['type' => 'int', 'default' => 3],
+                    'worker_time_budget'    => ['type' => 'int', 'default' => 35],
                     'libre_url'             => ['type' => 'url',    'default' => ''],
                     'libre_key'             => ['type' => 'string', 'default' => ''],
                     'google_key'            => ['type' => 'string', 'default' => ''],

@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 // assets/js/yuz-rum.js
 (function () {
   const endpoint = '/wp-json/yuz/v1/jslog';
@@ -23,7 +20,8 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
         }).catch(() => {});
       }
     } catch (err) {
-      if (console && yuz_release_console.debug) {
+      if (console && console.debug) {
+        console.debug('[YUZ][RUM] ship failed', err);
       }
     }
   }
@@ -50,7 +48,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
         fallback.scripts = Array.isArray(fallback.scripts) ? fallback.scripts : [];
         fallback.events.push(entry);
       }
-      if (console && yuz_release_console.debug) yuz_release_console.debug('[YUZ][RUM]', entry);
+      if (console && console.debug) console.debug('[YUZ][RUM]', entry);
       if (shipPayload) {
         ship(shipPayload);
       }

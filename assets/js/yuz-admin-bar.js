@@ -1,5 +1,3 @@
-
-
 /**
  * assets/js/yuz-admin-bar.js
  * Admin bar helpers (standard).
@@ -15,9 +13,10 @@
   'use strict';
 
   const AB = window.yuzAB || {};
-const log = () => {};
-const warn = () => {};
-const error = () => {};
+  const log   = (...a) => console.log('[YUZ][ADMINBAR]', ...a);
+  const warn  = (...a) => console.warn('[YUZ][ADMINBAR]', ...a);
+  const error = (...a) => console.error('[YUZ][ADMINBAR]', ...a);
+
   // ---- Guards ---------------------------------------------------------------
   if (!window.jQuery) { error('jQuery unavailable, aborting'); return; }
   if (!AB || (AB.can_manage_options === false && AB.can_translate === false)) {

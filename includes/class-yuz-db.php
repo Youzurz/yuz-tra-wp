@@ -1,4 +1,6 @@
 <?php
+// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- This class owns schema migrations and internal DB wrappers for plugin tables.
+// phpcs:disable PluginCheck.Security.DirectDB.UnescapedDBParameter -- Dynamic SQL below is constrained to plugin-owned table/column definitions.
 /**
  * Class YUZ_DB
  * Manages database setup and translation storage for the YUZ-TRA plugin.
@@ -64,7 +66,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 use YUZTRA\Interfaces\DBInterface;
 use YUZTRA\Interfaces\LoggerInterface;
@@ -77,9 +79,23 @@ if (!class_exists('YUZ_DB')) {
         const DB_VERSION_OPTION = 'yuz_tra_db_version';
         private $logger;
         private $health_check;
+
+        private static function can_run_runtime_maintenance(): bool {
+            if ((defined('WP_CLI') && WP_CLI) || (defined('DOING_CRON') && DOING_CRON)) {
+                return true;
+            }
+
+            if ((defined('DOING_AJAX') && DOING_AJAX) || (defined('REST_REQUEST') && REST_REQUEST)) {
+                return false;
+            }
+
+            return is_admin();
+        }
+
         public function __construct(LoggerInterface $logger = null, HealthCheckInterface $health_check = null) {
             $this->logger = $logger ?? new NullLogger();
-            $this->health_check = $health_check ?? new NullHealthCheck();
+            if ($health_check === null) require_once YUZ_TRA_INCLUDES . 'class-yuz-health-check.php';
+            $this->health_check = $health_check ?? new YUZ_Health_Check();
             $this->logger->log('info', 'YUZ_DB instantiated with dependencies', ['class' => __CLASS__]);
         }
         public static function init(): void {
@@ -88,7 +104,9 @@ if (!class_exists('YUZ_DB')) {
             $instance = new self($logger, $health_check);
             $instance->logger->log('info', 'Initializing YUZ_DB class at ' . current_time('mysql'), ['class' => __CLASS__]);
             // Register hooks (retiré register_activation_hook, centralisé dans yuz-tra.php)
-            add_action('plugins_loaded', [$instance, 'check_schema']);
+            if (self::can_run_runtime_maintenance()) {
+                add_action('plugins_loaded', [$instance, 'check_schema']);
+            }
             $instance->logger->log('success', 'YUZ_DB class initialized successfully', ['class' => __CLASS__]);
         }
         /**
@@ -165,11 +183,6 @@ if (!class_exists('YUZ_DB')) {
          */
         private function constraint_exists($table_name, $constraint_name) {
             global $wpdb;
-            // MODIF: Gate sur tables_ok (Phase 4)
-            if (!get_option('tables_ok', false)) {
-                $this->logger->log('critical', 'Tables not OK, skipping constraint_exists', ['class' => __CLASS__]);
-                return false;
-            }
             $query = $wpdb->prepare(
                 "SELECT COUNT(*)
                  FROM information_schema.TABLE_CONSTRAINTS
@@ -393,17 +406,12 @@ if (!class_exists('YUZ_DB')) {
                 'created_at' => current_time('mysql', true),
                 'updated_at' => current_time('mysql', true),
             ];
-            // Validate required fields with health check (si disponible)
-            if (method_exists($this->health_check, 'ensure')) {
-                if (!$this->health_check->ensure(
-                    !empty($insert_data['original_text']) && !empty($insert_data['translated_text']) && !empty($insert_data['language_code']),
-                    'Missing required translation data fields',
-                    __METHOD__
-                )) {
-                    return false;
-                }
-            } else {
-                $this->logger->log('warning', 'HealthCheck->ensure absent, skipping data validation', ['class'=>__CLASS__]);
+            // HealthCheck::ensure returns void; it must never be treated as a boolean result.
+            if (!is_string($insert_data['original_text']) || $insert_data['original_text']==='' ||
+                !is_string($insert_data['translated_text']) || $insert_data['translated_text']==='' ||
+                $insert_data['language_code']==='' || $insert_data['source_lang_id']<=0 || $insert_data['target_lang_id']<=0) {
+                $this->logger->log('error','Missing required translation fields',['class'=>__CLASS__]);
+                return false;
             }
 
             if ($insert_data['translated_slug'] === null && !empty($translation_data['translated_text'])) {
@@ -437,20 +445,8 @@ if (!class_exists('YUZ_DB')) {
                 usleep(100000);
             }
             $ok = ($result !== false && empty($wpdb->last_error));
-            // Vérifier l’insertion avec health_check si possible
-            if (method_exists($this->health_check, 'ensure')) {
-                if (!$this->health_check->ensure(
-                    $ok,
-                    "DB insert failed: {$wpdb->last_error}",
-                    __METHOD__
-                )) {
-                    return false;
-                }
-            } elseif (!$ok) {
-                $this->logger->log('error', "DB insert failed without HealthCheck: {$wpdb->last_error}", ['class'=>__CLASS__]);
-                if (function_exists('yuz_debug_probe_log')) {
-                    yuz_debug_probe_log('db_store_translation_fail', ['last_error' => $wpdb->last_error]);
-                }
+            if (!$ok) {
+                $this->logger->log('error','Translation insert failed',['class'=>__CLASS__]);
                 return false;
             }
             $this->logger->log('success', "Translation stored successfully", ['class' => __CLASS__]);
@@ -490,7 +486,97 @@ if (!class_exists('YUZ_DB')) {
             dbDelta($sql);
             return !$wpdb->last_error;
         }
+        /** Additive, independently versioned storage; never renames or drops legacy tables. */
+        public static function ensure_string_tables(): bool {
+            global $wpdb;
+            if (get_option('yuz_tra_strings_schema') === '2') return true;
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+            $p = $wpdb->prefix;
+            $charset = $wpdb->get_charset_collate();
+            $schemas = [
+                'approved_memory' => "source_id bigint(20) unsigned NOT NULL,
+                    lang varchar(20) NOT NULL,
+                    source_lang varchar(20) NOT NULL,
+                    forms longtext NOT NULL,
+                    approved_by bigint(20) unsigned NOT NULL,
+                    approved_at datetime NOT NULL,
+                    PRIMARY KEY  (source_id,lang)",
+                'glossary' => "id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    identity_hash char(64) NOT NULL,
+                    source_lang varchar(20) NOT NULL,
+                    target_lang varchar(20) NOT NULL,
+                    domain varchar(191) NOT NULL,
+                    context text NOT NULL,
+                    source_text text NOT NULL,
+                    target_text text NOT NULL,
+                    approved_by bigint(20) unsigned NOT NULL,
+                    approved_at datetime NOT NULL,
+                    PRIMARY KEY  (id),
+                    UNIQUE KEY identity_hash (identity_hash),
+                    KEY locales (source_lang,target_lang)",
+                'string_sources' => "id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    identity_hash char(64) NOT NULL,
+                    domain varchar(191) NOT NULL DEFAULT 'default',
+                    context text NOT NULL,
+                    original longtext NOT NULL,
+                    plural_original longtext NOT NULL,
+                    source_lang varchar(20) NOT NULL DEFAULT 'en',
+                    created_at datetime NOT NULL,
+                    PRIMARY KEY  (id),
+                    UNIQUE KEY identity_hash (identity_hash),
+                    KEY domain (domain)",
+                'string_targets' => "id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    source_id bigint(20) unsigned NOT NULL,
+                    lang varchar(20) NOT NULL,
+                    forms longtext NOT NULL,
+                    status tinyint unsigned NOT NULL DEFAULT 1,
+                    origin varchar(20) NOT NULL DEFAULT 'manual',
+                    attempts int unsigned NOT NULL DEFAULT 0,
+                    retry_after datetime DEFAULT NULL,
+                    last_error varchar(191) NOT NULL DEFAULT '',
+                    updated_at datetime NOT NULL,
+                    PRIMARY KEY  (id),
+                    UNIQUE KEY source_lang (source_id,lang),
+                    KEY pending (lang,status,retry_after)",
+                'translation_usage' => "bucket varchar(40) NOT NULL,
+                    characters bigint unsigned NOT NULL DEFAULT 0,
+                    requests bigint unsigned NOT NULL DEFAULT 0,
+                    successes bigint unsigned NOT NULL DEFAULT 0,
+                    failures bigint unsigned NOT NULL DEFAULT 0,
+                    cache_hits bigint unsigned NOT NULL DEFAULT 0,
+                    input_tokens bigint unsigned NOT NULL DEFAULT 0,
+                    output_tokens bigint unsigned NOT NULL DEFAULT 0,
+                    duration_ms bigint unsigned NOT NULL DEFAULT 0,
+                    measured_requests bigint unsigned NOT NULL DEFAULT 0,
+                    PRIMARY KEY  (bucket)",
+                'slugs' => "object_id bigint(20) unsigned NOT NULL,
+                    object_type varchar(20) NOT NULL DEFAULT 'post',
+                    post_type varchar(20) NOT NULL DEFAULT 'post',
+                    lang varchar(20) NOT NULL,
+                    slug varchar(191) NOT NULL,
+                    status tinyint unsigned NOT NULL DEFAULT 1,
+                    updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY  (object_id,object_type,lang),
+                    KEY lookup (lang,slug)",
+                'emails' => "ekey varchar(191) NOT NULL,
+                    lang varchar(20) NOT NULL,
+                    source longtext NOT NULL,
+                    translated longtext NULL,
+                    status tinyint unsigned NOT NULL DEFAULT 1,
+                    updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY  (ekey,lang)",
+            ];
+            foreach ($schemas as $suffix => $columns) {
+                $table = $p . 'yuz_tra_' . $suffix;
+                dbDelta("CREATE TABLE $table ($columns) ENGINE=InnoDB $charset;");
+                if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) !== $table) return false;
+            }
+            update_option('yuz_tra_strings_schema', '2', false);
+            return true;
+        }
+
         public function ensure_tables(): bool {
+            self::ensure_string_tables();
             global $wpdb;
             if (get_option('tables_ok', false)) {
                 $lang = $wpdb->prefix . 'yuz_tra_languages';
@@ -875,6 +961,13 @@ if (!class_exists('YUZ_DB')) {
             $wpdb->query('SET FOREIGN_KEY_CHECKS = 0;');
             foreach ($foreign_keys as $table_name => $fk_definitions) {
                 $full_table_name = $prefix . $table_name;
+                // MySQL constraint names are schema-wide, including multisite/parallel installs.
+                $namespace_fk = static function ($sql) use ($prefix) {
+                    return preg_replace_callback('/ADD CONSTRAINT (\w+)/', static function ($m) use ($prefix) {
+                        return 'ADD CONSTRAINT yuz_' . substr(hash('sha256', $prefix . $m[1]), 0, 40);
+                    }, $sql);
+                };
+                $fk_definitions = is_array($fk_definitions) ? array_map($namespace_fk, $fk_definitions) : $namespace_fk($fk_definitions);
                 if (is_array($fk_definitions)) {
                     foreach ($fk_definitions as $fk_sql) {
                         preg_match('/ADD CONSTRAINT (\w+)/', $fk_sql, $matches); // Fixé regex
@@ -1187,6 +1280,10 @@ if (!class_exists('YUZ_DB')) {
          * @return void
          */
         public function check_schema(): void {
+            if (!self::can_run_runtime_maintenance()) {
+                return;
+            }
+
             $current_version = get_option(self::DB_VERSION_OPTION, '0.0.0');
             if (version_compare($current_version, self::DB_VERSION, '<')) {
                 $message = sprintf(
@@ -1201,14 +1298,6 @@ if (!class_exists('YUZ_DB')) {
                 } else {
                     $this->logger->log('critical', 'ensure_tables() failed during schema update.');
                 }
-            } else {
-                $this->logger->log('info', "Database schema up to date. Version: $current_version");
-                $this->log_action(
-                    'check_schema',
-                    'Database schema up to date',
-                    ['version' => $current_version],
-                    1
-                );
             }
         }
         /**

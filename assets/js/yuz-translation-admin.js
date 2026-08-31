@@ -1,11 +1,10 @@
-
-
 /* assets/js/yuz-translation-admin.js */
 (() => {
   'use strict';
 
   const CFG = window.yuzTS || {};
   if (!CFG.ajax_url) {
+    console.warn('[YUZ][TS] ajax_url manquant. Handlers will still attach for redirect-only actions.');
   }
 
   // Map logique → action AJAX
@@ -36,13 +35,16 @@
       try {
         const url = new URL(target, window.location.origin);
         url.searchParams.set('yuz-edit-translation', '1');
+        console.log('[YUZ][TS] gotoEditor → redirect', { target: url.href });
         window.location.href = url.href;
       } catch (_) {
         // Fallback ultra-simple
         const href = String(target) + (String(target).indexOf('?')===-1?'?':'&') + 'yuz-edit-translation=1';
+        console.log('[YUZ][TS] gotoEditor (fallback) → redirect', { target: href });
         window.location.href = href;
       }
     } catch (e) {
+      console.error('[YUZ][TS] gotoEditor failed', e);
     }
   }
 
@@ -110,6 +112,7 @@
   function toast(type, msg) {
     // placeholder non intrusif (console)
     const tag = (type === 'error') ? 'error' : (type === 'warn' ? 'warn' : 'log');
+    console[tag](`[YUZ][TS][${type.toUpperCase()}] ${msg}`);
   }
 
   // Handler principal (click / change / submit)
@@ -144,6 +147,7 @@
         document.dispatchEvent(new CustomEvent('yuz:ts:done', { detail: { action: actionKey, payload, text: json } }));
       }
     } catch (e) {
+      console.error(e);
       toast('error', `${actionKey} exception`);
       document.dispatchEvent(new CustomEvent('yuz:ts:error', { detail: { action: actionKey, payload, error: e } }));
     } finally {
@@ -161,6 +165,7 @@
     if (!el) return;
     e.preventDefault();
     const actionKey = el.getAttribute('data-yuz-ts-action');
+    console.log('[YUZ][TS] click captured', { actionKey, id: el.id, classes: el.className });
     handleAction(actionKey, el, e);
   });
 
@@ -196,4 +201,6 @@
     } catch (_) {}
   });
 
+  console.log('[YUZ][TS] delegated handlers ready');
+  console.log('[YUZ][TS] CFG snapshot', { ajax_url: CFG.ajax_url, hasHome: !!CFG.home_url, nonceKeys: Object.keys(CFG.nonces || {}) });
 })();

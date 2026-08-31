@@ -64,7 +64,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 use YUZTRA\Interfaces\{AddonsInterface,RendererInterface,LoggerInterface,HealthCheckInterface,AjaxInterface,SettingsInterface};
 use YUZTRA\Fallbacks\NullRenderer;
 use YUZTRA\Fallbacks\NullLogger;
@@ -127,26 +127,11 @@ $settings = class_exists('YUZ_Settings')
 // Pour éviter "too few arguments" sur YUZ_Renderer, on met un NullRenderer
 $renderer = new NullRenderer();
 $instance = new self($renderer, $logger, $health_check, $ajax, $settings);
-$instance->logger->log('info', 'Initializing YUZ_Addons at ' . (function_exists('current_time') ? current_time('mysql') : date('Y-m-d H:i:s')));
+$instance->logger->log('info', 'Initializing YUZ_Addons at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
 // LEGACY→YUZ_Assets: add_action('admin_enqueue_scripts', [$instance, 'enqueue_scripts']);
 add_action('wp_ajax_yuz_activate_addon', [$instance, 'ajax_activate_addon']);
 add_action('wp_ajax_yuz_deactivate_addon', [$instance, 'ajax_deactivate_addon']);
-// Enregistre un minimum d’addons connus (exemple)
-$instance->register_addons([
-            [
-'slug' => 'extra-languages',
-'name' => __('Extra Languages', 'yuz_translation'),
-'description' => __('Adds support for additional languages.', 'yuz_translation'),
-// callback optionnel pour charger l’addon
-'loader' => function (): bool { return true; },
-            ],
-            [
-'slug' => 'seo-translation',
-'name' => __('SEO Translation', 'yuz_translation'),
-'description' => __('Translates SEO metadata.', 'yuz_translation'),
-'loader' => function (): bool { return true; },
-            ],
-        ]);
+$instance->register_addons((array) apply_filters('yuz_tra_addons', []));
 $instance->logger->log('success', 'YUZ_Addons initialized successfully');
     }
 /**
@@ -183,14 +168,13 @@ return false;
 $loader = $this->registry[$addon]['loader'] ?? null;
 if (is_callable($loader)) {
 try {
-return (bool) call_user_func($loader);
+return call_user_func($loader) === true;
             } catch (\Throwable $e) {
 $this->logger->log('error', "Addon '$addon' loader threw: " . $e->getMessage());
 return false;
             }
         }
-// Pas de loader → on considère chargé si activé (option) pour rester permissif
-return (bool) (int) (get_option("yuz_addon_{$addon}", 0));
+return false;
     }
 /**
      * Enqueues scripts for the Addons tab.
@@ -205,7 +189,7 @@ public function enqueue_scripts(string $hook): void {
 public function render_tab(): void {
 if (!current_user_can('manage_options')) {
 $this->logger->log('critical', 'User lacks manage_options capability in YUZ_Addons::render_tab');
-wp_die(__('Unauthorized', 'yuz_translation'));
+wp_die(esc_html__('Unauthorized', 'yuz-translation'));
         }
 // POST → passer par l’AjaxInterface::handleRequest
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -215,7 +199,7 @@ $this->ajax->handleRequest(
 function ($post_data) {
 $this->logger->log('info', 'Processing addons form');
 update_option('yuz_addons_last_save', time());
-return ['success' => true, 'message' => __('Addons settings updated.', 'yuz_translation')];
+return ['success' => true, 'message' => __('Addons settings updated.', 'yuz-translation')];
                 },
                 [],
 true
@@ -224,11 +208,11 @@ true
 $addons = $this->get_available_addons();
 ?>
 <div class="wrap">
-<h1><?php esc_html_e('Addons', 'yuz_translation'); ?></h1>
+<h1><?php esc_html_e('Addons', 'yuz-translation'); ?></h1>
 <form method="post" action="">
 <?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
 <div class="yuz-section">
-<h2 class="yuz-section-title"><?php esc_html_e('Available Addons', 'yuz_translation'); ?></h2>
+<h2 class="yuz-section-title"><?php esc_html_e('Available Addons', 'yuz-translation'); ?></h2>
 <hr>
 <table class="form-table">
 <?php foreach ($addons as $addon): ?>
@@ -237,16 +221,16 @@ $addons = $this->get_available_addons();
 <td>
 <p><?php echo esc_html($addon['description']); ?></p>
 <?php if (!empty($addon['active'])): ?>
-<button type="button" class="button yuz-deactivate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Deactivate', 'yuz_translation'); ?></button>
+<button type="button" class="button yuz-deactivate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Deactivate', 'yuz-translation'); ?></button>
 <?php else: ?>
-<button type="button" class="button button-primary yuz-activate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Activate', 'yuz_translation'); ?></button>
+<button type="button" class="button button-primary yuz-activate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Activate', 'yuz-translation'); ?></button>
 <?php endif; ?>
 </td>
 </tr>
 <?php endforeach; ?>
 </table>
 </div>
-<?php submit_button(__('Save Changes', 'yuz_translation')); ?>
+<?php submit_button(__('Save Changes', 'yuz-translation')); ?>
 </form>
 </div>
 <?php
@@ -267,23 +251,7 @@ $list[] = [
 'active' => $active,
             ];
         }
-// Si rien dans le registre, on met au moins deux exemples (défauts sûrs)
-if (empty($list)) {
-$list = [
-                [
-'slug' => 'extra-languages',
-'name' => __('Extra Languages', 'yuz_translation'),
-'description' => __('Adds support for additional languages.', 'yuz_translation'),
-'active' => (bool) (int) (function_exists('get_option') ? get_option('yuz_addon_extra-languages', 0) : 0),
-                ],
-                [
-'slug' => 'seo-translation',
-'name' => __('SEO Translation', 'yuz_translation'),
-'description' => __('Translates SEO metadata.', 'yuz_translation'),
-'active' => (bool) (int) (function_exists('get_option') ? get_option('yuz_addon_seo-translation', 0) : 0),
-                ],
-            ];
-        }
+// Only registered implementations are listed.
 return $list;
     }
 /**
@@ -291,14 +259,17 @@ return $list;
      */
 public function ajax_activate_addon(): void {
 check_ajax_referer('yuz_con_nonce', 'nonce');
+if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Activating addon via AJAX');
 $addon_slug = sanitize_text_field($_POST['addon'] ?? '');
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 // Charge l’addon si possible
 $loaded = $this->loadAddon($addon_slug);
+if (!$loaded) wp_send_json_error(['message'=>'addon_not_loaded'],422);
 // Active l’option
 update_option("yuz_addon_{$addon_slug}", 1);
-wp_send_json_success(['message' => __('Addon activated', 'yuz_translation'), 'loaded' => (bool)$loaded]);
+if ((int)get_option("yuz_addon_{$addon_slug}") !== 1) wp_send_json_error(['message'=>'addon_save_failed'],500);
+wp_send_json_success(['message' => __('Addon activated', 'yuz-translation'), 'loaded' => (bool)$loaded]);
 $this->logger->log('success', "Addon {$addon_slug} activated");
     }
 /**
@@ -306,11 +277,13 @@ $this->logger->log('success', "Addon {$addon_slug} activated");
      */
 public function ajax_deactivate_addon(): void {
 check_ajax_referer('yuz_con_nonce', 'nonce');
+if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Deactivating addon via AJAX');
 $addon_slug = sanitize_text_field($_POST['addon'] ?? '');
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 update_option("yuz_addon_{$addon_slug}", 0);
-wp_send_json_success(['message' => __('Addon deactivated', 'yuz_translation')]);
+if ((int)get_option("yuz_addon_{$addon_slug}") !== 0) wp_send_json_error(['message'=>'addon_save_failed'],500);
+wp_send_json_success(['message' => __('Addon deactivated', 'yuz-translation')]);
 $this->logger->log('success', "Addon {$addon_slug} deactivated");
     }
 }
@@ -319,4 +292,3 @@ $this->logger->log('success', "Addon {$addon_slug} deactivated");
 if (class_exists('YUZ_Addons')) {
 add_action('admin_init', ['YUZ_Addons', 'init']);
 }
-

@@ -419,6 +419,7 @@ final class YUZ_Assets implements AssetsInterface {
         'yuz-string-translation-editor',
         'yuz-string-translation-editor-umd',
         'yuz-debug',
+        'yuz-sniffer',
         'yuz-vue',
         'yuz-vue-router',
         'yuz-axios',
@@ -582,15 +583,16 @@ final class YUZ_Assets implements AssetsInterface {
     /** @zone log */
     public function log_debug(string $tag, array $ctx = []): void
     {
-        if (defined('YUZ_TRA_WP_ORG_BUILD') && YUZ_TRA_WP_ORG_BUILD) { return; }
         if (!$this->debug_on()) { return; }
         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+        error_log(sprintf('[YUZ][%s] %s', $tag, wp_json_encode($ctx, JSON_UNESCAPED_SLASHES)));
     }
 
     /** Deprecated helper logger */
     public function log_deprecated(string $what, string $since): void {
         if (function_exists('_doing_it_wrong')) {
-            _doing_it_wrong($what, sprintf(__('Deprecated since %s', 'yuz-translation'), $since), $since);
+            /* translators: %s: version number. */
+            _doing_it_wrong( esc_html( $what ), sprintf( esc_html__( 'Deprecated since %s', 'yuz-translation' ), esc_html( $since ) ), esc_html( $since ) );
         }
         $this->log_debug('deprecated', ['what' => $what, 'since' => $since]);
     }
@@ -838,10 +840,7 @@ final class YUZ_Assets implements AssetsInterface {
             && is_user_logged_in()
             && $can_edit;
 
-        // Debug override: when ?yuzdebug=1 is present with the edit flag, bypass login/caps to allow inspection.
-        if ($param && $dbg) {
-            $ok = true;
-        }
+        // Debug parameters never bypass authentication or translator capabilities.
 
         $this->log_debug('guard_is_front_edit', [
             'param'     => $param,
@@ -908,8 +907,16 @@ final class YUZ_Assets implements AssetsInterface {
         }
         self::$te_module_tag_printed = true;
         $nonce = $this->sec_csp_nonce();
-        $nonce_attr = $nonce ? ' nonce="' . esc_attr($nonce) . '"' : '';
-        echo '<script id="yuz-te-module" type="module" data-yuz-module="true"' . $nonce_attr . '></script>' . "\n";
+        $attrs = [
+            'id' => 'yuz-te-module',
+            'type' => 'module',
+            'data-yuz-module' => 'true',
+        ];
+        if ($nonce) {
+            $attrs['nonce'] = $nonce;
+        }
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_inline_script_tag returns a safely generated script tag.
+        echo wp_get_inline_script_tag('', $attrs) . "\n";
     }
 
     public function ovl_loader_tag_probe($tag, $handle, $src) {
@@ -992,6 +999,8 @@ final class YUZ_Assets implements AssetsInterface {
     }
 
     private static function add_hooks(self $instance): void {
+        add_filter('load_script_translations', ['YUZ_String_Catalog','script_translations'], 20, 4);
+        add_filter('pre_load_script_translations', ['YUZ_String_Catalog','missing_script_translations'], 20, 4);
         add_action('admin_enqueue_scripts', [$instance, 'enqueue_admin'], 100);
         add_action('wp_enqueue_scripts',    [$instance, 'enqueue_front'], 100);
         add_action('wp_enqueue_scripts',    [$instance, 'hook_editor_assets'], 110);
@@ -1099,10 +1108,10 @@ public static function bun_handle_customize_preview_init(): void {
     }
 
     private function reg_register_vendors(): void {
-        $this->reg_register_vendor('yuz-vue',        'vendor/vue/vue.min.js',              'https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.min.js',           [], '2.7.16');
-        $this->reg_register_vendor('yuz-vue-router', 'vendor/vue-router/vue-router.min.js','https://cdn.jsdelivr.net/npm/vue-router@3.5.3/dist/vue-router.min.js',['yuz-vue'],'3.5.3');
-        $this->reg_register_vendor('yuz-axios',      'vendor/axios.min.js',                'https://cdn.jsdelivr.net/npm/axios@1.11.0/dist/axios.min.js',        [], '1.11.0');
-        $this->reg_register_vendor('yuz-he',         'vendor/he.min.js',                   'https://cdn.jsdelivr.net/npm/he@1.2.0/he.min.js',                    [], '1.2.0');
+        $this->reg_register_vendor('yuz-vue',        'vendor/vue/vue.min.js',               [], '2.7.16');
+        $this->reg_register_vendor('yuz-vue-router', 'vendor/vue-router/vue-router.min.js', ['yuz-vue'], '3.5.3');
+        $this->reg_register_vendor('yuz-axios',      'vendor/axios.min.js',                 [], '1.11.0');
+        $this->reg_register_vendor('yuz-he',         'vendor/he.min.js',                    [], '1.2.0');
     }
 
     private function reg_register_assets(): void {
@@ -1119,8 +1128,8 @@ public static function bun_handle_customize_preview_init(): void {
         $this->reg_register_style('yuz-translation-editor','css/yuz-translation-editor.css',[]);
         $this->reg_register('yuz-translation-editor','js/widgets/yuz-translation-editor.js',['yuz-assets']);
         $this->reg_register('yuz-inspector','js/widgets/inspector/yuz-inspector.js',['yuz-assets']);
-        $this->reg_register_style('yuz-strings-dock','css/yuz-strings-dock.css',[]);
-        $this->reg_register('yuz-strings-dock','js/yuz-strings-dock.js',['yuz-translation-editor']);
+        $this->reg_register_style('yuz-strings-dock','css/yuz-string-catalog.css',[]);
+        $this->reg_register('yuz-strings-dock','js/yuz-strings-dock.js',[]);
         $this->reg_register_style('yuz-general-settings','css/yuz-general-settings.css',[]);
         $this->reg_register('yuz-admin-bar','js/yuz-admin-bar.js',[]);
         $this->reg_register('yuz-general-settings','js/yuz-general-settings.js',['jquery','jquery-ui-sortable']);
@@ -1140,9 +1149,7 @@ public static function bun_handle_customize_preview_init(): void {
         $this->reg_register('yuz-addons-js','js/yuz-addons.js',['jquery','yuz-assets']);
         $this->reg_register('yuz-licenses','js/yuz-licenses.js',['jquery','yuz-assets']);
         $this->reg_register('yuz-ai-translation','js/yuz-ai-translation.js',['jquery','yuz-assets']);
-        if (!(defined('YUZ_TRA_WP_ORG_BUILD') && YUZ_TRA_WP_ORG_BUILD)) {
-            $this->reg_register('yuz-debug','js/yuz-debug.js',[], true);
-        }
+        $this->reg_register('yuz-debug','js/yuz-debug.js',[], true);
     }
 
     private function reg_register_string_editor(): void {
@@ -1236,7 +1243,7 @@ public static function bun_handle_customize_preview_init(): void {
         }
 
         $settings = [
-            'ajax_url' => admin_url('admin-ajax.php'),
+            'ajax_url' => $this->ajax(),
             'general'  => [
                 'yuz_tra_default_language'        => $opt['yuz_tra_default_language'] ?? null,
                 'yuz_tra_source_language'         => $opt['yuz_tra_source_language'] ?? null,
@@ -1287,6 +1294,15 @@ public static function bun_handle_customize_preview_init(): void {
 
         $tab = $this->tab();
 
+        // The catalog is a standalone admin screen, not the legacy visual editor.
+        // Do not boot two competing interfaces (Vue, overlays and selection tools).
+        if ($tab === 'strings' || $this->guard_is_string_editor_screen()) {
+            $this->localize('yuz-strings-dock', 'yuzStrings', $this->pay_strings());
+            $this->enqueue_script('yuz-strings-dock');
+            $this->enqueue_style('yuz-strings-dock');
+            return;
+        }
+
         wp_enqueue_script('jquery');
 
         if ($this->is_script_ready('yuz-assets')) {
@@ -1324,8 +1340,13 @@ public static function bun_handle_customize_preview_init(): void {
                     if (!is_array($payload) || empty($payload)) { return; }
                     $json = wp_json_encode($payload);
                     $nonce = $this->sec_csp_nonce();
-                    $attr  = $nonce ? ' nonce="' . esc_attr($nonce) . '"' : '';
-                echo "\n<script{$attr}>(function(w){try{if(!w.yuzTS||!w.yuzTS.ajax_url){w.yuzTS=" . $json . ";}}catch(e){}})(window);</script>\n";
+                    $attrs = [];
+                    if ($nonce) {
+                        $attrs['nonce'] = $nonce;
+                    }
+                    $script = "(function(w){try{if(!w.yuzTS||!w.yuzTS.ajax_url){w.yuzTS=" . $json . ";console.log('[YUZ][SITE] inline bootstrap yuzTS', {nonceKeys:Object.keys(w.yuzTS.nonces||{})});}}catch(e){console.error('[YUZ][SITE] inline bootstrap failed', e);}})(window);";
+                    // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_inline_script_tag returns a safely generated script tag.
+                    echo "\n" . wp_get_inline_script_tag($script, $attrs) . "\n";
                 }, 5);
                 if ($this->is_script_ready('yuz-translation-admin')) {
                     $this->enqueue_script('yuz-translation-admin');
@@ -1419,6 +1440,7 @@ public static function bun_handle_customize_preview_init(): void {
          foreach ($modules as $handle => $file) {
             $absolute = $base_path . $file;
             if (!file_exists($absolute)) {
+                error_log("[YUZ_TRA] Module manquant : {$file}");
                 continue;
             }
             wp_register_script(
@@ -1529,7 +1551,7 @@ private function enqueue_dom_v8_engine(): void
                 wp_add_inline_script('yuz-editor-shim', 'window.yuzPermissions = ' . $perms . ';', 'before');
                 wp_add_inline_script(
                     'yuz-editor-shim',
-                    'if (typeof window !== "undefined" && window.yuzPermissions && !window.__YUZ_PERM_LOGGED__) { window.__YUZ_PERM_LOGGED__ = true; }',
+                    'if (typeof window !== "undefined" && window.yuzPermissions && !window.__YUZ_PERM_LOGGED__) { try { console.log("YUZ PERM:", window.yuzPermissions); } catch (e) {} window.__YUZ_PERM_LOGGED__ = true; }',
                     'after'
                 );
             }
@@ -1537,6 +1559,13 @@ private function enqueue_dom_v8_engine(): void
         if (defined('WP_DEBUG') && WP_DEBUG) {
             $langs = isset($settings['translation_langs']) && is_array($settings['translation_langs']) ? $settings['translation_langs'] : [];
             $meta  = isset($settings['language_meta']) && is_array($settings['language_meta']) ? $settings['language_meta'] : [];
+            error_log(
+                sprintf(
+                    '[YUZ][front_enqueue_editor] langs_count=%d meta_keys=%s',
+                    count($langs),
+                    implode(',', array_keys($meta))
+                )
+            );
         }
         wp_localize_script('yuz-editor-shim', 'yuzTraSettings', $settings);
 
@@ -1581,8 +1610,12 @@ private function enqueue_dom_v8_engine(): void
             $nonce = clar_get_nonce();
         }
 
-        $attr = $nonce ? ' nonce="' . esc_attr($nonce) . '"' : '';
-        printf('<script%s>window.yuzTraSettings=%s;</script>' . PHP_EOL, $attr, $json);
+        $attrs = [];
+        if ($nonce) {
+            $attrs['nonce'] = $nonce;
+        }
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_inline_script_tag returns a safely generated script tag.
+        echo wp_get_inline_script_tag('window.yuzTraSettings=' . $json . ';', $attrs) . PHP_EOL;
     }
 
     private function build_editor_settings_payload(): array {
@@ -1592,6 +1625,7 @@ private function enqueue_dom_v8_engine(): void
 
         $opt_general = get_option('yuz_tra_general', []);
         $opt_general = is_array($opt_general) ? $opt_general : [];
+        $lang_cfg = $this->language_runtime_config();
 
         $payload = [];
         if (class_exists('YUZ_Translation_Manager') && method_exists('YUZ_Translation_Manager', 'get_langs_payload')) {
@@ -1604,17 +1638,34 @@ private function enqueue_dom_v8_engine(): void
 
         $translation_langs = array_values(
             array_filter(
-                array_map('strval', (array) ($payload['translation_langs'] ?? [])),
+                array_map([$this, 'normalize_locale_code'], (array) $lang_cfg['langs']),
                 static fn ($code) => $code !== ''
             )
         );
+        if (empty($translation_langs)) {
+            $translation_langs = array_values(
+                array_filter(
+                    array_map([$this, 'normalize_locale_code'], (array) ($payload['translation_langs'] ?? [])),
+                    static fn ($code) => $code !== ''
+                )
+            );
+        }
 
         $language_meta = is_array($payload['language_meta'] ?? []) ? $payload['language_meta'] : [];
+        $normalized_meta = [];
+        foreach ($language_meta as $code => $meta) {
+            $norm = $this->normalize_locale_code((string) $code);
+            if ($norm === '') {
+                continue;
+            }
+            $normalized_meta[$norm] = array_merge($normalized_meta[$norm] ?? [], is_array($meta) ? $meta : []);
+        }
+        $language_meta = $normalized_meta;
 
         if (empty($translation_langs) && !empty($opt_general['yuz_tra_translatable_languages'])) {
             $translation_langs = array_values(
                 array_filter(
-                    array_map('strval', (array) $opt_general['yuz_tra_translatable_languages']),
+                    array_map([$this, 'normalize_locale_code'], (array) $opt_general['yuz_tra_translatable_languages']),
                     static fn ($code) => $code !== ''
                 )
             );
@@ -1630,19 +1681,15 @@ private function enqueue_dom_v8_engine(): void
             }
         }
 
-        $source_language  = isset($payload['source_language']) && is_string($payload['source_language'])
-            ? $payload['source_language']
-            : (is_string($opt_general['yuz_tra_source_language'] ?? null) ? $opt_general['yuz_tra_source_language'] : null);
-        $default_language = isset($payload['default_language']) && is_string($payload['default_language'])
-            ? $payload['default_language']
-            : (is_string($opt_general['yuz_tra_default_language'] ?? null) ? $opt_general['yuz_tra_default_language'] : null);
+        $source_language  = (string) $lang_cfg['source'];
+        $default_language = (string) $lang_cfg['default'];
 
-        if ($source_language && isset($language_meta[$source_language])) {
-            $language_meta[$source_language]['is_source'] = true;
+        foreach ($language_meta as $code => &$meta) {
+            $meta['is_source']       = ($code === $source_language);
+            $meta['is_default']      = ($code === $default_language);
+            $meta['is_translatable'] = in_array($code, $translation_langs, true);
         }
-        if ($default_language && isset($language_meta[$default_language])) {
-            $language_meta[$default_language]['is_default'] = true;
-        }
+        unset($meta);
 
         $rest_root = function_exists('rest_url') ? trailingslashit(rest_url()) : home_url('/wp-json/');
 
@@ -1653,13 +1700,16 @@ private function enqueue_dom_v8_engine(): void
         $this->ensure_global_nonces($nonce_registry);
 
         $settings = [
-            'ajax_url' => admin_url('admin-ajax.php'),
+            'ajax_url' => $this->ajax(),
             'rest_root'  => esc_url_raw($rest_root),
             'rest_nonce' => wp_create_nonce('wp_rest'),
             'translation_langs' => $translation_langs,
             'language_meta'     => $language_meta,
             'source_language'   => $source_language,
             'default_language'  => $default_language,
+            'effective_from'    => $source_language,
+            'from_options'      => (array) $lang_cfg['from_options'],
+            'default_target'    => (string) $lang_cfg['default_target'],
             'general' => [
                 'yuz_tra_default_language'       => $default_language,
                 'yuz_tra_source_language'        => $source_language,
@@ -1671,6 +1721,8 @@ private function enqueue_dom_v8_engine(): void
                 ],
             ],
             'lang_index' => $this->lang_index(),
+            'from_choices' => $this->lang_choices((array) $lang_cfg['from_options']),
+            'to_choices'   => $this->lang_choices($translation_langs),
             'permissions' => (class_exists('YUZ_Capabilities') && method_exists('YUZ_Capabilities', 'permissions_payload'))
                 ? \YUZ_Capabilities::permissions_payload()
                 : [],
@@ -1720,6 +1772,13 @@ public function enqueue_front(): void {
 
     if (defined('WP_DEBUG') && WP_DEBUG) {
         try {
+            error_log('[YUZ][enqueue_front] reviewer capability check: ' . wp_json_encode([
+                'can_review' => $can_review,
+                'source'     => $cap_source,
+                'is_admin'   => is_admin(),
+                'user_id'    => get_current_user_id(),
+                'caps'       => wp_get_current_user() ? array_keys((array) wp_get_current_user()->allcaps) : []
+            ]));
         } catch (\Throwable $ignored) {}
     }
 
@@ -1729,6 +1788,7 @@ public function enqueue_front(): void {
         if (wp_script_is($review_script, 'registered')) {
             if (defined('WP_DEBUG') && WP_DEBUG && class_exists('YUZ_Capabilities') && method_exists('YUZ_Capabilities', 'permissions_payload')) {
                 try {
+                    error_log(wp_json_encode(\YUZ_Capabilities::permissions_payload()));
                 } catch (\Throwable $ignored) {}
             }
             $settings = $this->build_editor_settings_payload();
@@ -1739,7 +1799,7 @@ public function enqueue_front(): void {
                     wp_add_inline_script($review_script, 'window.yuzPermissions = ' . $perms . ';', 'before');
                     wp_add_inline_script(
                         $review_script,
-                        'if (typeof window !== "undefined" && window.yuzPermissions && !window.__YUZ_PERM_LOGGED__) { window.__YUZ_PERM_LOGGED__ = true; }',
+                        'if (typeof window !== "undefined" && window.yuzPermissions && !window.__YUZ_PERM_LOGGED__) { try { console.log("YUZ PERM:", window.yuzPermissions); } catch (e) {} window.__YUZ_PERM_LOGGED__ = true; }',
                         'after'
                     );
                 }
@@ -1748,6 +1808,7 @@ public function enqueue_front(): void {
         }
     } elseif (defined('WP_DEBUG') && WP_DEBUG) {
         try {
+            error_log('[YUZ][enqueue_front] reviewer assets not enqueued (missing capability).');
             if (class_exists('YUZ_Capabilities') && method_exists('YUZ_Capabilities', 'permissions_payload')) {
                 $perms_payload = (array) \YUZ_Capabilities::permissions_payload();
                 do_action('yuz/front_permissions_payload', $perms_payload, [
@@ -1757,6 +1818,7 @@ public function enqueue_front(): void {
                 ]);
                 $encoded = wp_json_encode($perms_payload);
                 if ($encoded !== false) {
+                    error_log('[YUZ][enqueue_front] front permissions payload ' . $encoded);
                 }
             }
         } catch (\Throwable $ignored) {}
@@ -1855,6 +1917,13 @@ public function enqueue_front(): void {
             ];
 
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+                error_log('[YUZ_TRA][LOCALIZE] ' . wp_json_encode([
+                    'handle'            => $engine_handle,
+                    'request_uri'       => $_SERVER['REQUEST_URI'] ?? '',
+                    'has_settings'      => !empty($settings),
+                    'keys'              => array_keys($settings ?? []),
+                    'translations_keys' => array_keys($settings['translations'] ?? []),
+                ]));
             }
 
             wp_localize_script($engine_handle, 'yuzTraSettings', $settings);
@@ -1897,14 +1966,12 @@ public function enqueue_front(): void {
     $can_edit = class_exists('YUZ_Capabilities')
         ? \YUZ_Capabilities::user_is_translator()
         : ( current_user_can('manage_options') || current_user_can('yuz_translate_content') );
-    // Debug override: allow front edit when explicitly requested with ?yuzdebug=1&yuz-edit-translation=1
-    if (isset($_GET['yuzdebug'], $_GET['yuz-edit-translation']) && $_GET['yuz-edit-translation'] === '1') { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-        $can_edit = true;
-    }
+    $can_edit = is_user_logged_in() && $can_edit;
 
     if (isset($_GET['yuz-edit-translation']) && $can_edit) {
         if (defined('WP_DEBUG') && WP_DEBUG) {
             try {
+                error_log('[YUZ][front_edit] enqueue editor stack (can_edit=' . ($can_edit ? '1' : '0') . ', user=' . get_current_user_id() . ')');
             } catch (\Throwable $ignored) {}
         }
         $this->enqueue_script('yuz-vue');
@@ -1945,6 +2012,7 @@ public function enqueue_front(): void {
                 $this->enqueue_script('yuz-translation-editor');
                 if (defined('WP_DEBUG') && WP_DEBUG) {
                     try {
+                        error_log('[YUZ][front_edit] enqueued yuz-translation-editor + style');
                     } catch (\Throwable $ignored) {}
                 }
             }
@@ -2016,7 +2084,7 @@ public function enqueue_front(): void {
         }
         $this->enqueue_script('yuz-gutenberg-editor');
         if (function_exists('wp_set_script_translations')) {
-            wp_set_script_translations('yuz-gutenberg-editor','yuz_tra', plugin_dir_path(__FILE__) . '../languages');
+            wp_set_script_translations('yuz-gutenberg-editor', 'yuz-translation', plugin_dir_path(__FILE__) . '../languages');
         }
     }
 
@@ -2070,7 +2138,7 @@ public function enqueue_front(): void {
             return;
         }
         $this->string_editor_bundle_missing = false;
-        echo "<script>window.__YUZ_STRING_EDITOR_BUNDLE_MISSING__=true;</script>";
+        echo "<script>console.error('[YUZ] String Editor: no bundle found (UMD/ESM). Check assets/js/yuz-string-translation-editor.*');</script>";
     }
 
     /** Module policy */
@@ -2200,6 +2268,7 @@ public function enqueue_front(): void {
         }
 
         $attrs_str = implode(' ', $attrs);
+        // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- This is a script_loader_tag filter returning the registered tag.
         return sprintf('<script %s src="%s"></script>', $attrs_str, esc_url($src));
     }
 
@@ -2275,6 +2344,10 @@ public function enqueue_front(): void {
         if (!($inst instanceof self)) return;
         foreach ($targets as $h) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+                error_log('[YUZ_TRA][ENFORCE_T_MIN] ' . wp_json_encode([
+                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'handle'      => $h,
+                ]));
             }
             // Force the minimal localized settings (with nonces) before the script tag prints.
             $inst->pay_localize_transverse_min($h);
@@ -2291,6 +2364,12 @@ public function enqueue_front(): void {
         $m = ['ajax_url'=>$this->ajax()];
         $settings = $this->pay_transverse_min();
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+            error_log('[YUZ_TRA][ENSURE_T_MIN] ' . wp_json_encode([
+                'request_uri'  => $_SERVER['REQUEST_URI'] ?? '',
+                'handle'       => $handle,
+                'has_ajax_url' => !empty($settings['ajax_url']),
+                'has_nonces'   => !empty($settings['nonces']),
+            ]));
         }
         wp_add_inline_script(
             $handle,
@@ -2301,6 +2380,85 @@ public function enqueue_front(): void {
     /** ======================================================================
      * Zone: Payloads (pay)
      * ====================================================================== */
+    /** @zone pay */
+    private function language_runtime_config(): array
+    {
+        $general = get_option('yuz_tra_general', []);
+        $general = is_array($general) ? $general : [];
+        $ws = get_option('yuz_tra_ws_settings', []);
+        $ws = is_array($ws) ? $ws : [];
+
+        $normalize = function ($value): string {
+            return $this->normalize_locale_code(is_scalar($value) ? (string) $value : '');
+        };
+
+        $default = $normalize($general['yuz_tra_default_language'] ?? $ws['yuz_tra_default_language'] ?? '');
+        if ($default === '') {
+            $default = $normalize($this->languages->get_default_language() ?? get_locale()) ?: 'en_US';
+        }
+
+        $source = $normalize($general['yuz_tra_source_language'] ?? $ws['yuz_tra_source_language'] ?? '');
+        if ($source === '') {
+            $source = $normalize($this->languages->get_source_language() ?? $default) ?: $default;
+        }
+
+        $codes = [];
+        $append_codes = function ($values) use (&$codes, $normalize): void {
+            foreach ((array) $values as $key => $value) {
+                foreach ([$value, is_string($key) ? $key : ''] as $candidate) {
+                    $code = $normalize($candidate);
+                    if ($code !== '' && !in_array($code, $codes, true)) {
+                        $codes[] = $code;
+                    }
+                }
+            }
+        };
+
+        $append_codes($general['yuz_tra_translatable_languages'] ?? []);
+        $append_codes($ws['yuz_tra_translatable_languages'] ?? []);
+        $append_codes($general['yuz_tra_code'] ?? []);
+        $append_codes($ws['yuz_tra_code'] ?? []);
+
+        foreach ((array) $this->languages->get_translatable_languages() as $entry) {
+            $code = is_object($entry) && isset($entry->language_code)
+                ? $normalize((string) $entry->language_code)
+                : $normalize((string) $entry);
+            if ($code !== '' && !in_array($code, $codes, true)) {
+                $codes[] = $code;
+            }
+        }
+
+        foreach ([$source, $default] as $code) {
+            if ($code !== '' && !in_array($code, $codes, true)) {
+                $codes[] = $code;
+            }
+        }
+
+        $from_options = array_values(array_unique(array_filter([$source, $default], 'strlen')));
+
+        return [
+            'default'        => $default,
+            'source'         => $source,
+            'langs'          => $codes,
+            'from_options'   => $from_options,
+            'default_target' => $this->pick_default_target($codes, $source),
+            'general'        => $general,
+            'ws'             => $ws,
+        ];
+    }
+
+    private function pick_default_target(array $codes, string $source): string
+    {
+        $source = $this->normalize_locale_code($source);
+        foreach ($codes as $candidate) {
+            $code = $this->normalize_locale_code((string) $candidate);
+            if ($code !== '' && $code !== $source) {
+                return $code;
+            }
+        }
+        return $codes[0] ?? '';
+    }
+
     /** @zone pay */
     public function pay_localize_transverse_min(string $bootstrap_handle): void
     {
@@ -2320,21 +2478,16 @@ public function enqueue_front(): void {
     /** @zone pay */
     public function pay_transverse_min(): array
     {
-        $default = $this->normalize_locale_code($this->languages->get_default_language() ?? get_locale()) ?: 'en_US';
-        $source  = $this->normalize_locale_code($this->languages->get_source_language() ?? $default) ?: $default;
+        $lang_cfg = $this->language_runtime_config();
+        $default = $lang_cfg['default'];
+        $source  = $lang_cfg['source'];
         $current = '';
         if (class_exists('YUZ_Front_Renderer') && method_exists('YUZ_Front_Renderer', 'get_active_language')) {
             $current = \YUZ_Front_Renderer::get_active_language();
         }
         $current = $this->normalize_locale_code($current) ?: $default;
 
-        $raw_langs = (array) $this->languages->get_translatable_languages();
-        $codes = array_values(array_filter(array_map(function ($entry) {
-            if (is_object($entry) && isset($entry->language_code)) {
-                return $this->normalize_locale_code((string) $entry->language_code);
-            }
-            return $this->normalize_locale_code((string) $entry);
-        }, $raw_langs), 'strlen'));
+        $codes = (array) $lang_cfg['langs'];
         if (!in_array($source, $codes, true)) {
             $codes[] = $source;
         }
@@ -2393,8 +2546,9 @@ public function enqueue_front(): void {
         $has_dictionary = isset($translations[$current]) || ($current_short !== '' && isset($translations[$current_short]));
         $is_translatable = (!$is_source_flag) && in_array($current, $available_lang_codes, true);
 
-        $release_build = defined('YUZ_TRA_WP_ORG_BUILD') && YUZ_TRA_WP_ORG_BUILD;
-        $trace_upload_url = $release_build ? '' : $this->resolve_trace_upload_url();
+        $trace_upload_url = $this->resolve_trace_upload_url();
+        $page_url = $this->resolve_request_page_url();
+        $post_id = $this->resolve_request_post_id($page_url, $available_lang_codes);
 
         $this->ensure_global_nonces($this->sec_build_nonces());
 
@@ -2403,6 +2557,8 @@ public function enqueue_front(): void {
             'current_language'  => $current,
             'default_language'  => $default,
             'source_language'   => $source,
+            'page_url'          => $page_url,
+            'post_id'           => $post_id,
             'lang_from'         => $source,
             'is_source'         => $is_source_flag,
             'is_default'        => $is_default_flag,
@@ -2411,22 +2567,26 @@ public function enqueue_front(): void {
             'languages_list'    => $available_langs,
             'language_meta'     => $available_langs,
             'translations'      => $translations,
+            'trace_upload_url'  => $trace_upload_url,
             'nonces'            => array_merge(
                 [
                     'ajax'        => wp_create_nonce('yuz_ajax_nonce'),
+                    'trace'       => wp_create_nonce('yuz_trace_nonce'),
                     'yuz_tra_ajax'=> wp_create_nonce('yuz_tra_ajax'),
                 ],
                 (array) $this->sec_pick_nonces('min')
             ),
         ];
 
-        if (!$release_build) {
-            $settings['trace_upload_url'] = $trace_upload_url;
-            $settings['nonces']['trace'] = wp_create_nonce('yuz_trace_nonce');
-        }
-
-        if (!$release_build && isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
             try {
+                error_log('[YUZ_DBG][pay_transverse_min] ' . wp_json_encode([
+                    'ajax_url' => $settings['ajax_url'],
+                    'nonces'   => array_keys($settings['nonces'] ?? []),
+                    'user_id'  => get_current_user_id(),
+                    'logged'   => is_user_logged_in(),
+                    'req'      => $_SERVER['REQUEST_URI'] ?? '',
+                ]));
             } catch (\Throwable $ignored) {}
         }
 
@@ -2437,6 +2597,15 @@ public function enqueue_front(): void {
                 }
                 return is_string($entry) ? $entry : '';
             }, $settings['languages'] ?? []), 'strlen'));
+            error_log('[YUZ_TRA][PAY_TRANSVERSE_MIN] ' . wp_json_encode([
+                'url'              => $_SERVER['REQUEST_URI'] ?? '',
+                'lang_current'     => $settings['current_language'] ?? null,
+                'lang_default'     => $settings['default_language'] ?? null,
+                'lang_source'      => $settings['source_language'] ?? null,
+                'languages'        => $log_languages,
+                'has_translations' => !empty($settings['translations']),
+                'translation_keys' => array_keys($settings['translations'] ?? []),
+            ]));
         }
 
         return $settings;
@@ -2445,12 +2614,6 @@ public function enqueue_front(): void {
     /** @zone pay */
     public function pay_js_settings(): array
     {
-        $cache_key = 'js_settings_static';
-        $cached = yuz_settings_cache_get($cache_key);
-        if ($cached !== false) {
-            return $cached;
-        }
-
         $cfg = $this->settings->get_js_config();
         $cfg = is_array($cfg) ? $cfg : [];
         $cfg = array_replace(['settings' => [], 'switcher' => []], $cfg);
@@ -2458,25 +2621,10 @@ public function enqueue_front(): void {
         $settings = is_array($cfg['settings']) ? $cfg['settings'] : [];
         $switcher = is_array($cfg['switcher']) ? $cfg['switcher'] : [];
 
-        $default = $this->languages->get_default_language() ?? get_locale();
-        $source  = $this->languages->get_source_language() ?? $default;
-        $langs   = $this->languages->get_translatable_languages();
-        $langs   = array_map(static function ($entry) {
-            if (is_object($entry) && isset($entry->language_code)) {
-                return (string) $entry->language_code;
-            }
-            return (string) $entry;
-        }, $langs);
-        $langs   = array_values(array_filter($langs, 'strlen'));
-
-        if (empty($langs)) {
-            $general = get_option('yuz_tra_general', []);
-            if (is_array($general)) {
-                $fallback = $general['yuz_tra_translatable_languages'] ?? [];
-                $fallback = is_array($fallback) ? $fallback : (array) $fallback;
-                $langs    = array_values(array_filter(array_map('strval', $fallback), 'strlen'));
-            }
-        }
+        $lang_cfg = $this->language_runtime_config();
+        $default  = $lang_cfg['default'];
+        $source   = $lang_cfg['source'];
+        $langs    = (array) $lang_cfg['langs'];
 
         $index = $this->lang_index();
         $names = [];
@@ -2519,28 +2667,8 @@ public function enqueue_front(): void {
         }
 
         $effective_from = $source ?: $default;
-        $from_options   = array_values(array_unique(array_filter([$source ?: null, $default], 'strlen')));
-
-        global $wpdb;
-        $table          = $wpdb->prefix . 'yuz_tra_languages';
-        $default_target = '';
-        $max_weight     = defined('PHP_INT_MIN') ? PHP_INT_MIN : -2147483648;
-        foreach ($langs as $candidate) {
-            if ($candidate === '' || $candidate === $effective_from) {
-                continue;
-            }
-            $weight = (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT language_weight FROM {$table} WHERE language_code = %s",
-                $candidate
-            ));
-            if ($weight > $max_weight) {
-                $max_weight     = $weight;
-                $default_target = $candidate;
-            }
-        }
-        if ($default_target === '') {
-            $default_target = $langs[0] ?? '';
-        }
+        $from_options   = (array) $lang_cfg['from_options'];
+        $default_target = (string) $lang_cfg['default_target'];
 
         try {
             $trace = bin2hex(random_bytes(4));
@@ -2551,6 +2679,8 @@ public function enqueue_front(): void {
         if (!isset($settings['general']) || !is_array($settings['general'])) {
             $settings['general'] = [];
         }
+        $settings['general']['yuz_tra_default_language']       = $default;
+        $settings['general']['yuz_tra_source_language']        = $source;
         $settings['general']['yuz_tra_translatable_languages'] = $langs;
 
         $payload = [
@@ -2585,7 +2715,6 @@ public function enqueue_front(): void {
             ]);
         }
 
-        yuz_settings_cache_set($cache_key, $payload, 'yuz-tra', 3600);
         return $payload;
     }
 
@@ -2670,6 +2799,13 @@ public function enqueue_front(): void {
 
         if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
             try {
+                error_log('[YUZ_DBG][pay_te] ' . wp_json_encode([
+                    'ajax_url' => $payload['ajax_url'],
+                    'nonces'   => $payload['nonces'],
+                    'user_id'  => get_current_user_id(),
+                    'logged'   => is_user_logged_in(),
+                    'req'      => $_SERVER['REQUEST_URI'] ?? '',
+                ]));
             } catch (\Throwable $ignored) {}
         }
 
@@ -2703,6 +2839,10 @@ public function enqueue_front(): void {
             'nonce'       => wp_create_nonce('yuz_int_nonce'),
             'defaultLang' => $default ?: $source,
             'sourceLang'  => $source,
+            'languages'   => YUZ_String_Catalog::languages(),
+            'editorLang'  => YUZ_String_Catalog::locale(get_user_locale()),
+            'canScan'     => current_user_can('manage_options'),
+            'userId'      => get_current_user_id(),
         ];
 
         return apply_filters('yuz/assets/payload/strings', $payload);
@@ -2717,7 +2857,7 @@ public function enqueue_front(): void {
                 'yuz_tra_at_get_api_settings','yuz_tra_at_upd_api_settings','yuz_tra_at_del_api_settings',
                 'yuz_tra_at_get_api_test','yuz_tra_tm_test_api','yuz_tra_at_cre_tsilent',
             ]),
-            'api_settings'  => (array) get_option('yuz_tra_api_settings', []),
+            'api_settings'  => YUZ_Translation_Budget::settings(),
             'yuz_api_nonce' => wp_create_nonce('yuz_api_nonce'),
         ];
     }
@@ -2787,31 +2927,31 @@ public function enqueue_front(): void {
         $config = ['items_per_page' => 20, 'see_more_max_length' => 140];
         $strings = apply_filters('yuz/assets/payload/string-editor/strings', []);
         $default_actions = apply_filters('yuz/assets/payload/string-editor/default-actions', [
-            'actions'      => ['edit' => __('Edit', 'yuz_tra'), 'delete' => __('Delete', 'yuz_tra')],
+            'actions'      => ['edit' => __('Edit', 'yuz-translation'), 'delete' => __('Delete', 'yuz-translation')],
             'bulk_actions' => [
-                'publish' => ['name' => __('Publish', 'yuz_tra')],
-                'delete'  => ['name' => __('Delete', 'yuz_tra')],
+                'publish' => ['name' => __('Publish', 'yuz-translation')],
+                'delete'  => ['name' => __('Delete', 'yuz-translation')],
             ],
         ]);
         $status_filters = apply_filters('yuz/assets/payload/string-editor/status-filters', [
             'translation_status' => [
-                'published'          => __('Published', 'yuz_tra'),
-                'queued'             => __('Queued for publish', 'yuz_tra'),
-                'pending_review'     => __('Pending review', 'yuz_tra'),
-                'machine_translated' => __('Machine translated', 'yuz_tra'),
-                'not_translated'     => __('Untranslated', 'yuz_tra'),
-                'archived'           => __('Archived', 'yuz_tra'),
+                'published'          => __('Published', 'yuz-translation'),
+                'queued'             => __('Queued for publish', 'yuz-translation'),
+                'pending_review'     => __('Pending review', 'yuz-translation'),
+                'machine_translated' => __('Machine translated', 'yuz-translation'),
+                'not_translated'     => __('Untranslated', 'yuz-translation'),
+                'archived'           => __('Archived', 'yuz-translation'),
             ],
         ]);
         $types_cfg = apply_filters('yuz/assets/payload/string-editor/types-config', [
             'strings' => [
                 'category_based'          => false,
-                'name'                    => __('Strings', 'yuz_tra'),
+                'name'                    => __('Strings', 'yuz-translation'),
                 'type'                    => 'strings',
-                'table_columns'           => ['original' => __('Original', 'yuz_tra'), 'context' => __('Context', 'yuz_tra')],
+                'table_columns'           => ['original' => __('Original', 'yuz-translation'), 'context' => __('Context', 'yuz-translation')],
                 'filters'                 => [],
                 'add_new'                 => false,
-                'search_name'             => __('Search Strings', 'yuz_tra'),
+                'search_name'             => __('Search Strings', 'yuz-translation'),
                 'scan_gettext'            => true,
                 'show_original_language'  => true,
             ],
@@ -2851,33 +2991,13 @@ public function enqueue_front(): void {
         // Provide minimal language context to the DOM watcher without bloating yuzTraSettings.
         // This avoids any hard-coded mapping on the client by letting it pick among
         // DB-declared translatable languages.
-        $langs = $this->languages->get_translatable_languages();
-        $codes = array_map(static function ($entry) {
-            if (is_object($entry) && isset($entry->language_code)) {
-                return (string) $entry->language_code;
-            }
-            return (string) $entry;
-        }, (array) $langs);
-        $codes = array_values(array_filter($codes, 'strlen'));
+        $lang_cfg = $this->language_runtime_config();
+        $codes = (array) $lang_cfg['langs'];
 
         // Determine a sensible default target distinct from the source/default
-        $default = $this->languages->get_default_language() ?? get_locale();
-        $source  = $this->languages->get_source_language() ?? $default;
-        $default_target = '';
-        if (!empty($codes)) {
-            global $wpdb;
-            $table      = $wpdb->prefix . 'yuz_tra_languages';
-            $max_weight = defined('PHP_INT_MIN') ? PHP_INT_MIN : -2147483648;
-            foreach ($codes as $candidate) {
-                if ($candidate === '' || $candidate === $source) continue;
-                $weight = (int) $wpdb->get_var($wpdb->prepare(
-                    "SELECT language_weight FROM {$table} WHERE language_code = %s",
-                    $candidate
-                ));
-                if ($weight > $max_weight) { $max_weight = $weight; $default_target = $candidate; }
-            }
-            if ($default_target === '') { $default_target = $codes[0]; }
-        }
+        $default = (string) $lang_cfg['default'];
+        $source  = (string) $lang_cfg['source'];
+        $default_target = (string) $lang_cfg['default_target'];
 
         return [
             'ajax_url' => $this->ajax(),
@@ -2921,7 +3041,7 @@ public function enqueue_front(): void {
         }
         $handle = 'yuz-nonce-bootstrap';
         if (!wp_script_is($handle, 'registered')) {
-            wp_register_script($handle, false, [], false, true);
+            wp_register_script($handle, false, [], defined('YUZ_TRA_VERSION') ? YUZ_TRA_VERSION : '1.2.2', true);
         }
         if (!wp_script_is($handle, 'enqueued')) {
             wp_enqueue_script($handle);
@@ -3001,7 +3121,11 @@ JS;
         wp_localize_script($handle, $global, $payload);
     }
 
-    private function ajax(): string { return admin_url('admin-ajax.php'); }
+    private function ajax(): string {
+        // Preserve the WordPress subdirectory, while keeping browser credentials
+        // on its current origin (including a private reverse-proxy hostname).
+        return admin_url('admin-ajax.php', 'relative');
+    }
 
     public function add_yuz_tra_settings_hash(array $hashes): array {
         $mini = $this->pay_transverse_min();
@@ -3071,10 +3195,12 @@ JS;
         return $this->cfg_ver($this->cfg_asset_path($rel));
     }
 
-    private function reg_register_vendor(string $handle, string $rel, string $cdn, array $deps = [], ?string $ver = null, bool $in_footer = true): void {
+    private function reg_register_vendor(string $handle, string $rel, array $deps = [], ?string $ver = null, bool $in_footer = true): void {
         $path = $this->cfg_asset_path($rel);
         $url  = $this->cfg_asset_url($rel);
-        $source = file_exists($path) ? $url : $cdn;
+        // Dependencies ship in the ZIP; never contact a CDN as a fallback.
+        if (!file_exists($path)) { $this->log_debug('missing_bundled_dependency', ['handle' => $handle]); return; }
+        $source = $url;
         $version = $ver ?? ($source === $url ? $this->cfg_ver($path) : null);
         wp_register_script($handle, $source, $deps, $version, $in_footer);
         $nonce = $this->sec_csp_nonce();
@@ -3146,7 +3272,7 @@ JS;
         }
         global $wp_styles;
         $src = $wp_styles->registered[$handle]->src ?? '';
-        if (!$src || strpos(parse_url($src, PHP_URL_PATH) ?: '', '.css') === false) {
+        if (!$src || strpos(wp_parse_url($src, PHP_URL_PATH) ?: '', '.css') === false) {
             return false;
         }
         wp_enqueue_style($handle);
@@ -3168,6 +3294,7 @@ JS;
     }
 
     private function tab(): string {
+        if (($_GET['page'] ?? '') === 'yuz-string-translation-editor') return 'strings';
         $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
         $map = [
             'general'=>'general','translate-site'=>'translate-site','strings'=>'strings','string'=>'strings','automatic-translation'=>'automatic-translation','advanced'=>'advanced',
@@ -3353,7 +3480,7 @@ JS;
         $path = '';
         if (isset($_SERVER['REQUEST_URI'])) {
             $raw = (string) $_SERVER['REQUEST_URI'];
-            $parsed = parse_url($raw, PHP_URL_PATH);
+            $parsed = wp_parse_url($raw, PHP_URL_PATH);
             $path = is_string($parsed) ? $parsed : '';
         }
         if ($path !== '') {
@@ -3370,6 +3497,131 @@ JS;
         }
 
         return '';
+    }
+
+    private function resolve_request_page_url(): string
+    {
+        try {
+            if (!class_exists('YUZ_Url_Converter') && defined('YUZ_TRA_INCLUDES')) {
+                $converter_file = YUZ_TRA_INCLUDES . 'class-yuz-url-converter.php';
+                if (is_readable($converter_file)) {
+                    require_once $converter_file;
+                }
+            }
+            if (class_exists('YUZ_Url_Converter')) {
+                $settings = null;
+                if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'settings')) {
+                    $settings = \YUZ_Services::settings();
+                }
+                $converter = new \YUZ_Url_Converter($settings);
+                $current = (string) $converter->cur_page_url();
+                if ($current !== '') {
+                    return esc_url_raw($current);
+                }
+            }
+        } catch (\Throwable $ignored) {}
+
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
+        if ($host === '') {
+            return home_url('/');
+        }
+        $scheme = is_ssl() ? 'https' : 'http';
+        return esc_url_raw($scheme . '://' . $host . $request_uri);
+    }
+
+    private function resolve_request_post_id(string $page_url, array $available_codes): int
+    {
+        $post_id = function_exists('get_queried_object_id') ? absint(get_queried_object_id()) : 0;
+        if ($post_id > 0) {
+            return $post_id;
+        }
+
+        $page_url = trim($page_url);
+        if ($page_url !== '') {
+            $direct = url_to_postid($page_url);
+            if ($direct) {
+                return (int) $direct;
+            }
+
+            $parts = wp_parse_url($page_url);
+            if (is_array($parts)) {
+                $path = isset($parts['path']) ? (string) $parts['path'] : '';
+                if ($path !== '') {
+                    $home_parts = wp_parse_url(home_url('/'));
+                    $home_path = isset($home_parts['path']) ? rtrim((string) $home_parts['path'], '/') : '';
+                    if ($home_path !== '' && stripos($path, $home_path) === 0) {
+                        $trimmed = substr($path, strlen($home_path));
+                        if ($trimmed !== false) {
+                            $path = $trimmed;
+                        }
+                    }
+
+                    $clean_path = trim($path, '/');
+                    $segments = array_values(array_filter(explode('/', $clean_path), 'strlen'));
+                    $candidates = [];
+                    if ($clean_path !== '') {
+                        $candidates[] = $clean_path;
+                    }
+
+                    $available = array_values(array_filter(array_map([$this, 'normalize_locale_code'], $available_codes), 'strlen'));
+                    if (count($segments) > 1 && $available) {
+                        $first = strtolower($segments[0]);
+                        foreach ($available as $locale) {
+                            if ($this->slug_from_locale($locale) === $first) {
+                                $stripped = implode('/', array_slice($segments, 1));
+                                if ($stripped !== '') {
+                                    $candidates[] = $stripped;
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    foreach (array_values(array_unique($candidates)) as $candidate) {
+                        $found = get_page_by_path($candidate);
+                        if ($found && isset($found->ID)) {
+                            return (int) $found->ID;
+                        }
+                        $candidate_url = home_url('/' . ltrim($candidate, '/'));
+                        $pid = url_to_postid($candidate_url);
+                        if ($pid) {
+                            return (int) $pid;
+                        }
+                    }
+                }
+            }
+        }
+
+        $front = absint(get_option('page_on_front'));
+        $posts = absint(get_option('page_for_posts'));
+        return $front ?: $posts;
+    }
+
+    private function is_suspicious_front_dictionary_entry(string $original, string $translated): bool
+    {
+        $original = trim($original);
+        $translated = trim($translated);
+        if ($original === '' || $translated === '') {
+            return true;
+        }
+
+        if (strlen($original) > 1800 || strlen($translated) > 6000) {
+            return true;
+        }
+
+        $separator_score = substr_count($original, '•')
+            + substr_count($original, '>')
+            + substr_count($original, '{')
+            + substr_count($original, '}')
+            + substr_count($translated, '{')
+            + substr_count($translated, '}');
+        if ($separator_score > 18) {
+            return true;
+        }
+
+        $pattern = '/(body\s+\.|div#|span\.|option:nth-of-type|aria-label|wp-block|#yuz-|\.yuz-|data-yuz|>\s*#|>\s*\.[A-Za-z0-9_-]+)/i';
+        return preg_match($pattern, $original) === 1 || preg_match($pattern, $translated) === 1;
     }
 
     private function load_front_dictionary(): array
@@ -3402,11 +3654,37 @@ JS;
         if (!is_array($rows)) {
             return $dictionary;
         }
+        $normalize_chain_key = static function (string $value): string {
+            $value = str_replace("\xc2\xa0", ' ', $value);
+            $value = str_replace(["\u{2018}", "\u{2019}"], "'", $value);
+            $value = str_replace(["\u{201C}", "\u{201D}"], '"', $value);
+            $value = preg_replace('/\s+/u', ' ', $value);
+            return is_string($value) ? trim($value) : '';
+        };
+
+        $translated_lookup = [];
+        foreach ($rows as $row) {
+            $original = isset($row['original_text']) ? trim((string) $row['original_text']) : '';
+            $translated = isset($row['translated_text']) ? (string) $row['translated_text'] : '';
+            if ($original === '' || $translated === '' || $this->is_suspicious_front_dictionary_entry($original, $translated)) {
+                continue;
+            }
+            $normalized = $normalize_chain_key($translated);
+            if ($normalized !== '') {
+                $translated_lookup[$normalized] = true;
+            }
+        }
+
         foreach ($rows as $row) {
             $original = isset($row['original_text']) ? trim((string) $row['original_text']) : '';
             $langCode = $this->normalize_locale_code($row['language_code'] ?? '');
             $translated = isset($row['translated_text']) ? (string) $row['translated_text'] : '';
-            if ($original === '' || $langCode === '' || $translated === '') {
+            if ($original === '' || $langCode === '' || $translated === '' || $this->is_suspicious_front_dictionary_entry($original, $translated)) {
+                continue;
+            }
+            $normalized_original = $normalize_chain_key($original);
+            $normalized_translated = $normalize_chain_key($translated);
+            if ($normalized_original !== '' && $normalized_original !== $normalized_translated && isset($translated_lookup[$normalized_original])) {
                 continue;
             }
             if (!isset($dictionary[$langCode])) {
@@ -3518,9 +3796,6 @@ JS;
     /** @zone dbg */
     private function debug_on(): bool
     {
-        if (defined('YUZ_TRA_WP_ORG_BUILD') && YUZ_TRA_WP_ORG_BUILD) {
-            return false;
-        }
         return (defined('YUZ_DEBUG') && YUZ_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
     }
 

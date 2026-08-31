@@ -65,7 +65,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Include the contracts file
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
@@ -102,9 +102,12 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
     // public function translate(string $text, string $source_lang, string $target_lang, array $settings) {
     public function translate($text, $source_lang, $target_lang, $settings): ?string {
         // DO: Perform translation using DeepL API
+        error_log('YUZ-TRA: [DO] Translating using DeepL API at ' . current_time('mysql'));
+
         // Validate API key (fallback to injected if not in settings)
         $api_key = !empty($settings['api_key']) ? $settings['api_key'] : $this->apiKey;
         if (empty($api_key)) {
+            error_log('YUZ-TRA: [ERROR] DeepL API key not provided');
             return null;
         }
 
@@ -112,27 +115,33 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
         $api_url = !empty($settings['deepl_free']) ? 'https://api-free.deepl.com/v2/translate' : 'https://api.deepl.com/v2/translate';
 
         // DeepL API expects language codes in uppercase (e.g., "EN" instead of "en_US")
-        $source_lang = strtoupper(substr($source_lang, 0, 2)); // Simplify to "EN"
-        $target_lang = strtoupper(substr($target_lang, 0, 2)); // Simplify to "FR"
+        $source_lang = strtoupper(explode('_',str_replace('-','_',$source_lang))[0]);
+        $target_code = strtoupper(str_replace('_','-',$target_lang));
+        $target_lang = in_array($target_code,['EN-GB','EN-US','PT-BR','PT-PT','ZH-HANS','ZH-HANT'],true)
+            ? $target_code : strtoupper(explode('-',$target_code)[0]);
 
         // Prepare the API request body
         $body = [
             'text'               => [$text], // DeepL API v2 expects text as an array
             'source_lang'        => $source_lang,
             'target_lang'        => $target_lang,
-            'auth_key'           => $api_key,
             'tag_handling'       => 'html',
             'outline_detection'  => 0,
             'preserve_formatting'=> 1,
         ];
+        if ($source_lang==='AUTO') unset($body['source_lang']);
 
         // Make the request using injected HTTP client
-        $response = $this->httpClient->post($api_url, [
+        $request_args = [
             'body'    => $body,
             'headers' => [
                 'Content-Type' => 'application/x-www-form-urlencoded',
+                'Authorization' => 'DeepL-Auth-Key ' . $api_key,
             ],
-        ]);
+        ];
+        $response = $this->httpClient
+            ? $this->httpClient->post($api_url, $request_args)
+            : wp_remote_post($api_url, $request_args);
 
         // Health check (assuming YUZ_Health_Check is defined elsewhere)
         if (class_exists('YUZ_Health_Check')) {
@@ -149,6 +158,7 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
         }
 
         if (is_wp_error($response)) {
+            error_log('YUZ-TRA: [ERROR] DeepL API request failed: ' . $response->get_error_message());
             return null;
         }
 
@@ -157,14 +167,18 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
 
         // Check for errors in the response
         if (isset($data['message'])) {
+            error_log('YUZ-TRA: [ERROR] DeepL API error: ' . $data['message']);
             return null;
         }
 
         // Extract the translated text
         if (!isset($data['translations'][0]['text'])) {
+            error_log('YUZ-TRA: [ERROR] DeepL API response invalid: ' . print_r($response_body, true));
             return null;
         }
 
+        error_log("YUZ-TRA: [CHECK] DeepL translation succeeded: " . $data['translations'][0]['text'] . ' at ' . current_time('mysql', true));
+        error_log("YUZ-TRA: [ACT] DeepL translation completed successfully at " . current_time('mysql', true));
         return $data['translations'][0]['text'];
     }
 
@@ -175,10 +189,13 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
      * @return array Connection test result.
      */
     public function test_api_conn(array $settings): bool{
+    error_log('YUZ-TRA: [DO] Testing DeepL connection at ' . current_time('mysql'));
+
         // Validate API key (fallback to injected if not in settings)
           // Récupère la clé API depuis $settings ou injectée
     $api_key = $settings['api_key'] ?? $this->apiKey;
     if (empty($api_key)) {
+        error_log('YUZ-TRA: [ERROR] DeepL API key not provided');
         return false;
     }
 
@@ -201,14 +218,17 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
         : wp_remote_get($url, $args);
 
     if (is_wp_error($response)) {
+        error_log('YUZ-TRA: [ERROR] DeepL connection test failed: ' . $response->get_error_message());
         return false;
     }
 
     $code = wp_remote_retrieve_response_code($response);
     if ($code >= 200 && $code < 300) {
+        error_log('YUZ-TRA: [ACT] DeepL connection test succeeded');
         return true;
     }
 
+    error_log("YUZ-TRA: [ERROR] DeepL connection test HTTP {$code}");
     return false;
 }
 }

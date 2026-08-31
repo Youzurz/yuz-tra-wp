@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 /* =======================================================================================
  * assets/js/widgets/yuz-translation-editor.esm.js — patched (ESM imports, Vue + jQuery)
  * Inline Translation Editor (front/admin overlay)
@@ -35,6 +32,7 @@ import $ from 'jquery';
   }
 
   if (!Y.ajax_url) {
+    console.error('[YUZ][TE] ajax_url manquant — abandon.');
     return;
   }
 
@@ -68,7 +66,7 @@ import $ from 'jquery';
     const ts = new Date().toISOString();
     let out = `${LVL[level]||''} ${msg} at ${ts}`;
     if (ctx) { try { out += ` | ${JSON.stringify(ctx)}`; } catch(_){} }
-    (level==='critical'?yuz_release_console.error:(level==='warning'?yuz_release_console.warn:yuz_release_console.log))(out);
+    (level==='critical'?console.error:(level==='warning'?console.warn:console.log))(out);
   };
 
   // Fallback toast (si absence de librairie CLAR)
@@ -78,6 +76,7 @@ import $ from 'jquery';
         window.CLAR.toast(message, { type });
       } else {
         const m = (type === 'error') ? 'error' : (type === 'warning' ? 'warn' : 'log');
+        console[m]('[toast]', message);
       }
     } catch (_) {}
   };
@@ -159,6 +158,7 @@ import $ from 'jquery';
   // Traduction instantanée → tolérante à toutes les formes de réponse
   async function translateAjax({ text, from, to }) {
     const cleaned = stripCssJsNoise(text || '');
+    try { console.debug('[YUZ][translateAjax] cleaned', cleaned.slice(0, 160)); } catch (_) {}
     if (!cleaned) throw new Error('empty_payload');
 
     const response = await tmTranslateAjax({
@@ -202,6 +202,7 @@ import $ from 'jquery';
     const backendError = response?.error || response?.data?.error || response?.message || response?.data?.message;
     if (backendError) throw new Error(`translate_failed:${backendError}`);
 
+    try { console.warn('[YUZ][translateAjax] RAW JSON (no translated_text)', response); } catch (_) {}
     throw new Error('empty_translation');
   }
 
@@ -262,6 +263,9 @@ import $ from 'jquery';
       body.set('source', src || 'auto');
       body.set('target', tgt);
 
+      console.groupCollapsed('[YUZ][TM] ⇢ POST', reqId);
+      console.debug('[YUZ][TM] params', { source: src || 'auto', target: tgt, items: items.length });
+
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -272,6 +276,8 @@ import $ from 'jquery';
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success !== true) {
         const err = json?.data?.message || json?.data?.error || json?.message || `HTTP ${res.status}`;
+        console.warn('[YUZ][TM] ✗', err);
+        console.groupEnd();
         throw new Error(err || 'tm_failed');
       }
 
@@ -297,14 +303,18 @@ import $ from 'jquery';
 
       if (translatedSingle) {
         json.translated_text = translatedSingle;
+        console.debug('[YUZ][TM] ✓ translatedSingle', translatedSingle);
       } else {
+        try { console.warn('[YUZ][TM] ✓ but no translatedSingle — RAW JSON', json); } catch (_) {}
       }
 
+      console.groupEnd();
       return json;
     }
 
     let json = await postOnce(fromCanon, toCanon);
     if (!json?.translated_text && (fromCanon !== from0 || toCanon !== to0)) {
+      console.info('[YUZ][TM] retry with canonical codes', { fromCanon, toCanon, reqId });
       json = await postOnce(fromCanon, toCanon);
     }
 
@@ -471,6 +481,7 @@ import $ from 'jquery';
     let n;
     try { n = nonceFor(action); }
     catch (e) {
+      try { console.error('[YUZ][TE] Sécurité: nonce manquant pour', action); } catch(_){ }
       return $.Deferred().reject(e).promise();
     }
 
@@ -483,6 +494,8 @@ import $ from 'jquery';
     }
 
     const data = { action, nonce: n, yuz_tra_nonce: n, _ajax_nonce: n, ...payload };
+    try { console.debug('[YUZ][TE][POST]', { url: url.toString(), ...data }); } catch(_) {}
+
     return $.ajax({
       url: url.toString(),
       type: 'POST',
@@ -717,7 +730,7 @@ import $ from 'jquery';
   .filter(Boolean);
 
 const pruned = (data?.strings?.length || data?.results?.length || 0) - this.items.length;
-if (pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy entries:', pruned); } catch(_){} }
+if (pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', pruned); } catch(_){} }
 
             this.index = this.items.length ? 0 : -1;
             log('success','[YUZ][TE] Bootstrap OK', { langs: this.languages.length, strings: this.items.length });
@@ -1166,6 +1179,7 @@ if (pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy ent
   const toastFallback = (msg, lvl = 'info') => {
     try {
       const method = lvl === 'error' ? 'error' : lvl === 'warning' ? 'warn' : 'log';
+      console[method](`[toast:${lvl}]`, msg);
     } catch (_) {}
   };
 
@@ -1336,6 +1350,9 @@ if (pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy ent
     app.onSearchEnter = function () { this.onSearchClick(); };
 
     app._smartSearchInstalled = true;
+    try {
+      console.log(`[SMART][ESM] one-button search installed (phases: ${app.phaseOrder.join('→')})`);
+    } catch (_) {}
   }
 
   let lastApp = null;
@@ -1393,6 +1410,7 @@ if (pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy ent
       body: body.toString()
     });
     const j = await res.json().catch(() => ({}));
+    console.log('[INSTANT][ESM] persisted', j && j.data);
     return j && j.data;
   }
 

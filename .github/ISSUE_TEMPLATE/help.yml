@@ -1,0 +1,26 @@
+name: Aide à l’utilisation
+description: Installation, configuration ou compréhension d’un écran.
+title: "[Help] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version YUZ-TRA et WordPress
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Ce que je souhaite faire
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: Où je bloque et ce que j’ai essayé
+      description: Décrire l’écran et le message, sans identifiants ni contenu sensible.
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "Votre question peut conduire à améliorer le produit ou le guide. Elle ne sera pas automatiquement rejetée comme une erreur d’utilisateur."

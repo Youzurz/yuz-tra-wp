@@ -64,7 +64,7 @@
  *   — Toute logique transverse doit passer par services/contrats, jamais par un hook non autorisé.
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 define('YUZ_MIGRATION_MODE', false);
 
 // Minimal requires (interfaces/fallbacks only, no heavy classes)
@@ -128,6 +128,22 @@ class YUZ_Settings implements SettingsInterface {
         add_action('wp_ajax_yuz_tra_ls_upd_settings', [$this, 'ajax_router']);
     }
 
+    private function can_run_site_settings_migration(): bool {
+        if (defined('WP_CLI') && WP_CLI) {
+            return true;
+        }
+
+        if (defined('DOING_CRON') && DOING_CRON) {
+            return true;
+        }
+
+        if (defined('DOING_AJAX') && DOING_AJAX) {
+            return false;
+        }
+
+        return is_admin();
+    }
+
     /**
      * Initializes lightly (hooks only, no heavy ops).
      */
@@ -180,6 +196,8 @@ class YUZ_Settings implements SettingsInterface {
         // >>> DÉDUCTION RUNTIME DES MODES (ne touche pas la DB)
         $api  = isset($flags['yuz_tra_api_settings']) && is_array($flags['yuz_tra_api_settings'])
             ? $flags['yuz_tra_api_settings'] : [];
+        $canonical_api = get_option('yuz_tra_at_settings', []);
+        if (is_array($canonical_api) && $canonical_api) $api = $canonical_api;
         $mode = isset($api['translation_mode']) ? (string)$api['translation_mode'] : 'manual';
         $auto = !empty($api['enable_auto_translate']);
 
@@ -191,11 +209,11 @@ class YUZ_Settings implements SettingsInterface {
         }
 
         $flags['mode_semi_enabled']       = ($mode === 'semi') || ($mode === 'manual' && $auto);
-        $flags['mode_background_enabled'] = ($mode === 'background');
-        $flags['mode_manual_enabled']     = ($mode === 'manual');
+        $flags['mode_background_enabled'] = $auto && in_array($mode, ['background','silent','auto','all'], true);
+        $flags['mode_manual_enabled']     = in_array($mode, ['manual','semi','silent','auto','all','background'], true);
 
         if ($mode === 'all') {
-            $flags['mode_background_enabled'] = true;
+            $flags['mode_background_enabled'] = $auto;
             $flags['mode_semi_enabled']       = true;
         }
 
@@ -318,6 +336,10 @@ class YUZ_Settings implements SettingsInterface {
     }
 
     private function maybe_migrate_site_settings(): void {
+        if (!$this->can_run_site_settings_migration()) {
+            return;
+        }
+
         $legacy = get_option('yuz_tra_site_settings', null);
         if ($legacy === null || $legacy === false || $legacy === []) {
             return;
@@ -493,11 +515,13 @@ class YUZ_Settings implements SettingsInterface {
     }
 
     public function ajax_router() {
+        error_log('[YUZ][AJAX] handling ' . ($_POST['action'] ?? '(none)') . ' with data=' . wp_json_encode($_POST));
         $action = sanitize_text_field($_POST['action'] ?? '');
         $nonce  = $_POST['nonce'] ?? '';
 
         $nonce_ok = wp_verify_nonce($nonce, 'yuz_tra_nonce') || wp_verify_nonce($nonce, 'yuz_con_nonce');
         if (!$nonce_ok) {
+            error_log('[YUZ][AJAX] invalid nonce for ' . $action);
             wp_send_json_error(['error' => 'Invalid nonce']);
         }
 
@@ -523,6 +547,7 @@ class YUZ_Settings implements SettingsInterface {
                 break;
 
             default:
+                error_log('[YUZ][AJAX] unknown action ' . $action);
                 wp_send_json_error(['error' => 'Unknown action']);
         }
     }
@@ -541,6 +566,8 @@ class YUZ_Settings implements SettingsInterface {
             : $merged;
 
         update_option($option_name, $sanitized);
+        error_log('[YUZ][UPDATE] ' . $option_name . '=' . wp_json_encode($sanitized));
+
         wp_send_json_success([
             'updated' => $sanitized,
             'option'  => $option_name,
@@ -649,8 +676,8 @@ class YUZ_Settings implements SettingsInterface {
     public function add_admin_page() {
         // Page principale → route vers l’onglet "General"
         add_menu_page(
-            'YUZ-TRA',
-            'YUZ-TRA',
+            __('YUZ-TRA', 'yuz-translation'),
+            __('YUZ-TRA', 'yuz-translation'),
             'manage_options',
             'yuz-translation-settings',
             [$this, 'render_settings_page'],
@@ -1289,13 +1316,13 @@ class YUZ_Settings implements SettingsInterface {
     public function render_settings_page() {
         // Slugs officiels
         $tabs = [
-            'general'               => __('General', 'yuz_tra'),
-            'translate-site'        => __('Translate Site', 'yuz_tra'),
-            'strings'               => __('Strings', 'yuz_tra'),
-            'automatic-translation' => __('Automatic Translation', 'yuz_tra'),
-            'advanced'              => __('Advanced', 'yuz_tra'),
-            'addons'                => __('Add-ons', 'yuz_tra'),
-            'licenses'              => __('Licenses', 'yuz_tra'),
+            'general'               => __('General', 'yuz-translation'),
+            'translate-site'        => __('Translate Site', 'yuz-translation'),
+            'strings'               => __('Strings', 'yuz-translation'),
+            'automatic-translation' => __('Automatic Translation', 'yuz-translation'),
+            'advanced'              => __('Advanced', 'yuz-translation'),
+            'addons'                => __('Add-ons', 'yuz-translation'),
+            'licenses'              => __('Licenses', 'yuz-translation'),
         ];
         // Back-compat : anciens slugs → officiels
         $aliases = [
@@ -1314,9 +1341,8 @@ class YUZ_Settings implements SettingsInterface {
         // Slug de page (doit matcher add_menu_page)
         $page = isset($_GET['page']) ? sanitize_key($_GET['page']) : 'yuz-translation-settings';
 
-        echo '<div class="wrap" id="yuz-settings">';
+        echo '<div class="wrap yuz-admin-shell" id="yuz-settings">';
 
-        // Toolbar Support / Docs / Upgrade avant le <h1>
         $locale = function_exists('get_user_locale') ? get_user_locale() : get_locale();
 
         // essaie d'obtenir un renderer si dispo (propriété ou singleton)
@@ -1332,17 +1358,17 @@ class YUZ_Settings implements SettingsInterface {
         }
 
         if (!$rendered_toolbar) {
-            echo '<div style="float:right; margin-top:12px; display:flex; gap:12px;">'
-               . '<a class="button button-secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/support">' . esc_html__('Support','yuz_tra') . '</a>'
-               . '<a class="button button-secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/docs">'    . esc_html__('Documentation','yuz_tra') . '</a>'
-               . '<a class="button button-primary"   target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/pricing">'. esc_html__('Upgrade','yuz_tra') . '</a>'
+            echo '<div class="yuz-admin-toolbar" data-yuz-toolbar>'
+               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/support">' . esc_html__('Support', 'yuz-translation') . '</a>'
+               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/docs">'    . esc_html__('Documentation', 'yuz-translation') . '</a>'
+               . '<a class="button button-primary yuz-admin-toolbar__button yuz-admin-toolbar__button--primary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/pricing">'. esc_html__('Upgrade', 'yuz-translation') . '</a>'
                . '</div>';
         }
 
-        echo '<h1>' . esc_html__('YUZ-TRA Settings', 'yuz_tra') . '</h1>';
+        echo '<h1>' . esc_html__('YUZ-TRA', 'yuz-translation') . '</h1>';
 
         // onglets
-        echo '<h2 class="nav-tab-wrapper">';
+        echo '<h2 class="nav-tab-wrapper yuz-admin-tabs">';
         foreach ($tabs as $slug => $label) {
             $url = add_query_arg(['page' => $page, 'tab' => $slug], admin_url('admin.php'));
             printf(
@@ -1368,7 +1394,7 @@ class YUZ_Settings implements SettingsInterface {
         }
         if (!$handled) {
             echo '<div class="notice notice-info"><p>'
-               . esc_html__('This tab is not implemented yet.', 'yuz_tra')
+               . esc_html__('This tab is not implemented yet.', 'yuz-translation')
                . '</p></div>';
         }
 
@@ -1401,8 +1427,9 @@ class YUZ_Settings implements SettingsInterface {
             }
 
             if (empty($current)) {
-                add_option($option_name, $defaults, false);
+                add_option($option_name, $defaults);
                 if (function_exists('error_log')) {
+                    error_log('🟩 YUZ_Settings: création de yuz_tra_settings (defaults).');
                 }
                 return;
             }
@@ -1411,6 +1438,7 @@ class YUZ_Settings implements SettingsInterface {
             if ($updated !== $current) {
                 update_option($option_name, $updated, false);
                 if (function_exists('error_log')) {
+                    error_log('🟨 YUZ_Settings: ajout de clés manquantes dans yuz_tra_settings.');
                 }
             }
         }

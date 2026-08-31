@@ -21,7 +21,7 @@ if (!function_exists('yuz_settings_sanitize_section')) {
                 'canonical' => $name,
                 'raw'       => $raw,
                 '_POST'     => $_POST,
-                'timestamp' => date('Y-m-d H:i:s'),
+                'timestamp' => gmdate('Y-m-d H:i:s'),
             ];
             file_put_contents($logfile, print_r($snapshot, true) . "\n\n", FILE_APPEND);
         }

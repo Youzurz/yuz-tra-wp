@@ -65,7 +65,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Load core interfaces & fallbacks
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
@@ -1348,8 +1348,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
                 }
                 $ok = $this->update_language_weights($sanitized);
                 return $ok
-                    ? ['success' => true, 'message' => __('Language weights updated successfully', 'yuz_translation'), 'timestamp' => current_time('mysql')]
-                    : ['success' => false, 'error'   => ['code' => 'update_failed', 'message' => __('Failed to update language weights','yuz_translation'), 'details' => ''], 'timestamp' => current_time('mysql')];
+                    ? ['success' => true, 'message' => __('Language weights updated successfully', 'yuz-translation'), 'timestamp' => current_time('mysql')]
+                    : ['success' => false, 'error'   => ['code' => 'update_failed', 'message' => __('Failed to update language weights', 'yuz-translation'), 'details' => ''], 'timestamp' => current_time('mysql')];
             }
         );
     }

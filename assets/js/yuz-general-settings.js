@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 (function($){
   // Guard: only run on YUZ Translation settings page (General tab context)
   if (
@@ -15,6 +12,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
    * General tab only – uses window.yuzGS + per-action nonces.
    * Disciplines: ACT-02, ACT-03, ACT-04, ACT-11
    */
+  console.log('[YUZ][JS][GENERAL][LOAD] yuz-general-settings.js loaded at ' + new Date().toISOString());
   /* ===========================================================================================
      --- SAFE LOGGER (ne jette jamais) ---
      =========================================================================================== */
@@ -45,25 +43,14 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   catch (_) { head += ' | [ctx unserializable]'; }
       }
   var fn = (level === 'critical' || level === 'error') ? 'error' : (level === 'warning' ? 'warn' : 'log');
-      (console && yuz_release_console[fn] ? yuz_release_console[fn] : yuz_release_console.log)(head);
+      (console && console[fn] ? console[fn] : console.log)(head);
     } catch (e) {
+  try { console.log('[LOG-FAILSAFE]', level, message); } catch (_) {}
     }
   }
 
-  var sortableFallbackPromise = null;
   function loadSortableFallback() {
-    if (window.Sortable) return Promise.resolve(window.Sortable);
-    if (!sortableFallbackPromise) {
-      sortableFallbackPromise = new Promise(function(resolve, reject){
-        var script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js';
-        script.async = true;
-        script.onload = function(){ resolve(window.Sortable); };
-        script.onerror = function(){ reject(new Error('SORTABLE_LOAD_FAILED')); };
-        document.head.appendChild(script);
-      });
-    }
-    return sortableFallbackPromise;
+    return window.Sortable ? Promise.resolve(window.Sortable) : Promise.reject(new Error('WordPress jQuery UI Sortable unavailable'));
   }
   // --- debounce inchangé ---
   function debounce(fn, delay) {
@@ -197,7 +184,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   // Only handle YUZ plugin actions to avoid interfering with WP core (e.g., heartbeat)
   if (!/^yuz_/.test(action)) return;
     const n = nonceFor(action);
-    if (!n) { yuz_release_console.warn('[YUZ][AJAX] No nonce found for action:', action); return; }
+    if (!n) { console.warn('[YUZ][AJAX] No nonce found for action:', action); return; }
   if (orig.data instanceof FormData) { orig.data.append('nonce', n); return; }
   if (typeof orig.data === 'string') {
   const p = new URLSearchParams(orig.data); p.set('nonce', n);
@@ -215,7 +202,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   jQuery(document).ajaxSend(function(e, xhr, settings) {
   try {
   if (settings && typeof settings.data === 'string' && settings.data.indexOf('action=yuz_tra_') >= 0) {
-  yuz_release_console.log('[TRACE AJAX SEND]', settings.data); // doit contenir &nonce=xxxxxxxx
+  console.log('[TRACE AJAX SEND]', settings.data); // doit contenir &nonce=xxxxxxxx
       }
     } catch (_) {}
   });
@@ -280,6 +267,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   'use strict';
   /* ========== HARD GUARDS ========== */
   if (!window.yuzGS) {
+  console.warn('[YUZ][GENERAL] window.yuzGS absent. Aborting.');
   return;
     }
   // Ensure legacy entry points (window.yuzTraSettings.*) remain populated for mixed-era scripts.
@@ -304,6 +292,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   legacy.capabilities = jQuery.extend(true, {}, origin.capabilities, legacy.capabilities || {});
     }
   } catch (syncErr) {
+  console.warn('[YUZ][GENERAL] Failed to mirror yuzTraSettings bridge', syncErr);
   }
   /* ========== CONSTANTS ========== */
   const ACTION = {
@@ -720,7 +709,9 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   update: function(){ saveWeights(sel, y, msg); }
         });
   if (typeof $list.disableSelection === 'function') $list.disableSelection();
+  console.log('🟩[OK] Sortable ready (handle:', hasHandle, ')');
       } catch (err) {
+  console.error('🟥[CRIT] Sortable init failed', err);
       }
     }
   /* ========== INIT CHAINS (désormais via ajaxPost + nonce auto) ========== */
@@ -733,10 +724,12 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
           }
   cb((r.data.languages || []), (r.data.non_translatable || []));
         } else {
+  console.warn('🟧[WARN] get_languages returned', r);
   alert(msg.ajax_error + ' ' + (r && r.data && r.data.message ? r.data.message : msg.unknown_error));
   cb([], []);
         }
       }, function (xhr) {
+  console.error('🟥[CRIT] fetchTranslatableLanguages error', xhr && xhr.responseText);
   alert(msg.ajax_error + ' ' + (xhr && xhr.statusText ? xhr.statusText : ''));
   cb([], []);
       });

@@ -31,6 +31,7 @@ class YUZ_Translation_Manager {
         }
         if (!class_exists('YUZ_Capabilities') || !\YUZ_Capabilities::user_is_translator()) {
             if (isset($_GET['yuz-edit-translation'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+                error_log('[YUZ_TM][CONTAINER] Translator capability missing while ?yuz-edit-translation is present');
             }
             return;
         }
@@ -46,6 +47,7 @@ class YUZ_Translation_Manager {
             if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
                 $uid = get_current_user_id();
                 $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+                error_log('[YUZ_TM][CONTAINER] printed (user=' . $uid . ', uri=' . $uri . ')');
             }
         }
     }
@@ -54,12 +56,28 @@ class YUZ_Translation_Manager {
      * Retrieve translations for current language, with cache and fallbacks.
      */
     public static function get_frontend_translations() {
-        $lang         = self::normalize_lang_code(self::get_current_lang());
+        $lang         = '';
+        if (class_exists('YUZ_Front_Renderer') && method_exists('YUZ_Front_Renderer', 'get_active_language')) {
+            try {
+                $lang = self::normalize_lang_code((string) YUZ_Front_Renderer::get_active_language());
+            } catch (\Throwable $e) {
+                $lang = '';
+            }
+        }
+        if ($lang === '') {
+            $lang = self::normalize_lang_code(self::get_current_lang());
+        }
         $ws_settings  = function_exists('get_option') ? (array) get_option('yuz_tra_ws_settings', []) : [];
         $default_lang = self::normalize_lang_code($ws_settings['yuz_tra_default_language'] ?? (function_exists('get_locale') ? get_locale() : ''));
         $source_lang  = self::normalize_lang_code($ws_settings['yuz_tra_source_language'] ?? $default_lang);
 
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+            error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][IN] ' . wp_json_encode([
+                'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                'lang'        => $lang,
+                'source'      => $source_lang,
+                'default'     => $default_lang,
+            ]));
         }
 
         $dictCount = static function ($payload, $langKey) {
@@ -83,6 +101,12 @@ class YUZ_Translation_Manager {
 
         if (!$lang) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+                error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'lang'        => $lang,
+                    'dict_count'  => 0,
+                    'all_langs'   => [],
+                ]));
             }
             return [];
         }
@@ -91,6 +115,12 @@ class YUZ_Translation_Manager {
         $cached = wp_cache_get($cache_key, 'yuz_tra');
         if ($cached && is_array($cached)) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+                error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'lang'        => $lang,
+                    'dict_count'  => $dictCount($cached, $lang),
+                    'all_langs'   => array_keys($cached),
+                ]));
             }
             return $cached;
         }
@@ -109,7 +139,7 @@ class YUZ_Translation_Manager {
         // Quick success validated filter (status IN)
         $rows = $wpdb->get_results(
             $wpdb->prepare("
-                SELECT language_code, original_text, translated_text
+                SELECT id, language_code, original_text, translated_text, context, origin, status
                 FROM {$table}
                 WHERE translated_text IS NOT NULL
                   AND translated_text <> ''
@@ -144,18 +174,61 @@ class YUZ_Translation_Manager {
 
         if (!$rows) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+                error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'lang'        => $lang,
+                    'dict_count'  => 0,
+                    'all_langs'   => [],
+                ]));
             }
             wp_cache_set($cache_key, [], 'yuz_tra', self::CACHE_TTL);
             return [];
         }
 
-        $dict = [];
+        $translated_lookup = [];
         foreach ($rows as $r) {
-            $key = trim(stripslashes($r['original_text']));
-            $val = trim(stripslashes($r['translated_text']));
-            if ($key !== '' && $val !== '') {
-                $dict[$key] = $val;
+            $key = trim(stripslashes((string) ($r['original_text'] ?? '')));
+            $val = trim(stripslashes((string) ($r['translated_text'] ?? '')));
+            if ($key === '' || $val === '' || self::is_suspicious_front_dictionary_entry($key, $val)) {
+                continue;
             }
+
+            $normalized_translated = self::normalize_front_dictionary_entry_key($val);
+            if ($normalized_translated !== '') {
+                $translated_lookup[$normalized_translated] = true;
+            }
+        }
+
+        $dict = [];
+        $dict_meta = [];
+        foreach ($rows as $r) {
+            $key = trim(stripslashes((string) ($r['original_text'] ?? '')));
+            $val = trim(stripslashes((string) ($r['translated_text'] ?? '')));
+            if ($key === '' || $val === '' || self::is_suspicious_front_dictionary_entry($key, $val)) {
+                continue;
+            }
+
+            $normalized_key = self::normalize_front_dictionary_entry_key($key);
+            $normalized_val = self::normalize_front_dictionary_entry_key($val);
+            if ($normalized_key !== '' && $normalized_key !== $normalized_val && isset($translated_lookup[$normalized_key])) {
+                continue;
+            }
+
+            $candidate = [
+                'id'              => isset($r['id']) ? (int) $r['id'] : 0,
+                'context'         => isset($r['context']) ? (string) $r['context'] : '',
+                'origin'          => isset($r['origin']) ? (string) $r['origin'] : '',
+                'status'          => isset($r['status']) ? (int) $r['status'] : 0,
+                'translated_text' => $val,
+            ];
+
+            $current = $dict_meta[$key] ?? null;
+            if (!self::should_replace_front_dictionary_candidate($current, $candidate)) {
+                continue;
+            }
+
+            $dict[$key] = $val;
+            $dict_meta[$key] = $candidate;
         }
 
         $result = [
@@ -163,10 +236,94 @@ class YUZ_Translation_Manager {
         ];
 
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+            error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+                'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                'lang'        => $lang,
+                'dict_count'  => $dictCount($result, $lang),
+                'all_langs'   => array_keys($result),
+            ]));
         }
 
         wp_cache_set($cache_key, $result, 'yuz_tra', self::CACHE_TTL);
         return $result;
+    }
+
+
+    private static function should_replace_front_dictionary_candidate(?array $current, array $candidate): bool {
+        if (!is_array($current) || empty($current)) {
+            return true;
+        }
+
+        $current_score = self::front_dictionary_candidate_score($current);
+        $candidate_score = self::front_dictionary_candidate_score($candidate);
+        if ($candidate_score !== $current_score) {
+            return $candidate_score > $current_score;
+        }
+
+        $current_id = isset($current['id']) ? (int) $current['id'] : 0;
+        $candidate_id = isset($candidate['id']) ? (int) $candidate['id'] : 0;
+        if ($current_id > 0 && $candidate_id > 0) {
+            return $candidate_id < $current_id;
+        }
+
+        return $candidate_id > 0 && $current_id <= 0;
+    }
+
+    private static function front_dictionary_candidate_score(array $row): int {
+        $status = isset($row['status']) ? max(0, (int) $row['status']) : 0;
+        $context = strtolower(trim((string) ($row['context'] ?? '')));
+        $origin = strtolower(trim((string) ($row['origin'] ?? '')));
+
+        $score = $status * 100;
+        if ($context === 'content') {
+            $score += 6000;
+        } elseif ($context === 'title') {
+            $score += 5500;
+        } elseif ($context === 'excerpt') {
+            $score += 5400;
+        } elseif ($context === 'attr:placeholder' || $context === 'attr:data-placeholder') {
+            $score += 3200;
+        } elseif (strpos($context, 'attr:') === 0) {
+            $score += 2400;
+        } elseif ($context !== '') {
+            $score += 1800;
+        }
+
+        if ($origin === 'manual') {
+            $score += 25;
+        }
+
+        return $score;
+    }
+
+    private static function is_suspicious_front_dictionary_entry(string $original, string $translated): bool {
+        $original = trim($original);
+        $translated = trim($translated);
+        if ($original === '' || $translated === '') {
+            return true;
+        }
+        if (strlen($original) > 1800 || strlen($translated) > 6000) {
+            return true;
+        }
+        $separator_score = substr_count($original, '•')
+            + substr_count($original, '>')
+            + substr_count($original, '{')
+            + substr_count($original, '}')
+            + substr_count($translated, '{')
+            + substr_count($translated, '}');
+        if ($separator_score > 18) {
+            return true;
+        }
+        $pattern = '/(body\s+\.|div#|span\.|option:nth-of-type|aria-label|wp-block|#yuz-|\.yuz-|data-yuz|>\s*#|>\s*\.[A-Za-z0-9_-]+)/i';
+        return preg_match($pattern, $original) === 1 || preg_match($pattern, $translated) === 1;
+    }
+
+    private static function normalize_front_dictionary_entry_key(string $value): string {
+        $value = str_replace("\xc2\xa0", ' ', $value);
+        $value = str_replace(["\u{2018}", "\u{2019}"], "'", $value);
+        $value = str_replace(["\u{201C}", "\u{201D}"], '"', $value);
+        $value = preg_replace('/\s+/u', ' ', $value);
+        return is_string($value) ? trim($value) : '';
     }
 
     /**
@@ -203,13 +360,25 @@ class YUZ_Translation_Manager {
         $candidates[] = $query_lang;
     }
 
-    // 2️⃣ Hooks from other multilingual plugins (Polylang / WPML…)
+    // 2️⃣ Front renderer: same active-language resolver as assets/front payloads.
+    if (class_exists('YUZ_Front_Renderer') && method_exists('YUZ_Front_Renderer', 'get_active_language')) {
+        try {
+            $front_lang = (string) YUZ_Front_Renderer::get_active_language();
+            if ($front_lang !== '') {
+                $candidates[] = $front_lang;
+            }
+        } catch (\Throwable $e) {
+            // fall back to the remaining candidates
+        }
+    }
+
+    // 3️⃣ Hooks from other multilingual plugins (Polylang / WPML…)
     $filtered_lang = apply_filters('yuz_current_language', '');
     if (is_string($filtered_lang) && $filtered_lang !== '') {
         $candidates[] = $filtered_lang;
     }
 
-    // 3️⃣ Workspace settings (persisted via wizard)
+    // 4️⃣ Workspace settings (persisted via wizard)
     $ws_settings = (array) get_option('yuz_tra_ws_settings', []);
     foreach (['yuz_tra_current_language', 'yuz_tra_default_language', 'yuz_tra_source_language'] as $key) {
         if (!empty($ws_settings[$key]) && is_string($ws_settings[$key])) {
@@ -217,7 +386,7 @@ class YUZ_Translation_Manager {
         }
     }
 
-    // 4️⃣ Legacy options
+    // 5️⃣ Legacy options
     $default_lang = get_option('yuz_tra_default_lang');
     $source_lang  = get_option('yuz_tra_source_lang');
     if (is_string($default_lang) && $default_lang !== '') {
@@ -227,7 +396,7 @@ class YUZ_Translation_Manager {
         $candidates[] = $source_lang;
     }
 
-    // 5️⃣ Locale WordPress actuelle
+    // 6️⃣ Locale WordPress actuelle
     $locale = function_exists('get_locale') ? (string) get_locale() : '';
     if ($locale !== '') {
         $candidates[] = $locale;
@@ -276,14 +445,21 @@ class YUZ_Translation_Manager {
         $is_default      = ($current_lang && $default_lang && $current_lang === $default_lang);
         $is_translatable = ($current_lang !== '' && !$is_source);
 
-        // SMOKE LOG — toujours actif pour le front (après normalisation)
-        if (!is_admin()) {
+        // Front smoke traces are only useful during explicit diagnostics.
+        if (!is_admin() && defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
             try {
                 $counts = [];
                 foreach ($translations as $lang => $dict) {
                     $counts[$lang] = is_array($dict) ? count($dict) : -1;
                 }
+                error_log(
+                    '[YUZ_TM][FRONT_SMOKE] lang=' . $current_lang
+                    . ' | def=' . $default_lang
+                    . ' | src=' . $source_lang
+                    . ' | counts=' . wp_json_encode($counts)
+                );
             } catch (\Throwable $e) {
+                error_log('[YUZ_TM][FRONT_SMOKE_ERR] ' . $e->getMessage());
             }
         }
 
@@ -332,8 +508,14 @@ class YUZ_Translation_Manager {
      * Build a language payload consumed by JS controllers and admin screens.
      */
     public static function get_langs_payload(bool $force = false): array {
+        $cache_seed = wp_json_encode([
+            get_option('yuz_tra_general', []),
+            get_option('yuz_tra_ws_settings', []),
+        ]);
+        $cache_key = self::LANGS_CACHE_KEY . '_' . md5(is_string($cache_seed) ? $cache_seed : '');
+
         if (!$force) {
-            $cached = wp_cache_get(self::LANGS_CACHE_KEY, self::LANGS_CACHE_GROUP);
+            $cached = wp_cache_get($cache_key, self::LANGS_CACHE_GROUP);
             if (is_array($cached)) {
                 return self::normalize_langs_payload($cached);
             }
@@ -364,7 +546,7 @@ class YUZ_Translation_Manager {
         ];
 
         $payload = self::normalize_langs_payload(apply_filters('yuz_tra_langs_payload', $payload));
-        wp_cache_set(self::LANGS_CACHE_KEY, $payload, self::LANGS_CACHE_GROUP, self::LANGS_CACHE_TTL);
+        wp_cache_set($cache_key, $payload, self::LANGS_CACHE_GROUP, self::LANGS_CACHE_TTL);
 
         return $payload;
     }
@@ -413,30 +595,48 @@ class YUZ_Translation_Manager {
             }
         }
 
-        if (empty($meta)) {
-            $general = get_option('yuz_tra_general', []);
-            $general = is_array($general) ? $general : [];
-            $source  = self::normalize_lang_code($general['yuz_tra_source_language'] ?? '');
-            $default = self::normalize_lang_code($general['yuz_tra_default_language'] ?? '');
-            $targets = array_filter(
-                array_map([self::class, 'normalize_lang_code'], (array) ($general['yuz_tra_translatable_languages'] ?? [])),
-                'strlen'
-            );
+        $general = get_option('yuz_tra_general', []);
+        $general = is_array($general) ? $general : [];
+        $ws = get_option('yuz_tra_ws_settings', []);
+        $ws = is_array($ws) ? $ws : [];
+        $source  = self::normalize_lang_code($general['yuz_tra_source_language'] ?? $ws['yuz_tra_source_language'] ?? '');
+        $default = self::normalize_lang_code($general['yuz_tra_default_language'] ?? $ws['yuz_tra_default_language'] ?? '');
+        $targets = [];
+        foreach ([
+            $general['yuz_tra_translatable_languages'] ?? [],
+            $ws['yuz_tra_translatable_languages'] ?? [],
+            $general['yuz_tra_code'] ?? [],
+            $ws['yuz_tra_code'] ?? [],
+        ] as $list) {
+            foreach ((array) $list as $key => $value) {
+                foreach ([$value, is_string($key) ? $key : ''] as $candidate) {
+                    $code = self::normalize_lang_code(is_scalar($candidate) ? (string) $candidate : '');
+                    if ($code !== '' && !in_array($code, $targets, true)) {
+                        $targets[] = $code;
+                    }
+                }
+            }
+        }
+        foreach ([$source, $default] as $code) {
+            if ($code !== '' && !in_array($code, $targets, true)) {
+                $targets[] = $code;
+            }
+        }
 
+        if (!empty($targets) || $source !== '' || $default !== '') {
             foreach ($targets as $code) {
                 $meta[$code] = $mergeFlags($meta[$code] ?? [], [
-                    'is_default'      => ($code === $default),
-                    'is_source'       => ($code === $source),
+                    'is_default'      => false,
+                    'is_source'       => false,
                     'is_translatable' => true,
                 ]);
             }
-
-            if ($source !== '' && !isset($meta[$source])) {
-                $meta[$source] = $mergeFlags($meta[$source] ?? [], [
-                    'is_default'      => ($source === $default),
-                    'is_source'       => true,
-                    'is_translatable' => true,
-                ]);
+            foreach ($meta as $code => $flags) {
+                $meta[$code] = [
+                    'is_default'      => ($default !== '' && $code === $default),
+                    'is_source'       => ($source !== '' && $code === $source),
+                    'is_translatable' => !empty($targets) ? in_array($code, $targets, true) : !empty($flags['is_translatable']),
+                ];
             }
         }
 

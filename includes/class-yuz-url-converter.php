@@ -6,7 +6,7 @@
  * @package YUZ_Translation
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 require_once YUZ_TRA_INCLUDES . 'helpers/lang-helpers.php';
@@ -140,6 +140,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         ];
         $prefix = $prefixes[$lvl] ?? $prefixes['info'];
         $suffix = $ctx ? ' | Context: ' . wp_json_encode($ctx) : '';
+        error_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
     }
 
     /* ---------------------------- SETTINGS HELPERS --------------------------- */
@@ -588,7 +589,7 @@ public function cur_page_url(): string
         ) {
             $scheme = 'https';
         }
-        $reqHost = $_SERVER['HTTP_HOST'] ?? parse_url($this->get_cached_home_url(), PHP_URL_HOST) ?? '';
+        $reqHost = $_SERVER['HTTP_HOST'] ?? wp_parse_url($this->get_cached_home_url(), PHP_URL_HOST) ?? '';
         $port    = '';
         if (!empty($_SERVER['SERVER_PORT']) && !in_array((string)$_SERVER['SERVER_PORT'], ['80','443'], true)) {
             $port = ':' . (string) $_SERVER['SERVER_PORT'];
@@ -644,6 +645,7 @@ public function cur_page_url(): string
             'slug_map' => $slug_map,
             'code_map' => $code_map,
         ]);
+
         $normalized_upper = strtoupper(str_replace('-', '_', $candidate));
         $candidate_lower  = strtolower($candidate);
 
@@ -1158,7 +1160,7 @@ public function normalize(string $url): string
             $fragment = isset($parts['fragment']) ? '#' . $parts['fragment'] : '';
 
             $normalized_path = $path === '' ? '/' : $path;
-            $home_path       = parse_url($home . '/', PHP_URL_PATH) ?: '/';
+            $home_path       = wp_parse_url($home . '/', PHP_URL_PATH) ?: '/';
             $front_id        = absint(get_option('page_on_front'));
             $front_slug      = $front_id ? get_post_field('post_name', $front_id) : '';
 
@@ -1220,9 +1222,11 @@ public function normalize(string $url): string
                 header('x-yuz-target-slug: ' . $slug);
                 header('x-yuz-target-url: ' . $final_url);
             }
+
             return $final_url;
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
             }
             return $base;
         }

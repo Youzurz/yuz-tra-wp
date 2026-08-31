@@ -65,7 +65,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Move all use statements before requires
 use YUZTRA\Interfaces\SiteTranslationInterface;
@@ -137,7 +137,8 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
 
         // Gardes minimales
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            wp_die(__('Critical error: YUZ-TRA constants missing.', 'yuz_tra'));
+            error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Translate_Site::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
+            wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-translation'));
         }
 
         // 1) Logger / Health / DB
@@ -150,33 +151,8 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
             ? new YUZ_Languages(new NullSettings(), $db)
             : new NullLanguages();
 
-        // 3) Adaptateurs + Translation Manager (avec Settings minimal pour respecter la signature)
-        if (class_exists('YUZ_API_Manager')) {
-            $adapters = [
-                'custom'         => class_exists('YUZ_Custom_Translate_Adapter') ? new YUZ_Custom_Translate_Adapter() : new NullTranslateAdapter(),
-                'libretranslate' => class_exists('YUZ_Libre_Translate_Adapter') ? new YUZ_Libre_Translate_Adapter() : new NullTranslateAdapter(),
-                'deepl'          => class_exists('YUZ_DeepL_Translate_Adapter') ? new YUZ_DeepL_Translate_Adapter() : new NullTranslateAdapter(),
-                'google'         => class_exists('YUZ_Google_Translate_Adapter') ? new YUZ_Google_Translate_Adapter() : new NullTranslateAdapter(),
-            ];
-
-            $ajax_stub = new NullAjax();
-
-            // Settings minimal pour la signature du TM: ($adapters, $settings, $languages, $ajax, $db, $logger)
-            $settings_for_tm = class_exists('YUZ_Settings')
-                ? new YUZ_Settings($languages_for_tm, $ajax_stub, new NullTranslationManager(), new NullLanguageManager(), $logger)
-                : new NullSettings();
-
-            $translation_manager = new YUZ_API_Manager(
-                $adapters,
-                $settings_for_tm,
-                $languages_for_tm,
-                $ajax_stub,
-                $db,
-                $logger
-            );
-        } else {
-            $translation_manager = new NullTranslationManager();
-        }
+        // A single provider factory for every editor.
+        $translation_manager = YUZ_Services::tm();
 
         // 4) Language Manager (réel si dispo, sinon fallback)
         $language_manager = class_exists('YUZ_Language_Manager')
@@ -205,7 +181,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         // 8) Instanciation du contrôleur + hooks
         $instance = new self($ajax, $settings, $renderer, $logger, $translation_manager);
 
-        $instance->logger->log('info', 'Initializing YUZ_Translate_Site at ' . (function_exists('current_time') ? current_time('mysql') : date('Y-m-d H:i:s')));
+        $instance->logger->log('info', 'Initializing YUZ_Translate_Site at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
 
         // (A) Rendu de l’onglet "Translate Site" (routeur par page)
         add_action('yuz-tra_page_yuz-translation-translate-site', [$instance, 'render_tab']);
@@ -319,7 +295,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
             : (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
         if ( ! $can_translate ) {
             $this->log('critical', 'User lacks yuz_translate_content capability in YUZ_Translate_Site::render_tab');
-            wp_die(__('Unauthorized', 'yuz_tra'));
+            wp_die(esc_html__('Unauthorized', 'yuz-translation'));
         }
 
         // Server-side POST fallback (in addition to AJAX) for persistence when JS is disabled
@@ -347,10 +323,10 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
                         'submitted' => $settings,
                         'canonical_after' => $canonical,
                     ]);
-                    echo '<div class="updated"><p>'.esc_html__('Translate Site settings saved.', 'yuz_tra').'</p></div>';
+                    echo '<div class="updated"><p>'.esc_html__('Translate Site settings saved.', 'yuz-translation').'</p></div>';
                 } else {
                     $this->log('error', 'Translate Site POST save failed', ['submitted' => $settings]);
-                    echo '<div class="error"><p>'.esc_html__('Failed to save settings.', 'yuz_tra').'</p></div>';
+                    echo '<div class="error"><p>'.esc_html__('Failed to save settings.', 'yuz-translation').'</p></div>';
                 }
             } else {
                 $this->log('warning', 'Translate Site POST with empty payload');
@@ -383,10 +359,10 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         ]);
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Translate Site', 'yuz_tra'); ?></h1>
+            <h1><?php esc_html_e('Translate Site', 'yuz-translation'); ?></h1>
 
             <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true'): ?>
-                <div class="updated"><p><?php esc_html_e('Translate Site settings saved.', 'yuz_tra'); ?></p></div>
+                <div class="updated"><p><?php esc_html_e('Translate Site settings saved.', 'yuz-translation'); ?></p></div>
             <?php endif; ?>
 
             <form id="yuz-translate-site-form" method="post" action="" data-yuz-ts-action="update_settings">
@@ -398,7 +374,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
                 ?>
 
                 <div class="yuz-section">
-                    <h2 class="yuz-section-title"><?php esc_html_e('Options', 'yuz_tra'); ?></h2>
+                    <h2 class="yuz-section-title"><?php esc_html_e('Options', 'yuz-translation'); ?></h2>
                     <hr>
                     <table class="form-table">
                         <?php
@@ -440,7 +416,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
                     </table>
                 </div>
 
-                <?php submit_button(__('Save Changes', 'yuz_tra')); ?>
+                <?php submit_button(__('Save Changes', 'yuz-translation')); ?>
             </form>
         </div>
         <?php
@@ -460,7 +436,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
             wp_schedule_single_event(time() + 1, 'yuz_continue_translation');
         }
 
-        wp_send_json_success(['message' => __('Translation queued. It will run in background.', 'yuz_tra')]);
+        wp_send_json_success(['message' => __('Translation queued. It will run in background.', 'yuz-translation')]);
     }
 
     /**
@@ -481,7 +457,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
 
     // URL front courante, sinon Home depuis /wp-admin
     $scheme      = is_ssl() ? 'https' : 'http';
-    $host        = $_SERVER['HTTP_HOST'] ?? parse_url( home_url(), PHP_URL_HOST );
+    $host        = $_SERVER['HTTP_HOST'] ?? wp_parse_url( home_url(), PHP_URL_HOST );
     $uri         = $_SERVER['REQUEST_URI'] ?? '/';
     $current_url = $scheme . '://' . $host . $uri;
 
@@ -492,11 +468,11 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
 
     $wp_admin_bar->add_node( [
         'id'    => 'yuz-translate-now',
-        'title' => __( 'Translate Now', 'yuz_tra' ),
+        'title' => __( 'Translate Now', 'yuz-translation' ),
         'href'  => $editor_url,
         'meta'  => [
             'class'    => 'yuz-translate-now',
-            'title'    => __( 'Start translation for this page', 'yuz_tra' ),
+            'title'    => __( 'Start translation for this page', 'yuz-translation' ),
             'tabindex' => -1,
         ],
     ] );
@@ -509,7 +485,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
     $wp_admin_bar->add_node( [
         'id'     => 'yuz-translation-settings',
         'parent' => 'yuz-translate-now',
-        'title'  => __( 'Translation settings', 'yuz_tra' ),
+        'title'  => __( 'Translation settings', 'yuz-translation' ),
         'href'   => $settings_url,
     ] );
 

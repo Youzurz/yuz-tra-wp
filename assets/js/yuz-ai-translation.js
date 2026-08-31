@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 /**
  * assets/js/yuz-ai-translation.js
  *
@@ -19,12 +16,14 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   /* --------------------------------- Guards --------------------------------- */
   const y = window.yuzAI || null;
   if (!y || !y.ajax_url) {
+    console.warn('[YUZ][AI] yuzAI manquant ou ajax_url absent, arrêt.');
     return;
   }
   // Ne s’exécute que sur l’onglet AI (ou si un conteneur AI est présent dans le DOM)
   const isAITab = (y.current_tab || '').toString() === 'ai-translation' || !!document.getElementById('yuz_ai_panel');
 
   if (!isAITab) {
+    console.log('[YUZ][AI] Onglet AI inactif, skip init.');
     return;
   }
 
@@ -39,7 +38,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
     const ts = new Date().toISOString();
     const line = `${LOG[level] || ''} ${message} @ ${ts}`;
     // eslint-disable-next-line no-console
-    (level === 'critical' ? yuz_release_console.error : level === 'warning' ? yuz_release_console.warn : yuz_release_console.log)(
+    (level === 'critical' ? console.error : level === 'warning' ? console.warn : console.log)(
       context ? `${line} | ${safeStringify(context)}` : line
     );
   }
@@ -91,27 +90,10 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
     const anchor = document.getElementById('yuz_ai_panel') || document.body.firstElementChild;
     (anchor?.parentNode || document.body).insertBefore(wrap, anchor || null);
   }
-  function updateCostBanner({ quota_used, quota_remaining, est_cost, currency }) {
+  function updateCostBanner() {
     ensureCostBanner();
-    const q = document.getElementById('yuz-ai-quota');
-    const c = document.getElementById('yuz-ai-cost');
-    if (q) {
-      const used = typeof quota_used === 'number' ? quota_used : null;
-      const left = typeof quota_remaining === 'number' ? quota_remaining : null;
-      q.textContent = (used !== null || left !== null) ? `Quota: ${used ?? '?'} used / ${left ?? '?'} left` : '';
-    }
-    if (c) {
-      if (typeof est_cost === 'number') {
-        const cur = currency || 'USD';
-        c.textContent = `Est. cost: ${est_cost.toFixed(4)} ${cur}`;
-        // Persist daily running total
-        try {
-          const key = `yuz_ai_cost_${new Date().toISOString().slice(0,10)}`;
-          const prev = Number(localStorage.getItem(key) || '0');
-          localStorage.setItem(key, (prev + Math.max(0, est_cost)).toString());
-        } catch (_) {}
-      }
-    }
+    const cost=document.getElementById('yuz-ai-cost');
+    if(cost) cost.textContent='Coût monétaire non mesuré. Caractères, requêtes et tokens mesurés dans le catalogue.';
   }
 
   /* ------------------------------ Nonce helper ------------------------------- */
@@ -295,6 +277,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
 
   async function uploadGlossary(file) {
     if (!file) return;
+    if (!window.confirm('Confirmez-vous avoir vérifié et approuvé tous les termes du CSV (source_lang,target_lang,domain,context,source,target) ?')) return;
     const action = 'yuz_ai_glossary_upload';
     const nonce = nonceFor(action);
     if (!nonce) { toast('Glossary upload: nonce missing', 'error'); return; }
@@ -303,6 +286,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
     fd.append('action', action);
     fd.append('nonce', nonce);
     fd.append('file', file);
+    fd.append('approved', '1');
 
     const res = await fetch(y.ajax_url, { method: 'POST', body: fd, credentials: 'same-origin' })
       .then(r => r.json())
@@ -328,7 +312,8 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
     const cleanTexts = texts
       .map(t => (t || '').trim())
       .filter(Boolean)
-      .slice(0, 1000); // limite prudente
+      ; // Never silently truncate a batch.
+    if (cleanTexts.length>100) throw new Error('Maximum 100 textes par tâche.');
 
     if (cleanTexts.length === 0) {
       toast('No input provided', 'warning');
@@ -350,7 +335,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
       source_lang: source || 'auto',
       target_lang: target || '',
       texts: payloadTexts
-    }, { retries: 2, backoffMs: 800 });
+    }, { retries: 0, backoffMs: 800 });
 
     if (!res?.success) {
       toast(res?.data?.message || 'Batch start failed', 'error');
@@ -378,6 +363,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
     // eslint-disable-next-line no-constant-condition
     while (true) {
       cycles++;
+      if (cycles>80) throw new Error('Tâche encore en attente : vérifiez WP-Cron. Aucun succès de traduction annoncé.');
       const res = await postAjax(action, { job_id: jobId }, { retries: 0, backoffMs: delay });
 
       if (!res || res.success === false) {
@@ -487,4 +473,3 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   });
 
 })(window, document);
-

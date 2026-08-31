@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Installation et première traduction
+    url: https://github.com/Youzurz/yuz-tra-wp/blob/main/GETTING-STARTED.md
+    about: Guide de démarrage, mise à jour et retour arrière.
+  - name: Confidentialité et sécurité
+    url: https://github.com/Youzurz/yuz-tra-wp/blob/main/SECURITY.md
+    about: Ne pas publier de faille exploitable ni de données privées dans les tickets.

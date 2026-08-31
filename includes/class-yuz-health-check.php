@@ -64,7 +64,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 // use YUZTRA\Interfaces\HealthCheckInterface;
 //require_once YUZ_TRA_INCLUDES . 'class-yuz-logger.php';
@@ -113,6 +113,7 @@ private static function getLogger(): LoggerInterface {
     if ( ! $condition ) {
         $log_context = ['context' => $method, 'message' => $message];
         $logger->log('critical', "Health check failed: $message", $log_context);
+        error_log("🟥 [CRITICAL] YUZ-TRA: $message in $method");
         if ( is_admin() ) {
             wp_die( esc_html( "Critical error: $message" ) );
         }
@@ -142,4 +143,3 @@ private static function getLogger(): LoggerInterface {
         // ... other health-check methods remain unchanged ...
     }
 }
-

@@ -24,6 +24,7 @@ if (!class_exists('YUZ_Footer')) {
                 echo '<div id="yuz-editor-container" data-yuz-editor-root></div>';
                 define('YUZ_EDITOR_ROOT_PRINTED', true);
                 if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+                    error_log('[YUZ_Footer][container] printed root container in wp_footer');
                 }
                 do_action('yuz/editor_root_printed');
             }

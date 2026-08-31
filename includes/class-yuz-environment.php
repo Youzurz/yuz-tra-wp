@@ -65,7 +65,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
 use YUZTRA\Interfaces\LanguagesInterface;
@@ -106,16 +106,8 @@ if (preg_match('/^([a-zA-Z\-]+)/', $segment, $m)) {
 $browser_pref[] = str_replace('-', '_', $m[1]);
                 }
             }
-// Géolocalisation
-$ip = $_SERVER['REMOTE_ADDR'] ?? '';
-$country = '';
-if (filter_var($ip, FILTER_VALIDATE_IP)) {
-$resp = wp_remote_get("https://ip-api.com/json/{$ip}", ['timeout' => 2]);
-if (!is_wp_error($resp) && wp_remote_retrieve_response_code($resp) === 200) {
-$geo = json_decode(wp_remote_retrieve_body($resp), true) ?: [];
-$country = $geo['countryCode'] ?? '';
-                }
-            }
+// No visitor IP is sent to an external service by default.
+$country = (string) apply_filters('yuz_tra_detected_country', '');
 // Liste des langues activées
 $all = self::$lang_manager ? self::$lang_manager->get_translatable_languages() : [];
 $matches = [];

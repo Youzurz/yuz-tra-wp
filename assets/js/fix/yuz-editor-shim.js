@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 /*! YUZ-TE bootstrap shim (safe overlay if main script crashed) */
 // --- hotfix: ensure nonce for admin-ajax posts (safe, idempotent) ---
 (function () {
@@ -38,7 +35,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
             opts.data = d.toString();
           }
         }
-      } catch (e) { if (!QUIET) yuz_release_console.warn('[yuz hotfix]', e); }
+      } catch (e) { if (!QUIET) console.warn('[yuz hotfix]', e); }
     });
   }
 })();
@@ -67,6 +64,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
     const NO_TARGETS = !TGTS.length;
 
     if (NO_TARGETS && !QUIET) {
+      console.warn('[YUZ-TE shim] Aucune langue cible détectée immédiatement (diagnostic uniquement, sans blocage).');
     }
 
     // Host + styles
@@ -173,12 +171,14 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
       const badge = host.querySelector('[data-y-no-targets]');
       if (badge) badge.style.display = 'block';
       if (!QUIET) {
+        console.info('[YUZ-TE shim] En attente des langues définitives (le widget principal gère les fallbacks).');
       }
     }
 
     if (!QUIET) {
+      console.log('[YUZ-TE shim] mounted → From=%s, To choices=%o', FROM, TGTS.filter(t=>t!==FROM));
     }
   } catch (e) {
-    if (!QUIET) yuz_release_console.error('[YUZ-TE shim] failed:', e);
+    if (!QUIET) console.error('[YUZ-TE shim] failed:', e);
   }
 })(window, document);

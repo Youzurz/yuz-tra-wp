@@ -70,7 +70,7 @@
  */
 
 namespace YUZTRA\Interfaces;
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // --- DÉCLARATION INLINE DE GeneralInterface ---
 if (! interface_exists(GeneralInterface::class)) {

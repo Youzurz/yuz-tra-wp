@@ -1,4 +1,3 @@
-
 /*! YUZ String Translation Editor — UMD (zero‑deps)
  *  Works in old browsers (loaded with nomodule). Uses optional jQuery if present.
  */
@@ -13,7 +12,8 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-var log=function(){};
+  var log = function(){ try{ console.info.apply(console, ['[YUZ-UMD]'].concat([].slice.call(arguments))); }catch(e){} };
+
   var Y = (typeof window !== 'undefined' && window.yuzTraSettings) ? window.yuzTraSettings : {
     ajax_url: (typeof ajaxurl !== 'undefined' ? ajaxurl : ''),
     nonces: {},

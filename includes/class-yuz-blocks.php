@@ -4,7 +4,7 @@
  * Registers server-side blocks for FSE integration (no enqueue here).
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 if (!class_exists('YUZ_Blocks')) {
 class YUZ_Blocks {
@@ -66,10 +66,12 @@ class YUZ_Blocks {
             $use_native_name = !empty(get_option('yuz_tra_settings', [])['native_language_name']);
             $current_lang    = get_locale();
             $translated_strings = [
-                'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz_translation'),
-                'switch_to_label'    => esc_html__('Switch to %s', 'yuz_translation'),
-                'powered_by'         => esc_html__('Powered by', 'yuz_translation'),
-                'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz_translation'),
+                /* translators: %s: current language name or code. */
+                'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-translation'),
+                /* translators: %s: target language name or code. */
+                'switch_to_label'    => esc_html__('Switch to %s', 'yuz-translation'),
+                'powered_by'         => esc_html__('Powered by', 'yuz-translation'),
+                'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-translation'),
             ];
             include plugin_dir_path(YUZ_TRA_PLUGIN_FILE) . 'partials/yuz-language-switcher.php';
             return (string) ob_get_clean();
@@ -82,4 +84,3 @@ class YUZ_Blocks {
     }
 }
 }
-

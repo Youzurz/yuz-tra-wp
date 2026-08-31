@@ -1,5 +1,3 @@
-
-
 (function () {
   const CFG = window.yuzTraSettings || {};
   const q = new URLSearchParams(location.search);
@@ -34,6 +32,7 @@
     try { document.documentElement.dataset.yuzUi = datasetMode; }
     catch (_) {}
     document.dispatchEvent(new CustomEvent('yuz:ui:mount', { detail: { mode: canonical, legacyMode: legacy } }));
+    try { console.log('[YUZ-CTRL] mode=', canonical, '(legacy:', legacy + ')'); } catch (_) {}
   };
 
   const urlMode = q.get('yuz-mode');

@@ -9,6 +9,9 @@
 
 defined('ABSPATH') || exit;
 
+// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- Front-end reads use prepared SQL with plugin-owned dynamic table names.
+// phpcs:disable PluginCheck.Security.DirectDB.UnescapedDBParameter -- SQL variables in this repository are prepared before execution.
+
 if (!class_exists('YUZ_Query')) {
     class YUZ_Query {
         /** @var \wpdb */

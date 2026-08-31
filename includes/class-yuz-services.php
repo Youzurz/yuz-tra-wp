@@ -119,10 +119,12 @@ public static function tm(): YUZ_API_Manager {
              YUZ_TRA_INCLUDES . 'class-yuz-libre-translate-adapter.php',
              YUZ_TRA_INCLUDES . 'class-yuz-deepl-translate-adapter.php',
              YUZ_TRA_INCLUDES . 'class-yuz-google-translate-adapter.php',
+             YUZ_TRA_INCLUDES . 'class-yuz-ollama-translate-adapter.php',
          ];
         foreach ($adapterFiles as $f) { if (file_exists($f)) { require_once $f; } }
 
         $adapters = [
+            'ollama'         => new YUZ_Ollama_Translate_Adapter(),
             'custom'         => class_exists('YUZ_Custom_Translate_Adapter')   ? new YUZ_Custom_Translate_Adapter()   : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
             'libretranslate' => class_exists('YUZ_Libre_Translate_Adapter')    ? new YUZ_Libre_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
             'deepl'          => class_exists('YUZ_DeepL_Translate_Adapter')    ? new YUZ_DeepL_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
@@ -159,7 +161,7 @@ public static function tm(): YUZ_API_Manager {
          * INIT
          * ========================= */
 public static function init(): void {
-add_action('yuz_tra_run_job', [__CLASS__, 'run_job'], 10, 1);
+// Job registration is owned by YUZ_Cron.
 // Valeurs par défaut exposées aux filtres (permet aux devs d’ajuster sans toucher DB)
 add_filter('yuz_tra_qos_max_ajax_payload', fn($v)=> $v ?: self::MAX_AJAX_PAYLOAD_DEFAULT);
 add_filter('yuz_tra_qos_max_direct_chars', fn($v)=> $v ?: self::MAX_DIRECT_CHARS_DEFAULT);
@@ -340,169 +342,22 @@ return $qos;
          * @param array{ text?:string, source?:string, target?:string, mode?:string, meta?:array } $payload
          */
 public static function translate_entrypoint(array $payload): array {
-$payload = self::validate_payload($payload);
-$text = $payload['text'];
-$source = $payload['source'];
-$target = $payload['target'];
-$mode = $payload['mode'];
-$meta = $payload['meta'];
-// NEW: gate préflight strict (empêche toute trad sans contexte)
-$pf = self::preflight($mode === '' ? null : $mode);
-if (!$pf['ok']) {
-return [
-'ok' => false,
-'error' => [
-'code' => 'not_ready',
-'message' => __('Translation preflight failed','yuz_translation'),
-'missing' => $pf['missing'],
-'warnings' => $pf['warnings'],
-                    ]
-                ];
-            }
-$q = self::qos();
-// barrière dure côté AJAX (QoS)
-if (($meta['origin'] ?? '') === 'ajax' && mb_strlen($text) > $q['max_ajax_payload']) {
-throw new \RuntimeException(sprintf(
-'Payload too large for AJAX (%d > %d chars)',
-mb_strlen($text), $q['max_ajax_payload']
-                ));
-            }
-// validation langues (déjà majoritairement couverte par preflight)
-$L = self::languages();
-$src = $source ?: $L->get_source_language();
-if ($L->get_by_code($src) === null) throw new \RuntimeException("Invalid source language: $src");
-if ($L->get_by_code($target) === null) throw new \RuntimeException("Invalid target language: $target");
-if (!$L->is_enabled($target) && $target !== $src) throw new \RuntimeException("Target not enabled: $target");
-if ($text === '' || $src === $target) {
-return ['ok'=>true, 'translated'=>$text];
-            }
-// Direct vs Queue (principe appliqué)
-if (mb_strlen($text) <= $q['max_direct_chars']) {
-$translated = self::translate_unit($text, $src, $target, $mode);
-self::db()->upsert_translation($text, $src, $target, $translated);
-
-// Logging ajouté: Log traduction directe réussie
-$logger = new YUZ_Logger();
-$logger->log('success', 'Direct translation completed', [
-  'source' => $src,
-  'target' => $target,
-  'text_length' => mb_strlen($text)
-]);
-
-return ['ok'=>true, 'translated'=>$translated];
-            }
-// Gros texte → job
-$jobId = self::enqueue_job($text, $src, $tgt, $mode, $meta, $q);
-return ['ok'=>true, 'queued'=>true, 'job_id'=>$jobId];
-        }
-/** Unitaire/small path */
-private static function translate_unit(string $text, string $src, string $tgt, string $mode): string {
-return YUZ_Translation_Manager::translate(
-$text, $src, $tgt,
-                ['mode'=>$mode, 'settings'=> self::settings()]
-            );
-        }
-/** Découpage  enqueue (cron/Action Scheduler) */
+    $payload = self::validate_payload($payload);
+    $text=$payload['text']; $source=$payload['source']; $target=$payload['target'];
+    if ($text === '' || $source === '' || $target === '' || $target === 'auto') throw new InvalidArgumentException('invalid_translation_request');
+    $q=self::qos();
+    if (strlen($text)>200000) throw new InvalidArgumentException('translation_payload_too_large');
+    if (mb_strlen($text) <= min(5000,$q['max_direct_chars'])) {
+        return ['ok'=>true,'translated'=>self::tm()->translate_text($text,$source,$target),'persisted'=>false,'status'=>2];
+    }
+    $id=self::enqueue_job($text,$source,$target,$payload['mode'],$payload['meta'],$q);
+    return ['ok'=>true,'queued'=>true,'job_id'=>$id,'status'=>'queued'];
+}
 public static function enqueue_job(string $text, string $src, string $tgt, string $mode, array $meta=[], ?array $qos=null): string {
-$q = $qos ?: self::qos();
-$chunks = self::smart_split($text, $q['max_chunk_chars']);
-$jobId = self::db()->create_translation_job($src, $tgt, $mode, count($chunks), array_merge($meta, ['qos'=>$q]));
-foreach ($chunks as $i => $chunk) {
-self::db()->enqueue_chunk($jobId, $i, $chunk);
-            }
-// Planifie un run asynchrone
-if (function_exists('as_enqueue_async_action')) {
-as_enqueue_async_action('yuz_tra_run_job', ['job_id'=>$jobId], 'yuz-tra');
-            } else {
-if (!wp_next_scheduled('yuz_tra_run_job', [$jobId])) {
-wp_schedule_single_event(time() + (5 * 60), 'yuz_tra_run_job', [$jobId]); // syntax error, unexpected integer "5", expecting ")" // yntax error, unexpected integer "5", expecting ")"
-                }
-            }
-
-// Logging ajouté: Log job enqueued
-$logger = new YUZ_Logger();
-$logger->log('info', 'Translation job enqueued', [
-  'job_id' => $jobId,
-  'source' => $src,
-  'target' => $tgt,
-  'mode' => $mode,
-  'chunk_count' => count($chunks),
-  'text_length' => mb_strlen($text)
-]);
-
-return $jobId;
-        }
-/** Worker: traite N chunks par passe. Ré-appointe l’exécution jusqu’à completion. */
-public static function run_job(string $jobId): void {
-$job = self::db()->get_job($jobId);
-if (!$job || $job['status'] === 'done' || $job['status'] === 'error') return;
-$q = isset($job['meta']['qos']) && is_array($job['meta']['qos']) ? $job['meta']['qos'] : self::qos();
-$batchSize = (int) $q['max_chunks_per_run'];
-$pending = self::db()->claim_pending_chunks($jobId, $batchSize);
-
-// Logging ajouté: Log début du run job
-$logger = new YUZ_Logger();
-$logger->log('info', 'Running translation job', [
-  'job_id' => $jobId,
-  'batch_size' => $batchSize,
-  'pending_chunks' => count($pending)
-]);
-
-foreach ($pending as $c) {
-$attempts = 0;
-$maxRetries = (int) $q['max_retries'];
-while (true) {
-try {
-$tr = self::translate_unit($c['payload'], $job['src'], $job['tgt'], $job['mode']);
-self::db()->store_chunk_result($jobId, (int)$c['seq'], $tr);
-
-// Logging ajouté: Log chunk réussi
-$logger->log('success', 'Chunk translated successfully', [
-  'job_id' => $jobId,
-  'seq' => $c['seq'],
-  'attempts' => $attempts
-]);
-
-break;
-                    } catch (\Throwable $e) {
-$attempts;
-YUZ_Logger::log('warning','YUZ job chunk retry', ['job'=>$jobId,'seq'=>$c['seq'],'attempt'=>$attempts,'e'=>$e->getMessage()]);
-if ($attempts > $maxRetries) {
-YUZ_Logger::log('error','YUZ job chunk failed', ['job'=>$jobId,'seq'=>$c['seq'],'e'=>$e->getMessage()]);
-self::db()->mark_chunk_error($jobId, (int)$c['seq'], $e->getMessage());
-
-// Logging ajouté: Log chunk échoué après retries
-$logger->log('error', 'Chunk translation failed after max retries', [
-  'job_id' => $jobId,
-  'seq' => $c['seq'],
-  'attempts' => $attempts,
-  'error' => $e->getMessage()
-]);
-
-break;
-                        }
-// petit backoff
-usleep(150000);
-                    }
-                }
-            }
-// finalise si terminé, sinon replanifie un tour
-if (self::db()->maybe_finalize_job($jobId)) {
-
-// Logging ajouté: Log job complété
-$logger->log('success', 'Translation job completed', ['job_id' => $jobId]);
-
-return;
-            }
-if (function_exists('as_enqueue_async_action')) {
-as_enqueue_async_action('yuz_tra_run_job', ['job_id'=>$jobId], 'yuz-tra');
-            } else {
-wp_schedule_single_event(time() + 3, 'yuz_tra_run_job', [$jobId]);
-            }
-
-// Logging ajouté: Log replanification du job
-$logger->log('info', 'Job run incomplete, rescheduling next batch', ['job_id' => $jobId]);
-        }
+    $q=$qos ?: self::qos();
+    return YUZ_Translation_Jobs::create(self::smart_split($text,min(5000,$q['max_chunk_chars'])),$src,$tgt);
+}
+public static function run_job(string $jobId): void { YUZ_Translation_Jobs::run($jobId); }
 /** Split “safe” par phrases / taille (respecte max_chunk_chars) */
 private static function smart_split(string $text, int $limit): array {
 $text = trim($text);
@@ -535,17 +390,8 @@ return $out;
         }
 /** Suivi de job pour l’UI (barre de progression) */
 public static function get_job_status(string $jobId): array {
-$status = self::db()->get_job_status($jobId) ?: ['status'=>'unknown'];
-
-// Logging ajouté: Log requête de status
-$logger = new YUZ_Logger();
-$logger->log('debug', 'Job status requested', [
-  'job_id' => $jobId,
-  'status' => $status['status']
-]);
-
-return $status;
-        }
+    return YUZ_Translation_Jobs::status($jobId);
+}
 /* =========================
          * Validation utilitaire
          * ========================= */
@@ -585,4 +431,4 @@ return [
     }
 endif;
 // Hook du worker (cron / Action Scheduler fallback)
-add_action('yuz_tra_run_job', ['YUZ_Services','run_job'], 10, 1);
+// Job registration is owned by YUZ_Cron.

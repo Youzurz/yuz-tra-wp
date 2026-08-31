@@ -1,0 +1,51 @@
+name: Bug ou régression
+description: Une fonction ne produit pas le résultat attendu.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Merci. Ce ticket est public : aucun mot de passe, clé API, cookie, commande client ou HAR brut. Une difficulté d’usage peut aussi révéler un défaut du produit."
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      description: YUZ-TRA, WordPress, PHP et navigateur.
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact observé
+      options:
+        - Fonction bloquée
+        - Résultat incorrect
+        - Régression depuis une mise à jour
+        - Perte de données sans détail sensible ici
+        - Affichage ou ergonomie
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      description: Écran, langue, domaine Gettext et fournisseur sans clé. Indiquer si reproductible sur staging.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu et résultat obtenu
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Erreur ou capture expurgée
+      description: Supprimer noms, contenus sensibles, domaines privés et identifiants de session.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Vérification avant publication
+      options:
+        - label: Je n’ai joint aucun secret ni donnée personnelle de tiers.
+          required: true

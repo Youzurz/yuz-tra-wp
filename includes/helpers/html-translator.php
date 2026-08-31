@@ -25,9 +25,8 @@ if (!class_exists('YUZ_HTML_Translator')) {
          * @return string
          */
         public function translate_html(string $html, int $source_lang_id, int $target_lang_id): string {
-            if ($html === '' || !$this->translation_manager) {
-                return $html;
-            }
+            if ($html === '') return '';
+            if (!$this->translation_manager) throw new RuntimeException('translation_manager_unavailable');
 
             $wrapper_id = 'yuz-html-root-' . wp_generate_password(8, false);
             $document   = new \DOMDocument('1.0', 'UTF-8');
@@ -35,16 +34,17 @@ if (!class_exists('YUZ_HTML_Translator')) {
             $options = LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NOERROR | LIBXML_NOWARNING;
             $encoded = '<?xml encoding="utf-8" ?><div id="' . $wrapper_id . '">' . $html . '</div>';
 
-            libxml_use_internal_errors(true);
+            $previous_errors = libxml_use_internal_errors(true);
             $loaded = $document->loadHTML($encoded, $options);
             libxml_clear_errors();
+            libxml_use_internal_errors($previous_errors);
 
             if (!$loaded) {
-                return $html;
+                throw new RuntimeException('html_parse_failed');
             }
 
             $xpath = new \DOMXPath($document);
-            $nodes = $xpath->query(sprintf('//*[@id="%s"]//text()', $wrapper_id));
+            $nodes = $xpath->query(sprintf('//*[@id="%s"]//text()[not(ancestor::script or ancestor::style or ancestor::code or ancestor::*[@translate="no"] or ancestor::*[contains(concat(" ", normalize-space(@class), " "), " notranslate ")])]', $wrapper_id));
             if ($nodes instanceof \DOMNodeList) {
                 /** @var \DOMText $node */
                 foreach ($nodes as $node) {
@@ -62,16 +62,18 @@ if (!class_exists('YUZ_HTML_Translator')) {
                         $translated = $this->translation_manager->translate($original, $source_lang_id, $target_lang_id);
                         if (is_string($translated) && $translated !== '') {
                             $node->nodeValue = $translated;
+                        } else {
+                            throw new RuntimeException('empty_from_provider');
                         }
                     } catch (\Throwable $e) {
-                        continue;
+                        throw new RuntimeException('html_translation_failed', 0, $e);
                     }
                 }
             }
 
             $wrapper = $document->getElementById($wrapper_id);
             if (!$wrapper) {
-                return $html;
+                throw new RuntimeException('html_wrapper_missing');
             }
 
             $output = '';
@@ -79,7 +81,8 @@ if (!class_exists('YUZ_HTML_Translator')) {
                 $output .= $document->saveHTML($child);
             }
 
-            return $output !== '' ? $output : $html;
+            if ($output === '') throw new RuntimeException('html_serialization_failed');
+            return $output;
         }
     }
 }

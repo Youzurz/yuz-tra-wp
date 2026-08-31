@@ -1,5 +1,3 @@
-
-
 /**
  * ===========================================================
  * YUZ Translation — Publish Controller v9.3+ (hardened)
@@ -8,6 +6,8 @@
  * Compatible avec : éditeur, inspecteur DOM, gettext
  * ===========================================================
  */
+console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Date());
+
 (function () {
     if (typeof window === 'undefined') {
         return;
@@ -15,6 +15,9 @@
 
     // Si déjà initialisé, on ne rebinde rien (évite les collisions)
     if (window.YUZ_PUBLISH && window.YUZ_PUBLISH.__v93hardened) {
+        try {
+            console.info('[YUZ_PUBLISH] Déjà initialisé, on saute le bootstrap dupliqué.');
+        } catch (_) { }
         return;
     }
 
@@ -94,6 +97,7 @@
                         credentials: 'include'
                     }).catch(() => { });
                 } catch (probeErr) {
+                    try { console.debug('[YUZ][PIPELINE][probe_failed]', probeErr); } catch (_) { }
                 }
             };
             send.enabled = true;
@@ -351,6 +355,12 @@
 
         async function publishBatch(ids = [], options = {}) {
             const normalized = normalizeIds(ids);
+            console.debug('[YUZ_PUBLISH] publishBatch called', {
+                ids: normalized,
+                options,
+                now: Date.now(),
+                lastPublishAt
+            });
             pipelineProbe('publish_attempt', {
                 count: normalized.length,
                 ids: normalized,
@@ -381,6 +391,13 @@
             } catch (authError) {
                 toast(AUTH_ERROR_MESSAGE, true);
                 pipelineProbe('publish_skip', { reason: 'not_logged_in', message: authError?.message || '' });
+                try {
+                    console.warn('[YUZ_PUBLISH] Authentication check failed', {
+                        message: authError?.message,
+                        code: authError?.code,
+                        status: authError?.status
+                    });
+                } catch (_) { }
                 return { success: false, error: authError, code: 'not_logged_in' };
             }
 
@@ -482,6 +499,13 @@
                 pipelineProbe('dock_skip', { reason: 'empty_ids' });
                 return;
             }
+
+            try {
+                console.info('[YUZ_PUBLISH] showDockReview called', {
+                    idsCount: normalizedIds.length,
+                    sample: normalizedIds.slice(0, 5)
+                });
+            } catch (_) { }
 
             const normalizedItems = normalizeItems(items, normalizedIds);
             const oldPanel = document.querySelector(SELECTORS.reviewPanel);

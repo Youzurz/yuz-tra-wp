@@ -7,11 +7,10 @@
  *   includes/class-yuz-editor.php
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Charge l’implémentation canonique si nécessaire.
 require_once __DIR__ . '/class-yuz-editor.php';
 
 // Intentionnel : aucun add_action(), aucun add_filter(), aucun echo.
 // On évite toute redéclaration/duplication de hooks.
-

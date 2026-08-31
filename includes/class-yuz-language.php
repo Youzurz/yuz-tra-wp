@@ -64,7 +64,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 // Include the contracts file
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 use YUZTRA\Interfaces\Language as LanguageInterface;
@@ -188,7 +188,7 @@ if (!self::$debug) {
 return;
             }
 $prefix = self::$prefixes[$level] ?? self::$prefixes['info'];
+error_log(sprintf('%s %s: %s', $prefix, $message, print_r($context, true)));
         }
     }
 }
-

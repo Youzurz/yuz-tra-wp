@@ -1,4 +1,3 @@
-
 (() => {
   // Wait until PHP localized payload is present
   function ready(fn){ if (document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }

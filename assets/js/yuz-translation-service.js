@@ -1,5 +1,3 @@
-
-
 /**
  * assets/js/yuz-translation-service.js
  *
@@ -222,6 +220,7 @@ async function startTranslation(opts = {}) {
   for (const [key, value] of Object.entries(required)) {
     if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
       // eslint-disable-next-line no-console
+      console.error(`Paramètre ${key} manquant`, required);
       throw new Error(`Paramètre ${key} manquant`);
     }
   }

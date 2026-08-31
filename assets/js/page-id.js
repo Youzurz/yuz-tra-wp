@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 (function (window, document) {
     "use strict";
 
@@ -31,6 +28,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
         window.CLAR.page_id = pageId;
     }
 
-    if (window.CLAR && window.CLAR.debug && window.console && yuz_release_console.info) {
+    if (window.CLAR && window.CLAR.debug && window.console && console.info) {
+        console.info("CLAR page-id fallback initialised.", pageId);
     }
 })(window, document);

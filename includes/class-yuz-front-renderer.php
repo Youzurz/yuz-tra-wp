@@ -285,6 +285,7 @@ if (!class_exists('YUZ_Front_Renderer')) {
                     ]);
                 }
                 if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('[YUZ-TRA] convert_url failure: ' . $e->getMessage());
                 }
                 return $url;
             }
@@ -416,7 +417,7 @@ if (!class_exists('YUZ_Front_Renderer')) {
             }
             if (is_string($node)) {
                 // Attempt to translate HTML snippets
-                if (strip_tags($node) !== $node) {
+                if (wp_strip_all_tags($node) !== $node) {
                     return self::translate_html_document($node);
                 }
             }

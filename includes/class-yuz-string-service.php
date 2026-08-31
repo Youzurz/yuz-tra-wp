@@ -43,7 +43,7 @@ class YUZ_String_Service {
         ));
 
         if ($existing) {
-            $wpdb->update(
+            $result = $wpdb->update(
                 $table,
                 [
                     'translated' => $record['translated'],
@@ -52,11 +52,11 @@ class YUZ_String_Service {
                 ],
                 ['id' => (int) $existing]
             );
-            return (int) $existing;
+            return $result === false ? 0 : (int) $existing;
         }
 
-        $wpdb->insert($table, $record);
-        return (int) $wpdb->insert_id;
+        $result = $wpdb->insert($table, $record);
+        return $result === false ? 0 : (int) $wpdb->insert_id;
     }
 
     public static function save_slug(array $row): bool {
@@ -88,4 +88,3 @@ class YUZ_String_Service {
         return $result !== false;
     }
 }
-

@@ -65,7 +65,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Include the contracts file
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
@@ -103,19 +103,23 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
     // public function translate(string $text, string $source_lang, string $target_lang, array $settings) {
     public function translate($text, $source_lang, $target_lang, $settings): ?string {
         // DO: Perform translation using Google Translate API
-        if (empty($this->apiKey)) {
+        error_log('YUZ-TRA: [DO] Translating using Google Translate API at ' . current_time('mysql'));
+
+        $api_key = !empty($settings['api_key']) ? (string) $settings['api_key'] : (string) $this->apiKey;
+        if (empty($api_key)) {
+            error_log('YUZ-TRA: [ERROR] Google Translate API key not provided');
             return null;
         }
 
         $endpoint = $settings['endpoint'] ?? 'https://translation.googleapis.com/language/translate/v2';
-        $url = $endpoint . '?key=' . urlencode($this->apiKey);
+        $url = $endpoint . '?key=' . urlencode($api_key);
 
         // Google Translate API expects language codes in a specific format (e.g., "en-US" instead of "en_US")
         $source_lang = str_replace('_', '-', $source_lang);
         $target_lang = str_replace('_', '-', $target_lang);
 
         // Prepare the API request
-        $response = $this->httpClient->post($url, [
+        $request_args = [
             'body' => json_encode([
                 'q' => $text,
                 'source' => $source_lang,
@@ -125,7 +129,10 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
             'headers' => [
                 'Content-Type' => 'application/json',
             ],
-        ]);
+        ];
+        $response = $this->httpClient
+            ? $this->httpClient->post($url, $request_args)
+            : wp_remote_post($url, $request_args);
 
         // Vérification ajoutée, adaptée du second extrait (DeepL)
         YUZ_Health_Check::ensure(
@@ -140,6 +147,7 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
         );
 
         if (is_wp_error($response)) {
+            error_log('YUZ-TRA: [ERROR] Google Translate API request failed: ' . $response->get_error_message());
             return null;
         }
 
@@ -148,14 +156,18 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
 
         // Check for errors in the response
         if (isset($data['error'])) {
+            error_log('YUZ-TRA: [ERROR] Google Translate API error: ' . $data['error']['message']);
             return null;
         }
 
         // Extract the translated text
         if (!isset($data['data']['translations'][0]['translatedText'])) {
+            error_log('YUZ-TRA: [ERROR] Google Translate API response invalid: ' . print_r($body, true));
             return null;
         }
 
+        error_log("YUZ-TRA: [CHECK] Google Translate translation succeeded: " . $data['data']['translations'][0]['translatedText'] . ' at ' . current_time('mysql'));
+        error_log("YUZ-TRA: [ACT] Google Translate translation completed successfully at " . current_time('mysql'));
         return $data['data']['translations'][0]['translatedText'];
     }
 
@@ -171,9 +183,12 @@ class YUZ_Google_Translate_Adapter implements TranslateAdapterInterface {
 public function test_api_conn(array $settings): bool
 {
     // DO: Perform connection test using Google Translate API
+    error_log('YUZ-TRA: [DO] Testing Google Translate connection at ' . current_time('mysql'));
+
     // Récupère la clé API (injectée ou passée en settings)
     $apiKey = $settings['api_key'] ?? $this->apiKey;
     if (empty($apiKey)) {
+        error_log('YUZ-TRA: [ERROR] Google Translate API key not provided for connection test');
         return false;
     }
 
@@ -194,6 +209,8 @@ public function test_api_conn(array $settings): bool
 
     if (is_wp_error($response)) {
         $error_message = $response->get_error_message();
+        error_log("YUZ-TRA: [CHECK] Google Translate connection test failed: " . $error_message . ' at ' . current_time('mysql'));
+        error_log("YUZ-TRA: [ACT] Google Translate connection test failed at " . current_time('mysql'));
         return false;
     }
 
@@ -204,9 +221,13 @@ public function test_api_conn(array $settings): bool
     // Échec si HTTP ≠ 200 ou réponse d’erreur
     if ($code !== 200 || isset($data['error'])) {
         $message = isset($data['error']['message']) ? $data['error']['message'] : 'Invalid response code: ' . $code;
+        error_log("YUZ-TRA: [CHECK] Google Translate connection test failed with status: " . $code . ' - ' . $message . ' at ' . current_time('mysql'));
+        error_log("YUZ-TRA: [ACT] Google Translate connection test failed at " . current_time('mysql'));
         return false;
     }
 
+    error_log("YUZ-TRA: [CHECK] Google Translate connection test succeeded at " . current_time('mysql'));
+    error_log("YUZ-TRA: [ACT] Google Translate connection test completed successfully at " . current_time('mysql'));
     return true;
 }
 }
@@ -263,4 +284,3 @@ public function translate($text, $source, $target, $settings) {
     return $data['data']['translations'][0]['translatedText'] ?? null;
 }
 */
-

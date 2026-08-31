@@ -59,7 +59,7 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-defined('ABSPATH') or exit;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 require_once YUZ_TRA_INCLUDES . 'class-yuz-url-converter.php';
@@ -509,6 +509,7 @@ class YUZ_Rewrite implements RewriteInterface {
             return $this->url_converter->get_url_for_language($active_locale, $url, $context);
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('[YUZ-TRA][WARN] convert_url failed: ' . $e->getMessage());
             }
             return $url;
         } finally {
@@ -595,7 +596,7 @@ class YUZ_Rewrite implements RewriteInterface {
             $default_locale = $this->get_default_locale();
 
             if (strcasecmp($active_locale, $default_locale) !== 0) {
-                $path        = parse_url($current_url, PHP_URL_PATH) ?: '/';
+                $path        = wp_parse_url($current_url, PHP_URL_PATH) ?: '/';
                 $first_seg   = trim(explode('/', ltrim($path, '/'))[0] ?? '');
                 $expected    = $this->slug_for_locale($active_locale);
 
@@ -679,12 +680,12 @@ class YUZ_Rewrite implements RewriteInterface {
         if (!current_user_can('manage_options')) {
             wp_send_json_error([
                 'code'    => 'unauthorized',
-                'message' => __('Unauthorized', 'yuz_translation'),
+                'message' => __('Unauthorized', 'yuz-translation'),
             ], 403);
         }
         $this->maybe_flush_rules();
         wp_send_json_success([
-            'message' => __('Rewrite rules flushed', 'yuz_translation'),
+            'message' => __('Rewrite rules flushed', 'yuz-translation'),
         ]);
     }
 
@@ -723,6 +724,13 @@ class YUZ_Rewrite implements RewriteInterface {
 
     private function should_skip_canonical_redirect(): bool
     {
+        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+        // A canonical redirect must never consume a form or payment payload.
+        if (!in_array($method, ['GET', 'HEAD'], true)) {
+            return true;
+        }
+
         if (is_admin() || wp_doing_ajax()) {
             return true;
         }
@@ -777,7 +785,7 @@ class YUZ_Rewrite implements RewriteInterface {
             return;
         }
 
-        $request_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $request_path = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
         $path_is_root = $request_path === null || $request_path === '' || $request_path === '/';
         if (!$path_is_root) {
             return;
@@ -810,7 +818,7 @@ class YUZ_Rewrite implements RewriteInterface {
     {
         $logger = new YUZ_Logger();
         $requested_lang = $query->get('lang');
-        $request_path   = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $request_path   = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
         $path_is_root   = $request_path === null || $request_path === '' || $request_path === '/';
 
         if (!($query instanceof \WP_Query)) {

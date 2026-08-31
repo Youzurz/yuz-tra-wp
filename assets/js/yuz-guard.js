@@ -1,4 +1,3 @@
-
 /**
  * YUZ Guard — shared sanitization and translation metadata helpers.
  * The goal is to keep only real human-facing strings and map them to DB IDs.

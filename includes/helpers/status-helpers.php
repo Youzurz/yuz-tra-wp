@@ -41,11 +41,11 @@ if (!function_exists('yuz_tra_status_catalog')) {
     function yuz_tra_status_catalog(): array
     {
         return [
-            YUZ_TRA_STATUS_DRAFT        => ['key' => 'draft',      'label' => __('Draft', 'yuz_tra')],
-            YUZ_TRA_STATUS_IN_REVIEW    => ['key' => 'in_review',  'label' => __('In review', 'yuz_tra')],
-            YUZ_TRA_STATUS_REVIEWED     => ['key' => 'reviewed',   'label' => __('Reviewed', 'yuz_tra')],
-            YUZ_TRA_STATUS_PUBLISHED    => ['key' => 'published',  'label' => __('Published', 'yuz_tra')],
-            YUZ_TRA_STATUS_ARCHIVED     => ['key' => 'archived',   'label' => __('Archived', 'yuz_tra')],
+            YUZ_TRA_STATUS_DRAFT        => ['key' => 'draft',      'label' => __('Draft', 'yuz-translation')],
+            YUZ_TRA_STATUS_IN_REVIEW    => ['key' => 'in_review',  'label' => __('In review', 'yuz-translation')],
+            YUZ_TRA_STATUS_REVIEWED     => ['key' => 'reviewed',   'label' => __('Reviewed', 'yuz-translation')],
+            YUZ_TRA_STATUS_PUBLISHED    => ['key' => 'published',  'label' => __('Published', 'yuz-translation')],
+            YUZ_TRA_STATUS_ARCHIVED     => ['key' => 'archived',   'label' => __('Archived', 'yuz-translation')],
         ];
     }
 }
@@ -54,7 +54,8 @@ if (!function_exists('yuz_tra_status_label')) {
     function yuz_tra_status_label(int $status): string
     {
         $catalog = yuz_tra_status_catalog();
-        return $catalog[$status]['label'] ?? sprintf(__('Status #%d', 'yuz_tra'), $status);
+        /* translators: %d: translation status ID. */
+        return $catalog[$status]['label'] ?? sprintf(__('Status #%d', 'yuz-translation'), $status);
     }
 }
 
@@ -182,6 +183,10 @@ if (!function_exists('yuz_tra_status_for_origin')) {
     {
         $origin = strtolower($origin);
         $mode   = $mode ? strtolower($mode) : null;
+        if ($mode !== 'manual' && ($mode === 'auto' || $is_batch || in_array($origin,['machine','dom'],true))
+            && class_exists('YUZ_Services') && YUZ_Services::tm()->requires_review()) {
+            return YUZ_TRA_STATUS_IN_REVIEW;
+        }
 
         // Mode has priority over origin, to respect the prompt defaults.
         if ($mode === 'manual') {

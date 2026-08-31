@@ -1,4 +1,3 @@
-
 (function freezeYuzNonces(globals){
   function tryFreeze(obj){
     try{

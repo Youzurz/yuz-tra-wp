@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 // Mute YUZ console noise by default; set yuzTraSettings.silent_logs = false to re-enable.
 (function () {
   const settings = window.yuzTraSettings || {};
@@ -9,9 +6,9 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   const mutePrefixes = [/^\[YUZ/i, /^\[yuz/i, /^\[toast]/i, /^\[INSTANT]/i, /^\[SMART]/i];
   const shouldMute = (first) => typeof first === 'string' && mutePrefixes.some((rx) => rx.test(first));
   ['warn', 'info', 'log', 'debug'].forEach((level) => {
-    const orig = yuz_release_console[level];
+    const orig = console[level];
     if (!orig) return;
-    yuz_release_console[level] = function (...args) {
+    console[level] = function (...args) {
       if (args.length && shouldMute(args[0])) return;
       try { return orig.apply(console, args); } catch (_) { /* silent */ }
     };
@@ -23,7 +20,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   const DBG = /\byuzdebug=1\b/.test(window.location.search || '');
   const log = (level, msg, ctx) => {
     if (!DBG) return;
-    const fn = yuz_release_console[level] || yuz_release_console.log;
+    const fn = console[level] || console.log;
     try { fn.call(console, '[YUZ][TE][DBG]', msg, ctx || {}); } catch (_) { }
   };
   log('info', '✏️ yuz-translation-editor.js chargé', { ts: new Date().toISOString() });
@@ -275,11 +272,13 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
     report.checks = Object.assign({}, report.checks || {}, checks);
     report.checks.first_failure = firstFailure(report.checks);
 
-    if (DEBUG && console && yuz_release_console.table) {
+    if (DEBUG && console && console.table) {
+      console.table(report.checks);
     }
     if (tag) {
-      if (console && yuz_release_console.info) yuz_release_console.info('[YUZ][Overlay] module tag OK');
-    } else if (console && yuz_release_console.warn) {
+      if (console && console.info) console.info('[YUZ][Overlay] module tag OK');
+    } else if (console && console.warn) {
+      console.warn('[YUZ][Overlay] module tag NOT found');
     }
 
     if (!report.checks.container && typeof MutationObserver === 'function') {
@@ -289,7 +288,8 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
           report.checks.container = true;
           settled = true;
           observer.disconnect();
-          if (DEBUG && console && yuz_release_console.info) {
+          if (DEBUG && console && console.info) {
+            console.info('[YUZ][Overlay] editor container detected via observer');
           }
         }
       });
@@ -297,7 +297,8 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
       setTimeout(() => {
         if (!settled) {
           observer.disconnect();
-          if (DEBUG && console && yuz_release_console.warn) {
+          if (DEBUG && console && console.warn) {
+            console.warn('[YUZ][Overlay] container observer timed out after 10s');
           }
         }
       }, 10000);
@@ -327,9 +328,9 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
           s.setAttribute('crossorigin', crossorigin || 'anonymous');
         }
         document.head.appendChild(s);
-        if (console && yuz_release_console.warn) yuz_release_console.warn('[YUZ][Overlay] Legacy UMD loaded as fallback');
+        if (console && console.warn) console.warn('[YUZ][Overlay] Legacy UMD loaded as fallback');
       } catch (err) {
-        if (console && yuz_release_console.error) yuz_release_console.error('[YUZ][Overlay] Fallback UMD failed', err);
+        if (console && console.error) console.error('[YUZ][Overlay] Fallback UMD failed', err);
       }
     }
   });
@@ -370,11 +371,14 @@ const __NONCE_ROUTES__ = {
 const __ACTION_TIMEOUTS__ = {
   yuz_tra_tm_translate: 30000,
   yuz_translate: 30000,
+  yuz_tra_tm_get_translations: 45000,
+  yuz_tra_tm_search: 20000,
   yuz_tra_ws_get_languages: 15000
 };
 
 // Lightweight internal diagnostics (no-op if console missing)
 const diagProbe = (label, payload = {}) => {
+  try { console.debug('[YUZ][DIAG]', label, payload); } catch (_) { }
 };
 
 /** Retourne le meilleur nonce pour une action donnée */
@@ -456,6 +460,17 @@ async function yuzPost(action, payload = {}) {
       throw error;
     }
     try { return JSON.parse(txt); } catch (_) { return txt; }
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      const timeoutError = new Error(`Request aborted after ${timeoutMs}ms`);
+      timeoutError.name = 'AbortError';
+      timeoutError.code = 'abort';
+      timeoutError.status = 0;
+      timeoutError.statusText = 'abort';
+      timeoutError.responseText = '';
+      throw timeoutError;
+    }
+    throw error;
   } finally {
     clearTimeout(to);
   }
@@ -529,6 +544,7 @@ async function yuzPost(action, payload = {}) {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
       });
     } catch (err) {
+      try { console.warn('[YUZ][axios interceptor] failed', err); } catch (_) { }
     }
     return cfg;
   });
@@ -549,11 +565,13 @@ const $ = window.jQuery;
   // Guards & short helpers
   // -------------------------------
 
+  console.log("🛠 traceability.js chargé");
   if (!window || !document) return;
 
   let moduleTag = document.querySelector('#yuz-te-module');
   const isImportedModule = (typeof document.currentScript === 'undefined' || document.currentScript === null);
   if (!moduleTag && !isImportedModule) {
+    console.warn('[YUZ DIAG] module tag NOT found');
   }
 
   // Be tolerant: some environments localize late. Retry once on DOMContentLoaded
@@ -568,6 +586,7 @@ const $ = window.jQuery;
   }
 
   if (!Y.ajax_url) {
+    console.error('[YUZ][TE] ajax_url manquant — abandon.');
     return;
   }
 
@@ -691,9 +710,11 @@ const $ = window.jQuery;
         script.src = publishControllerScriptUrl();
         script.async = true;
         script.onload = () => {
+          try { console.info('[YUZ][TE] publish-controller assets loaded (lazy)'); } catch (_) { }
           resolve(true);
         };
         script.onerror = () => {
+          try { console.warn('[YUZ][TE] publish-controller script failed to load'); } catch (_) { }
           resolve(false);
         };
         document.head.appendChild(script);
@@ -721,7 +742,7 @@ const $ = window.jQuery;
 
   const TGTS = translationLangs.filter(Boolean).map(String);
   const HAS_TARGETS = translationLangs.length > 0;
-  const CAN_SWAP_LANG = !!(CFG && CFG.flags && (CFG.flags.te_allow_source_swap || CFG.flags.allow_source_swap));
+  const CAN_SWAP_LANG = CFG?.flags?.te_allow_source_swap !== false && CFG?.flags?.allow_source_swap !== false;
   const canonicalMode = (mode) => {
     const value = (mode || '').toString().toLowerCase();
     if (value === 'advanced' || value === 'full') return 'advanced';
@@ -750,12 +771,19 @@ const $ = window.jQuery;
   setUiDataset(INITIAL_MODE);
 
   const fromLang = (CFG?.effective_from ?? CFG?.source_language ?? CFG?.default_language ?? 'en_US');
+  console.log('[YUZ-TE] boot', {
+    from: fromLang,
+    toList: translationLangs,
+    names: CFG.language_names || {}
+  });
+  try { console.table(translationLangs); } catch (_) { }
+
   const LVL = { critical: '🟥 [CRITICAL]', warning: '🟨 [WARNING]', success: '🟩 [SUCCESS]', info: '🟦 [INFO]' };
   const log = (level, msg, ctx) => {
     const ts = new Date().toISOString();
     let out = `${LVL[level] || ''} ${msg} at ${ts}`;
     if (ctx) { try { out += ` | ${JSON.stringify(ctx)}`; } catch (_) { } }
-    (level === 'critical' ? yuz_release_console.error : (level === 'warning' ? yuz_release_console.warn : yuz_release_console.log))(out);
+    (level === 'critical' ? console.error : (level === 'warning' ? console.warn : console.log))(out);
   };
   let hvyNonceWarned = false;
 
@@ -766,6 +794,7 @@ const $ = window.jQuery;
         window.CLAR.toast(message, { type });
       } else {
         const m = (type === 'error') ? 'error' : (type === 'warning' ? 'warn' : 'log');
+        console[m]('[toast]', message);
       }
     } catch (_) { }
   };
@@ -859,6 +888,7 @@ const $ = window.jQuery;
             credentials: 'include'
           }).catch(() => { });
         } catch (probeErr) {
+          try { console.debug('[YUZ][PIPELINE][probe_failed]', probeErr); } catch (_) { }
         }
       };
       send.enabled = true;
@@ -977,7 +1007,7 @@ const $ = window.jQuery;
   function normalizeStrings(data) {
     const rows = pickArray(data || {}, ['strings', 'results', 'translations']);
     return rows.map(s => {
-      const translationRawId = s.translation_id ?? s.translationId ?? s.dbID ?? 0;
+      const translationRawId = s.translation_id ?? s.translationId ?? s.dbID ?? (s.source_lang_id && s.target_lang_id ? s.id : 0);
       const translationNumericId = toInt(translationRawId);
       const stringRawId = s.string_id ?? s.id ?? s.dbID ?? translationRawId;
       const stringNumericId = toInt(stringRawId);
@@ -993,7 +1023,8 @@ const $ = window.jQuery;
       if (targetCode && !baseTranslations[targetCode] && translatedText) {
         baseTranslations[targetCode] = normalizeTranslationEntry({
           translated: translatedText,
-          status: s.status != null ? s.status : '1'
+          status: s.status != null ? s.status : '1',
+          translation_id: translationNumericId
         });
       }
 
@@ -1001,7 +1032,7 @@ const $ = window.jQuery;
         id: stringKey || (stringNumericId ? String(stringNumericId) : ''),
         translation_id: translationNumericId,
         string_id: stringNumericId,
-        original: asString(s.original || s.source || s.text || ''),
+        original: asString(s.original ?? s.original_text ?? s.source ?? s.text ?? ''),
         page_url: asString(s.page_url || s.url || ''),
         post_id: toInt(s.post_id || s.page_id || 0),
         context: asString(s.context || s.block_context || 'content'),
@@ -1106,6 +1137,7 @@ const $ = window.jQuery;
     let nonceValue;
     try { nonceValue = nonceFor(action); }
     catch (e) {
+      try { console.error('[YUZ][TE] Sécurité: nonce manquant pour', action); } catch (_) { }
       const rejected = $.Deferred();
       rejected.reject(e);
       return rejected.promise();
@@ -1147,6 +1179,7 @@ const $ = window.jQuery;
     try {
       document.dispatchEvent(new CustomEvent(name, { detail }));
     } catch (err) {
+      console.warn('[YUZ][bus] dispatch failed', err);
     }
   };
 
@@ -1156,10 +1189,13 @@ const $ = window.jQuery;
       if (wired) return;
       wired = true;
       document.addEventListener('yuz:translate:request', (e) => {
+        try { console.info('[YUZ] ➡️ request', e.detail); } catch (_) { }
       });
       document.addEventListener('yuz:translate:success', (e) => {
+        try { console.info('[YUZ] ✅ success', e.detail); } catch (_) { }
       });
       document.addEventListener('yuz:translate:error', (e) => {
+        try { console.warn('[YUZ] ❌ error', e.detail); } catch (_) { }
       });
     };
   })();
@@ -1271,17 +1307,20 @@ const $ = window.jQuery;
         const peek = Object.assign({}, payload);
         if (typeof peek.text === 'string') peek.text = `len:${peek.text.length}`;
         if (typeof peek.original_text === 'string') peek.original_text = `len:${peek.original_text.length}`;
+        console.info('[YUZ][TE][AJAX ▶]', action, peek);
       } catch (_) { }
     }
 
     apiPost(action, payload)
       .done(result => {
         if (DEBUG) {
+          try { console.info('[YUZ][TE][AJAX ✓]', action, (result && result.success === false) ? result : { success: true }); } catch (_) { }
         }
         resolve(result);
       })
       .fail(error => {
         if (DEBUG) {
+          try { console.warn('[YUZ][TE][AJAX ✗]', action, error && (error.responseText || error.message || error)); } catch (_) { }
         }
         reject(error);
       });
@@ -1316,7 +1355,7 @@ const $ = window.jQuery;
     if (!window.ajaxurl && TRANSLATE_ENDPOINT) window.ajaxurl = TRANSLATE_ENDPOINT;
     if (!window.yuzNonce && TRANSLATE_NONCE) window.yuzNonce = TRANSLATE_NONCE;
     if (!TRANSLATE_NONCE) {
-      try { yuz_release_console.warn('[YUZ] Missing nonce for yuz_translate; instant mode may fail.'); } catch (_) { }
+      try { console.warn('[YUZ] Missing nonce for yuz_translate; instant mode may fail.'); } catch (_) { }
     }
   }
 
@@ -1405,6 +1444,7 @@ const $ = window.jQuery;
 
   async function translateAjax({ text, from, to }) {
     const cleaned = stripCssJsNoise(text || '');
+    try { console.debug('[YUZ][translateAjax] cleaned', cleaned.slice(0, 160)); } catch (_) { }
     if (!cleaned) throw new Error('empty_text');
 
     const requestedFrom = typeof from === 'string' ? from.trim() : (from || '');
@@ -1444,6 +1484,7 @@ const $ = window.jQuery;
         const backendError = response?.error || response?.data?.error || response?.message || response?.data?.message;
         if (backendError) throw new Error(`translate_failed:${backendError}`);
 
+        try { console.warn('[YUZ][translateAjax] RAW JSON (no translated_text)', response); } catch (_) { }
         const pair = `${fromCanon || requestedFrom || 'auto'}->${toCanon || requestedTo || 'auto'}`;
         const hint = configHint();
         throw new Error(hint ? `empty_translation (${hint})` : `translate_failed:pair_not_supported (${pair})`);
@@ -1527,10 +1568,15 @@ const $ = window.jQuery;
         target: tgt,
       };
 
+      console.groupCollapsed('[YUZ][TM] ⇢ POST', reqId);
+      console.debug('[YUZ][TM] params', { source: src || 'auto', target: tgt, items: items.length });
+
       let json;
       try {
         json = await yuzPost('yuz_tra_tm_translate', payload);
       } catch (error) {
+        console.warn('[YUZ][TM] ✗', error);
+        console.groupEnd();
         throw error;
       }
 
@@ -1540,6 +1586,8 @@ const $ = window.jQuery;
 
       if (!json || json.success !== true) {
         const err = json?.data?.message || json?.data?.error || json?.message || 'tm_failed';
+        console.warn('[YUZ][TM] ✗', err);
+        console.groupEnd();
         throw new Error(err);
       }
 
@@ -1572,9 +1620,12 @@ const $ = window.jQuery;
             ta.dispatchEvent(new Event('input', { bubbles: true }));
           }
         }
+        console.debug('[YUZ][TM] ✓ translatedSingle', translatedSingle);
       } else if (singleMode) {
+        try { console.warn('[YUZ][TM] ✓ but no translatedSingle — RAW JSON', json); } catch (_) { }
       }
 
+      console.groupEnd();
       return json;
     }
 
@@ -1582,6 +1633,7 @@ const $ = window.jQuery;
     // Only retry with raw requested codes in single-item mode. In batch mode,
     // translatedSingle is intentionally empty and a retry would be redundant.
     if (singleMode && !json?.translated_text && (fromCanon !== fromInput || toCanon !== toInput)) {
+      console.info('[YUZ][TM] retry with requested codes', { from: fromInput || 'auto', to: toInput || '', reqId });
       json = await postOnce(fromInput, toInput);
     }
 
@@ -1686,12 +1738,13 @@ const $ = window.jQuery;
 .yuz-header-row--mode .yuz-btn--mode{min-width:0;}
 .yuz-header-row--mode .yuz-header-strings{flex:1 1 auto;display:inline-flex;justify-content:center;min-width:0;}
 .yuz-header-row--main .yuz-btn{flex:1 1 0;min-width:0;}
-.yuz-btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(148,163,184,.45);background:rgba(248,250,252,.85);color:#0f172a;padding:.6rem .95rem;border-radius:12px;font:600 12px/1.2 'SF Pro Text',system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;transition:all .18s ease;box-shadow:0 1px 4px rgba(15,23,42,.08);min-width:max-content;line-height:1;}
+.yuz-btn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(148,163,184,.45);background:rgba(248,250,252,.85);color:#0f172a;-webkit-text-fill-color:currentColor;padding:.6rem .95rem;border-radius:12px;font:600 12px/1.2 'SF Pro Text',system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;transition:all .18s ease;box-shadow:0 1px 4px rgba(15,23,42,.08);min-width:max-content;line-height:1;}
 .yuz-btn:hover{background:#f1f5f9;}
 .yuz-btn:focus{outline:none;box-shadow:0 0 0 3px rgba(14,165,233,.2);}
-.yuz-btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none;}
+.yuz-btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none;-webkit-text-fill-color:currentColor;}
 .yuz-btn--ghost{background:transparent;border:1px solid var(--yuz-border,rgba(148,163,184,.45));}
 .yuz-btn--primary{background:#0066cc;border-color:#0066cc;color:#fff;box-shadow:0 10px 24px rgba(0,102,204,.25);}
+.yuz-btn--primary[disabled],.yuz-btn--primary[aria-disabled="true"]{background:rgba(148,163,184,.18);border-color:rgba(148,163,184,.4);color:rgba(226,232,240,.7);-webkit-text-fill-color:rgba(226,232,240,.7);opacity:1;box-shadow:none;}
 .yuz-btn--accent{background:#22c55e;border-color:#22c55e;color:#fff;box-shadow:0 10px 24px rgba(34,197,94,.25);}
 .yuz-btn--warning{background:#f5c400;border-color:#f5c400;color:#1f2937;box-shadow:0 10px 24px rgba(245,196,0,.25);}
 .yuz-btn--danger{background:#ef4444;border-color:#ef4444;color:#fff;box-shadow:0 10px 26px rgba(239,68,68,.25);}
@@ -1742,14 +1795,34 @@ body.yuz-inspector-active #yuz-editor-container .yuz-modal{margin-right:320px;tr
 .yuz-inspector-dock{position:fixed;top:24px;right:-320px;width:300px;max-width:90vw;height:calc(100vh - 48px);background:rgba(15,23,42,.92);color:#f8fafc;border-radius:16px 0 0 16px;box-shadow:-20px 0 40px rgba(15,23,42,.35);display:flex;flex-direction:column;gap:14px;padding:18px 20px;pointer-events:auto;z-index:2147483647;transition:right .25s ease;}
 .yuz-inspector-dock.is-visible{right:24px;}
 .yuz-inspector-dock__title{font-size:15px;font-weight:600;margin:0;}
-.yuz-inspector-dock__controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.yuz-inspector-dock__controls{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:stretch;color-scheme:dark;}
+.yuz-inspector-dock__select{width:100%;max-width:100%;}
+.yuz-inspector-dock__quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.yuz-inspector-dock__quick-actions .yuz-btn{width:100%;min-width:0;}
+.yuz-inspector-dock__filter{width:100%;padding:.48rem .62rem;border-radius:10px;border:1px solid rgba(148,163,184,.45);background:rgba(17,24,39,.88) !important;color:#e2e8f0 !important;-webkit-text-fill-color:#e2e8f0 !important;font:500 12px/1.3 'SF Pro Text',system-ui,-apple-system,'Segoe UI',sans-serif;}
+.yuz-inspector-dock__filter::placeholder{color:rgba(226,232,240,.62);}
+.yuz-inspector-dock__filter:focus,.yuz-inspector-dock__filter:active{outline:none;background:rgba(17,24,39,.96) !important;border-color:rgba(52,211,153,.72);color:#34d399 !important;-webkit-text-fill-color:#34d399 !important;caret-color:#34d399;box-shadow:0 0 0 2px rgba(52,211,153,.18);}
+.yuz-inspector-dock .yuz-btn--ghost{background:rgba(15,23,42,.58) !important;border-color:rgba(148,163,184,.55) !important;color:#e2e8f0 !important;box-shadow:none;}
+.yuz-inspector-dock .yuz-btn--ghost:hover{background:rgba(30,41,59,.9) !important;border-color:rgba(148,163,184,.82) !important;color:#ffffff !important;}
+.yuz-inspector-dock [data-action="open-modal"]{background:rgba(14,165,233,.24) !important;border-color:rgba(56,189,248,.62) !important;color:#e0f2fe !important;}
+.yuz-inspector-dock [data-action="close-modal"]{background:rgba(239,68,68,.2) !important;border-color:rgba(248,113,113,.62) !important;color:#fee2e2 !important;}
+.yuz-inspector-dock [data-action="scan"]{background:rgba(16,185,129,.22) !important;border-color:rgba(52,211,153,.62) !important;color:#d1fae5 !important;}
+.yuz-inspector-dock [data-action="open-modal"]:focus,.yuz-inspector-dock [data-action="open-modal"]:active{border-color:rgba(56,189,248,.95) !important;color:rgba(56,189,248,.95) !important;background:rgba(14,165,233,.12) !important;box-shadow:0 0 0 2px rgba(56,189,248,.2) !important;}
+.yuz-inspector-dock [data-action="close-modal"]:focus,.yuz-inspector-dock [data-action="close-modal"]:active{border-color:rgba(248,113,113,.95) !important;color:rgba(248,113,113,.95) !important;background:rgba(239,68,68,.12) !important;box-shadow:0 0 0 2px rgba(248,113,113,.2) !important;}
+.yuz-inspector-dock [data-action="scan"]:focus,.yuz-inspector-dock [data-action="scan"]:active{border-color:rgba(52,211,153,.95) !important;color:rgba(52,211,153,.95) !important;background:rgba(16,185,129,.12) !important;box-shadow:0 0 0 2px rgba(52,211,153,.2) !important;}
+.yuz-inspector-dock [data-action="add-all"]{width:100%;appearance:none !important;-webkit-appearance:none !important;background:#0066cc !important;border-color:#0066cc !important;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;}
+.yuz-inspector-dock [data-action="add-all"]:hover,.yuz-inspector-dock [data-action="add-all"]:focus,.yuz-inspector-dock [data-action="add-all"]:focus-visible,.yuz-inspector-dock [data-action="add-all"]:active{outline:none;background:#0066cc !important;border-color:#38bdf8 !important;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;box-shadow:0 0 0 2px rgba(56,189,248,.2) !important;}
+.yuz-inspector-dock [data-action="add-all"][disabled],.yuz-inspector-dock [data-action="add-all"][disabled]:hover,.yuz-inspector-dock [data-action="add-all"][disabled]:focus,.yuz-inspector-dock [data-action="add-all"][disabled]:focus-visible,.yuz-inspector-dock [data-action="add-all"][disabled]:active{background:rgba(148,163,184,.18) !important;border-color:rgba(148,163,184,.4) !important;color:rgba(226,232,240,.7) !important;-webkit-text-fill-color:rgba(226,232,240,.7) !important;box-shadow:none !important;cursor:not-allowed;opacity:1 !important;}
 .yuz-inspector-dock__close{margin-left:auto;background:#ef4444;color:#fef2f2;border-color:rgba(248,113,113,.25);text-transform:uppercase;font-weight:600;letter-spacing:.03em;}
 .yuz-inspector-dock__close:hover{background:#dc2626;color:#fff;}
 .yuz-inspector-dock__list{flex:1 1 auto;overflow:auto;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
 .yuz-inspector-dock__item{background:rgba(15,23,42,.25);border:1px solid rgba(148,163,184,.25);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;}
 .yuz-inspector-dock__meta{font-size:11px;color:rgba(226,232,240,.75);}
 .yuz-inspector-dock__actions{display:flex;gap:8px;}
-.yuz-inspector-dock select{background:rgba(17,24,39,.9);color:#e2e8f0;border:1px solid rgba(148,163,184,.35);border-radius:10px;padding:.45rem .6rem;font:500 12px/1.2 'SF Pro Text',system-ui,-apple-system,'Segoe UI',sans-serif;}
+.yuz-inspector-dock__select,.yuz-inspector-dock select{appearance:none !important;-webkit-appearance:none !important;color-scheme:normal !important;background:rgba(17,24,39,.9) !important;background-color:rgba(17,24,39,.9) !important;background-image:none !important;background-clip:padding-box !important;color:#e2e8f0 !important;-webkit-text-fill-color:#e2e8f0 !important;border:1px solid rgba(148,163,184,.35);border-radius:10px;padding:.45rem .6rem;font-family:'SF Pro Text','SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:500;line-height:1.2;opacity:1 !important;}
+.yuz-inspector-dock__select:hover,.yuz-inspector-dock select:hover{background:rgba(17,24,39,.94) !important;background-color:rgba(17,24,39,.94) !important;border-color:rgba(148,163,184,.6) !important;color:#e2e8f0 !important;-webkit-text-fill-color:#e2e8f0 !important;}
+.yuz-inspector-dock__select:focus,.yuz-inspector-dock__select:focus-visible,.yuz-inspector-dock__select:active,.yuz-inspector-dock select:focus,.yuz-inspector-dock select:focus-visible,.yuz-inspector-dock select:active{outline:none;background:rgba(17,24,39,.96) !important;background-color:rgba(17,24,39,.96) !important;border-color:rgba(56,189,248,.72) !important;color:#38bdf8 !important;-webkit-text-fill-color:#38bdf8 !important;box-shadow:0 0 0 2px rgba(56,189,248,.18);opacity:1 !important;}
+.yuz-inspector-dock select option,.yuz-inspector-dock select optgroup{background:#0f172a;color:#e2e8f0;font-family:'SF Pro Text','SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:500;}
 /* Hide language switchers while edit overlay is active */
 html[data-yuz-edit="1"] .yuz-language-switcher,
 html[data-yuz-edit="1"] .yuz-shortcode-switcher,
@@ -1880,6 +1953,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
       wf.initModals();
     } catch (err) {
+      try { console.warn('[YUZ][TE] fallback modal init failed', err); } catch (_) { }
     }
   }
 
@@ -1907,6 +1981,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           languages: [],
           languageNames: {},
           sourceLanguage: (window.yuzTraSettings?.source_language || '').replace('-', '_'),
+          selectedSourceLanguage: '',
           currentLanguage: '',
           fromLanguages: [],
           toLanguages: [],
@@ -1936,6 +2011,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           searchSnapshot: '',
           _debouncedSearch: null,
           _lastTicket: 0,
+          bootstrapRetryCount: 0,
 
           // --- placeholders legacy pour compat éventuelle ---
           phaseOrder: ['page'],
@@ -1998,12 +2074,13 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             : 'Lock the page to freeze the underlying page while you translate.';
         },
         canInvert() {
-          return !!CAN_SWAP_LANG;
+          return CAN_SWAP_LANG && !this.loading && !this.booting && !this.dirtySet.size
+            && !!this.currentLanguage && this.currentLanguage !== this.sourceLanguage;
         },
         swapTooltip() {
           return this.canInvert
             ? 'Swap source and target languages.'
-            : 'Source and target roles are locked. Update language settings to change roles.';
+            : 'Save pending edits and wait for loading before swapping languages.';
         },
         previewLabel() {
           return this.previewActive ? 'Preview (On)' : 'Preview (Off)';
@@ -2162,6 +2239,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               this.inspectorProbe('enable', { modals: this._inspectorBridge?.modals?.length, language: this.getCurrentLanguage() || '' });
             })
             .catch((err) => {
+              try { console.warn('[YUZ][Inspector] enable failed', err); } catch (_) { }
               toast('Inspector unavailable for this page.', 'warning');
               this.inspectorProbe('enable_fail', { error: err && err.message ? err.message : String(err || '') });
             })
@@ -2306,6 +2384,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
             if (rows && rows.length) this.focusSearchHit(rows[0]);
           } catch (e) {
+            console.error('[YUZ][search] failed', e);
             this.error = 'Search failed';
           } finally {
             if (ticket === this._lastTicket) this.loading = false;
@@ -2363,6 +2442,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             } catch (_) { }
           };
           const onPointerDown = (e) => {
+            if (modalEl.closest('#yuz-workspace')) return;
             if (typeof e.button === 'number' && e.button !== 0) return;
             const interactive = e.target.closest('button, [role="button"], input, select, textarea, a');
             if (interactive && interactive !== header) return;
@@ -2442,10 +2522,12 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         invertLangs() {
           if (!this.canInvert) return;
           const cur = this.getCurrentLanguage();
-          const src = this.sourceLanguage || 'auto';
-          if (!cur) return;
-          this.sourceLanguage = cur;
-          this.currentLanguage = src === 'auto' ? cur : src; // if auto, keep cur as target
+          const src = norm(this.sourceLanguage || 'auto');
+          if (!cur || cur === src) return;
+          this.selectedSourceLanguage = norm(cur);
+          this.currentLanguage = src;
+          this.suggestions = [];
+          this.bootstrap();
         },
 
         buildSavePayload(item, code, translatedText, options = {}) {
@@ -2477,7 +2559,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               .join('_');
           };
 
-          const fallbackSource = CFG.source_language || CFG.default_language || 'fr_FR';
+          const fallbackSource = CFG.effective_from || CFG.source_language || CFG.default_language || '';
           const normalizedSource = (() => {
             const candidate = sourceCode && sourceCode !== 'auto' ? sourceCode : fallbackSource;
             const normalized = normalizeLocale(candidate);
@@ -2559,6 +2641,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         },
 
         saveTranslationForItem(item, code, translatedText, options = {}) {
+          const editedAtStart = item.translations?.[code]?.edited;
           let translationId = pickTranslationId(item, code);
           if (options.forceCreate) {
             translationId = 0;
@@ -2590,13 +2673,14 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               item.translation_id = savedId;
               if (!item.id) item.id = String(savedId);
             }
+            const hasNewerEdit = item.translations?.[code]?.edited !== editedAtStart;
             this.ensureTranslationEntry(
               item,
               code,
               { translated: payload.translated_text, translation_id: savedId || translationId },
-              { setStatus: String(payload.status ?? '2'), clearEdited: true, textForStatus: payload.translated_text }
+              { setStatus: String(hasNewerEdit ? (item.translations?.[code]?.status ?? '1') : (payload.status ?? '2')), clearEdited: !hasNewerEdit, textForStatus: payload.translated_text }
             );
-            this.dirtySet.delete(item.id);
+            if (!hasNewerEdit) this.dirtySet.delete(item.id);
             const payloadOrigin = canonicalOrigin(payload.origin || options.origin || 'manual');
             const targetId = savedId || translationId || pickTranslationId(item, code);
             if (payloadOrigin === 'manual' && targetId) {
@@ -2697,6 +2781,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         resetPosition() {
           const el = this.$refs.modal || document.querySelector('#yuz-editor-container .yuz-modal');
           if (!el) return;
+          const workspace = el.closest('#yuz-workspace');
+          if (workspace) { workspace.querySelector('[data-reset-layout]')?.click(); return; }
           el.style.left = '24px';
           el.style.top = '24px';
           el.style.right = '';
@@ -2722,13 +2808,12 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         },
 
         onFromChanged(val) {
-          const v = norm(val);
-          this.sourceLanguage = v;
-          const TGTS = Array.isArray(CFG.translation_langs) ? CFG.translation_langs.map(norm) : [];
-          this.toLanguages = TGTS.filter(c => c !== v);
-          if (!this.toLanguages.includes(this.currentLanguage)) {
-            this.changeLang(this.toLanguages[0] || '');
+          if (this.loading || this.dirtySet.size) {
+            toast('Save pending edits and wait for loading before changing the source.', 'warning');
+            return;
           }
+          this.selectedSourceLanguage = norm(val);
+          this.bootstrap();
         },
 
         updateMaskLock() {
@@ -2779,6 +2864,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
             this.toChoices = this.toChoices.filter(choice => norm(choice.value) !== DEFAULT);
           } catch (error) {
+            try { console.warn('[YUZ][TE] ensureDefaultFromOption failed', error); } catch (_) { }
           }
         },
 
@@ -2823,6 +2909,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               }
             }));
           } catch (error) {
+            console.warn('[YUZ][TE] preview event failed', error);
           }
         },
 
@@ -2836,6 +2923,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           try {
             window.location.href = target;
           } catch (error) {
+            console.warn('[YUZ][TE] preview redirect failed', error);
           }
         },
 
@@ -2863,11 +2951,13 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             url.searchParams.set('yuz-target-lang', lang);
             return url.toString();
           } catch (error) {
+            console.warn('[YUZ][TE] computePreviewUrl fallback', error);
           }
           return this.urlToLoad;
         },
 
         closeModal() {
+          try { console.info('[YUZ][TE] close: click'); } catch (_) { }
           try {
             // 1) Détruire proprement l’app Vue (évite fuites/handlers résiduels)
             if (this && typeof this.$destroy === 'function') {
@@ -2897,6 +2987,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
           // 5) Notifier les observateurs éventuels
           try { document.dispatchEvent(new CustomEvent('yuz:ui:unmount')); } catch (_) { }
+          try { console.info('[YUZ][TE] close: done'); } catch (_) { }
+
           // 6) Désactiver la préservation auto du paramètre d’édition
           try {
             if (window.__yuzPreserveParamHandler__) {
@@ -2929,9 +3021,10 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           // From/To from server truth
           const DEF = norm(CFG.default_language);
           const SRC = norm(CFG.source_language);
-          const FROMS = Array.isArray(CFG.from_options) ? CFG.from_options.map(norm) : [SRC || DEF];
-          const FROM = norm(CFG.effective_from || FROMS[0] || DEF);
-          const TGTS = Array.isArray(CFG.translation_langs) ? CFG.translation_langs.map(norm) : [];
+          const configuredFroms = Array.isArray(CFG.from_options) ? CFG.from_options.map(norm) : [SRC || DEF];
+          const TGTS = [...new Set([SRC, DEF, ...(CFG.translation_langs || []).map(norm)].filter(Boolean))];
+          const FROMS = [...new Set([...configuredFroms, ...TGTS])];
+          const FROM = norm(this.selectedSourceLanguage || CFG.effective_from || configuredFroms[0] || DEF);
           // Build labeled choices
           const IDX = CFG.lang_index || {};
           const label = (c) => (IDX[c] && IDX[c].name) ? IDX[c].name : c;
@@ -2943,9 +3036,11 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             : TGTS.map(c => ({ value: c, label: label(c), flag: '' }));
           this.fromLanguages = FROMS;
           this.sourceLanguage = FROM;
-          this.fromChoices = FROM_CHOICES;
+          this.fromChoices = FROMS.map(c => FROM_CHOICES.find(o => o.value === c) || { value: c, label: label(c), flag: '' });
           this.toLanguages = TGTS.filter(c => c !== this.sourceLanguage);
-          this.toChoices = TO_CHOICES_ALL.filter(o => o.value !== this.sourceLanguage);
+          this.toChoices = this.toLanguages.map(c => TO_CHOICES_ALL.find(o => o.value === c) || { value: c, label: label(c), flag: '' });
+          try { console.log('[YUZ-DIAG]', TRACE, 'payload', { def: CFG.default_language, src: CFG.source_language, from_options: CFG.from_options, effective_from: CFG.effective_from, tgts: CFG.translation_langs }); } catch (_) { }
+          try { console.log('[YUZ-DIAG]', TRACE, 'ui', { from: this.sourceLanguage, froms: this.fromLanguages, tos: this.toLanguages }); } catch (_) { }
           if (!this.toLanguages.length) {
             this.booting = false;
             this.loading = 0;
@@ -2955,21 +3050,26 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           }
           this.booting = true;
           this.loading++;
+          this.items = [];
+          this.index = -1;
+          this.searchResults = [];
 
           const page_url =
             getParam('yuz-edit-translation-url') ||
             (this.urlToLoad || window.location.href.split('#')[0]);
 
           // Ensure current target is valid and not equal to From
+          const preferredTarget = norm(CFG.default_target || '');
           const target_lang = this.currentLanguage && this.toLanguages.includes(this.currentLanguage)
             ? this.currentLanguage
-            : (this.toLanguages[0] || '');
+            : (preferredTarget && this.toLanguages.includes(preferredTarget) ? preferredTarget : (this.toLanguages[0] || ''));
 
           apiPost(ACTION.TM_GET, {
             page_url,
             bootstrap: 1,
             limit: 50,
             offset: 0,
+            source_lang: FROM,
             target_lang
           })
             .done(r => {
@@ -3034,6 +3134,16 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                   return;
                 }
 
+                try {
+                  console.log('[YUZ-DIAG] fallback-langs', {
+                    from_meta: Array.isArray(CFG.language_meta) && CFG.language_meta.length,
+                    from_translation_langs: Array.isArray(CFG.translation_langs) && CFG.translation_langs.length,
+                    from_settings_general: Array.isArray(SGEN.yuz_tra_translatable_languages) && SGEN.yuz_tra_translatable_languages.length,
+                    from_general: Array.isArray(GEN.yuz_tra_translatable_languages) && GEN.yuz_tra_translatable_languages.length,
+                    from_boot: Array.isArray(window.__yuz_boot_langs__) && window.__yuz_boot_langs__.length,
+                    resolved_count: langs.length
+                  });
+                } catch (_) { }
               }
               this.languages = langs;
               this.$nextTick(() => {
@@ -3084,22 +3194,42 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
               const pruned = (data?.strings?.length || data?.results?.length || 0) - this.items.length;
               const IS_DEBUG = /\b(?:\?|&)yuz_debug=1\b/.test(window.location.search);
-              if (IS_DEBUG && pruned > 0) { try { yuz_release_console.warn('[YUZ][filter] pruned noisy entries:', pruned); } catch (_) { } }
+              if (IS_DEBUG && pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', pruned); } catch (_) { } }
 
               this.ensureDefaultFromOption();
               this.index = this.items.length ? 0 : -1;
+              this.bootstrapRetryCount = 0;
               log('success', '[YUZ][TE] Bootstrap OK', { langs: this.languages.length, strings: this.items.length });
               this.$nextTick(() => {
                 this.mapDomToItems();
-                if (autoFlag('auto_translate_on_boot', true)) {
+                if (!this.selectedSourceLanguage && autoFlag('auto_translate_on_boot', true)) {
                   this.autoTranslateIfAppropriate();
                 }
               });
             })
             .fail(xhr => {
               const status = xhr?.status;
+              const statusText = String(xhr?.statusText || xhr?.name || xhr?.message || '').toLowerCase();
+              const isAbort = /abort|aborted|timeout/.test(statusText);
+
+              if (isAbort) {
+                const retryCount = Number(this.bootstrapRetryCount || 0);
+                if (retryCount < 1) {
+                  this.bootstrapRetryCount = retryCount + 1;
+                  log('warning', '[YUZ][TE] Bootstrap aborted, retrying', { status, statusText, retry: this.bootstrapRetryCount });
+                  setTimeout(() => {
+                    try { this.bootstrap(); } catch (_) { }
+                  }, 250);
+                  return;
+                }
+
+                this.error = 'Chargement interrompu (timeout réseau).';
+                log('warning', '[YUZ][TE] Bootstrap aborted', { status, statusText, body: xhr?.responseText?.slice?.(0, 300) });
+                return;
+              }
+
               this.error = status === 401 || status === 403 ? 'Permissions insuffisantes.' : 'Erreur de chargement.';
-              log('critical', '[YUZ][TE] Bootstrap error', { status, body: xhr?.responseText?.slice?.(0, 300) });
+              log('critical', '[YUZ][TE] Bootstrap error', { status, statusText, body: xhr?.responseText?.slice?.(0, 300) });
             })
             .always(() => { this.loading = Math.max(0, this.loading - 1); this.booting = false; });
         },
@@ -3183,6 +3313,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             const r = await ajaxPromise('yuz_tra_tm_search', {
               q,
               target_lang,
+              source_lang: this.sourceLanguage,
               page_url,
               scope: ph,     // 'page' ou 'instant'
               limit: 50,
@@ -3545,6 +3676,9 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           }
 
           const existing = (this.current.translations && this.current.translations[targetRaw]) || null;
+          const itemAtStart = this.current;
+          const editedAtStart = existing?.edited;
+          const translatedAtStart = existing?.translated;
           const manualEdited = !!(existing && typeof existing.edited === 'string' && existing.edited.trim() !== '' && existing.edited !== existing.translated);
           if (manualEdited) {
             log('info', '[YUZ][TE] autoTranslate skipped (manual edit present)', { index, target: targetRaw });
@@ -3571,10 +3705,17 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
             if (!translated) {
               toast('No translation received.', 'warning');
+              console.warn('[YUZ][TE] translate_empty', { reqId, res });
               return false;
             }
 
             const targetKey = targetRaw;
+            const latest = itemAtStart.translations?.[targetKey];
+            if (this.current !== itemAtStart || this.getCurrentLanguage() !== targetRaw
+              || latest?.edited !== editedAtStart || latest?.translated !== translatedAtStart) {
+              log('info', '[YUZ][TE] late translation ignored; editor state changed', { reqId });
+              return false;
+            }
             this.ensureTranslationEntry(
               this.current,
               targetKey,
@@ -3586,9 +3727,11 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               try { this.throttledSaveOne(); } catch (_) { }
             }
             toast('Translation applied.', 'success');
+            try { console.debug('[YUZ][TE] translate_ok', { reqId, from: fromCode, to: targetCode, index }); } catch (_) { }
             return true;
           } catch (error) {
             toast('Error during translation.', 'error');
+            console.error('[YUZ][TE] translate_failed', { reqId, error });
             return false;
           }
         },
@@ -3731,6 +3874,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                   target: targetRaw
                 });
               } catch (chunkErr) {
+                console.warn('[YUZ][TE] chunk translate failed', chunkErr);
                 pipelineProbe('auto_chunk_error', {
                   batchId,
                   offset: start,
@@ -3819,6 +3963,9 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                     window.YUZ_PUBLISH.state.pending = ids.slice();
                   }
                   window.YUZ_PUBLISH.showDockReview(ids, publishQueue);
+                  try {
+                    console.info('[YUZ][TE] review dock displayed', { batchId, idsCount: ids.length, phase: label || 'direct' });
+                  } catch (_) { }
                   pipelineProbe('auto_review_panel', {
                     batchId,
                     ids,
@@ -3833,6 +3980,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                     ids,
                     message: dockErr instanceof Error ? dockErr.message : String(dockErr)
                   });
+                  try { console.warn('[YUZ][TE] Unable to show review dock', { error: dockErr?.message || dockErr, state: describeReviewDockState(), phase: label || 'direct' }); } catch (_) { }
                   return false;
                 }
               };
@@ -3847,6 +3995,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
               if (!dockDisplayed) {
                 try {
+                  console.warn('[YUZ][TE] review dock still missing after attempts', describeReviewDockState());
                   toast('Panneau de validation indisponible (voir console).', 'warning');
                 } catch (_) { }
                 pipelineProbe('review_panel_missing', {
@@ -3885,6 +4034,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               error: fatalErr instanceof Error ? fatalErr.message : String(fatalErr),
               reqId: batchId
             });
+            console.error(fatalErr);
             toast('Error during translation.', 'error');
             pipelineProbe('auto_error', {
               batchId,
@@ -4069,6 +4219,143 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           this._origIndex = m;
         },
 
+        shouldExpandScheduleCapture(options = {}) {
+          if (options && options.expandSchedule === false) return false;
+          if (options && options.expandSchedule === true) return true;
+          const hint = [
+            options.selectedModal,
+            options.selectedModalLabel,
+            options.reason
+          ].map((value) => String(value || '').toLowerCase()).join(' ');
+          if (/(schedule|planif|rdv|rendez|appointment|calendar|calendrier)/.test(hint)) return true;
+          return !!document.querySelector('#rdvForm, #rdvSchedule, [name="enable_planification"], .when-schedule, .date-selector, .hour-selector');
+        },
+
+        prepareScheduleCaptureContext(options = {}) {
+          if (!this.shouldExpandScheduleCapture(options)) return null;
+          const form = document.querySelector('#rdvForm');
+          if (!form) return null;
+
+          const snapshots = new Map();
+          const remember = (node) => {
+            if (!node || snapshots.has(node)) return;
+            snapshots.set(node, {
+              style: node.getAttribute('style'),
+              hadHidden: node.hasAttribute('hidden'),
+              ariaHidden: node.getAttribute('aria-hidden')
+            });
+          };
+
+          const revealNode = (node, displayValue = 'block') => {
+            if (!node || node.nodeType !== 1) return;
+            remember(node);
+            try { node.removeAttribute('hidden'); } catch (_) { }
+            try {
+              if (node.getAttribute('aria-hidden') === 'true') node.setAttribute('aria-hidden', 'false');
+            } catch (_) { }
+            let cs = null;
+            try { cs = window.getComputedStyle(node); } catch (_) { }
+            if (cs && cs.display === 'none') node.style.setProperty('display', displayValue, 'important');
+            if (cs && cs.visibility === 'hidden') node.style.setProperty('visibility', 'visible', 'important');
+            if (cs && parseFloat(cs.opacity || '1') === 0) node.style.setProperty('opacity', '1', 'important');
+            node.style.setProperty('pointer-events', 'auto', 'important');
+          };
+
+          const revealAncestors = (node) => {
+            let current = node && node.parentElement;
+            let depth = 0;
+            while (current && current !== document.body && depth < 10) {
+              let display = 'block';
+              try {
+                const cs = window.getComputedStyle(current);
+                if (cs.display === 'flex' || current.classList.contains('modal-overlay')) display = 'flex';
+              } catch (_) { }
+              revealNode(current, display);
+              current = current.parentElement;
+              depth += 1;
+            }
+          };
+
+          let restoreToggle = null;
+          const togglePlanification = form.querySelector('input[name="enable_planification"]');
+          if (togglePlanification && !togglePlanification.checked) {
+            const previousChecked = !!togglePlanification.checked;
+            try {
+              togglePlanification.checked = true;
+              togglePlanification.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch (_) { }
+            restoreToggle = () => {
+              try {
+                togglePlanification.checked = previousChecked;
+                togglePlanification.dispatchEvent(new Event('change', { bubbles: true }));
+              } catch (_) { }
+            };
+          }
+
+          try {
+            if (window.scheduleUS && typeof window.scheduleUS.updateProDisplay === 'function') {
+              window.scheduleUS.updateProDisplay();
+            }
+          } catch (_) { }
+
+          const ensureScheduleOptions = () => {
+            const api = window.scheduleUS;
+            if (!api || typeof api.generateDateOptions !== 'function') return;
+            form.querySelectorAll('.calendar-group').forEach((group) => {
+              const dateContainer = group.querySelector('.date-selector');
+              const hourContainer = group.querySelector('.hour-selector');
+              if (!dateContainer || !hourContainer) return;
+              if (dateContainer.querySelector('.date-label')) return;
+              try {
+                api.generateDateOptions(dateContainer, hourContainer);
+              } catch (_) { }
+            });
+          };
+
+          const selectors = [
+            '#rdvSchedule',
+            '#rdvForm .when-schedule',
+            '#rdvForm .date-selector',
+            '#rdvForm .hour-selector',
+            '#rdvForm .calendar-group',
+            '#rdvForm .c-date-selected',
+            '#rdvForm .b-date-selected',
+            '#rdvForm .c-hour-selected',
+            '#rdvForm .b-hours-selected'
+          ];
+
+          selectors.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => {
+              const display = node.classList && node.classList.contains('modal-overlay') ? 'flex' : 'block';
+              revealNode(node, display);
+              revealAncestors(node);
+            });
+          });
+
+          ensureScheduleOptions();
+
+          return () => {
+            if (typeof restoreToggle === 'function') {
+              try { restoreToggle(); } catch (_) { }
+            }
+            snapshots.forEach((meta, node) => {
+              if (!node) return;
+              try {
+                if (meta.style == null) node.removeAttribute('style');
+                else node.setAttribute('style', meta.style);
+              } catch (_) { }
+              try {
+                if (meta.hadHidden) node.setAttribute('hidden', 'hidden');
+                else node.removeAttribute('hidden');
+              } catch (_) { }
+              try {
+                if (meta.ariaHidden == null) node.removeAttribute('aria-hidden');
+                else node.setAttribute('aria-hidden', meta.ariaHidden);
+              } catch (_) { }
+            });
+          };
+        },
+
         runInspectorScan(options = {}) {
           const basicOnly = options.basic === true;
           const inspectorOn = this.inspectorActive === true;
@@ -4088,7 +4375,9 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           }
 
           this.buildOriginalIndex();
+          const restoreScheduleCapture = this.prepareScheduleCaptureContext(options);
 
+          try {
           const detach = (selector) => {
             document.querySelectorAll(selector).forEach((el) => {
               el.removeEventListener('mouseenter', this._hlEnter, { passive: true });
@@ -4104,8 +4393,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           detach('[data-yuz-te-candidate]');
           this._unmappedMap = new Map();
 
-          const baseSkip = (window.YUZ_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,[data-yuz="no-translate"]');
-          const SKIP = '#yuz-editor-container .yuz-modal,#wpadminbar,' + baseSkip;
+          const baseSkip = (window.YUZ_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,#yuz-inspector-dock,[data-yuz="no-translate"]');
+          const SKIP = '#yuz-workspace,#yuz-dock,#yuz-editor-container .yuz-modal,#wpadminbar,' + baseSkip;
 
           const canon = (s) => this.normalizeInspectorText(s);
           const looksLikeCode = window.yuzLooksLikeCode || function (s) {
@@ -4127,6 +4416,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             if (/^\d{1,2}\s+(?:janv|févr|fevr|mars|avr|mai|juin|juil|août|sept|oct|nov|dec)\.?$/i.test(txt)) return true;
             return false;
           };
+          const scheduleCaptureMode = this.shouldExpandScheduleCapture(options);
+          const isWeekdayToken = (value) => /^(lun|mar|mer|jeu|jeud|ven|sam|dim|mon|tue|wed|thu|fri|sat|sun)\.?$/i.test(String(value || '').trim());
           const isInvisible = (el) => {
             const cs = getComputedStyle(el);
             return cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0;
@@ -4234,7 +4525,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             if (seenNodes.has(tn)) continue;
 
             let text = canon(tn.nodeValue);
-            if (!text || looksLikeTemporal(text)) continue;
+            if (!text || (looksLikeTemporal(text) && !(scheduleCaptureMode && isWeekdayToken(text)))) continue;
             const host = tn.parentElement;
             if (!host) continue;
 
@@ -4268,7 +4559,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             ['placeholder', 'aria-label', 'data-field-label', 'data-label'].forEach((attr) => {
               const raw = el.getAttribute(attr);
               const text = canon(raw);
-              if (!text || looksLikeTemporal(text) || looksLikeCode(text)) return;
+              if (!text || (looksLikeTemporal(text) && !(scheduleCaptureMode && isWeekdayToken(text))) || looksLikeCode(text)) return;
               const descriptor = this.describeDomNode(el);
               const blockId = this.extractBlockId(el);
               const idx = findMatchIndex(text, { attribute: attr, descriptor, blockId });
@@ -4279,6 +4570,36 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               registerCandidate(el, text, { type: 'attribute', attribute: attr, descriptor, blockId });
             });
           });
+
+          if (scheduleCaptureMode) {
+            const scheduleSelectors = [
+              '#rdvSchedule h3',
+              '#rdvSchedule .schedule-text',
+              '#rdvSchedule .date-label',
+              '#rdvSchedule .hover-label',
+              '#rdvSchedule .rdv-zone-badge',
+              '#rdvSchedule #rdvZoneNotice div',
+              '#rdvSchedule #rdvZoneHint'
+            ];
+            document.querySelectorAll(scheduleSelectors.join(',')).forEach((el) => {
+              if (!el) return;
+              if (el.closest && el.closest(SKIP)) return;
+              if (isInvisible(el)) return;
+              const text = canon(el.textContent || '');
+              if (!text || looksLikeCode(text)) return;
+              if (looksLikeTemporal(text) && !isWeekdayToken(text)) return;
+              const descriptor = this.describeDomNode(el);
+              const blockId = this.extractBlockId(el);
+              const idx = findMatchIndex(text, { descriptor, blockId, scope: 'schedule' });
+              if (typeof idx === 'number') return;
+              registerCandidate(el, text, {
+                type: 'schedule-text',
+                descriptor,
+                blockId,
+                scope: 'schedule'
+              });
+            });
+          }
 
           document.querySelectorAll('[aria-labelledby]').forEach((el) => {
             if (!el || !el.getAttribute) return;
@@ -4291,7 +4612,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             const label = document.getElementById(firstId);
             if (!label) return;
             const text = canon(label.textContent || '');
-            if (!text || looksLikeTemporal(text) || looksLikeCode(text)) return;
+            if (!text || (looksLikeTemporal(text) && !(scheduleCaptureMode && isWeekdayToken(text))) || looksLikeCode(text)) return;
             const descriptor = this.describeDomNode(el);
             const blockId = this.extractBlockId(el);
             const idx = findMatchIndex(text, { attribute: 'aria-labelledby', descriptor, blockId });
@@ -4317,6 +4638,11 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             }
           }
           return unmapped;
+          } finally {
+            if (typeof restoreScheduleCapture === 'function') {
+              try { restoreScheduleCapture(); } catch (_) { }
+            }
+          }
         },
 
         mapDomToItems() {
@@ -4336,8 +4662,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               : range.commonAncestorContainer.parentElement;
 
             // Unifiés
-            const baseSkip = (window.YUZ_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,[data-yuz="no-translate"]');
-            const SKIP = '#yuz-editor-container .yuz-modal,#wpadminbar,' + baseSkip;
+            const baseSkip = (window.YUZ_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,#yuz-inspector-dock,[data-yuz="no-translate"]');
+            const SKIP = '#yuz-workspace,#yuz-dock,#yuz-editor-container .yuz-modal,#wpadminbar,' + baseSkip;
             if (common && common.closest && common.closest(SKIP)) return;
 
             const scanner = window.yuzEditorVisibleText || function (root) {
@@ -4387,6 +4713,10 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         },
 
         injectAdhocItem(text, meta = {}) {
+          if (norm(this.sourceLanguage) !== norm(CFG.source_language || CFG.effective_from)) {
+            toast('Page capture is available only in the original source language. This direction shows existing translations.', 'warning');
+            return null;
+          }
           const original = String(text || '').trim();
           if (!original) return null;
           const pos = Math.max(0, this.index | 0);
@@ -4521,6 +4851,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               unmapped
             });
           } catch (err) {
+            try { console.warn('[YUZ][Inspector] updateDiagnostics failed', err); } catch (_) { }
           }
         },
 
@@ -4690,7 +5021,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                   <div class="yuz-lang-grid">
                     <div class="yuz-field">
                       <label class="yuz-label">From</label>
-                      <select name="yuz-from" class="yuz-select" :value="sourceLanguage" @change="onFromChanged($event.target.value)">
+                      <select name="yuz-from" class="yuz-select" :value="sourceLanguage" :disabled="loading || booting || dirtySet.size > 0" @change="onFromChanged($event.target.value)">
                         <option v-for="o in fromChoices" :key="'f_'+o.value" :value="o.value">{{ o.label }}</option>
                       </select>
                     </div>
@@ -4810,7 +5141,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
     window.YUZ_EDITOR_APP = null;
     currentOverlayMode = null;
     try { delete document.documentElement.dataset.yuzEdit; } catch (_) { }
-    if (hadApp) { try { yuz_release_console.log('[YUZ-TE] unmounted'); } catch (_) { } }
+    if (hadApp) { try { console.log('[YUZ-TE] unmounted'); } catch (_) { } }
   };
 
   const assignOverlayUnmount = () => {
@@ -4867,6 +5198,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             : desired === 'xpress' || desired === 'xpress-progress'
               ? '(xpress)'
               : '(advanced)';
+          console.log('[YUZ-TE] mounted', label);
         } catch (_) { }
       }
     );
@@ -4956,6 +5288,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
   const toastFallback = (msg, lvl = 'info') => {
     try {
       const method = lvl === 'error' ? 'error' : lvl === 'warning' ? 'warn' : 'log';
+      console[method](`[toast:${lvl}]`, msg);
     } catch (_) { }
   };
 
@@ -5118,6 +5451,9 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
     };
 
     app._smartSearchInstalled = true;
+    try {
+      console.log(`[SMART][LEGACY] one-button search installed (phases: ${app.phaseOrder.join('→')})`);
+    } catch (_) { }
   }
 
   let lastApp = null;
@@ -5150,6 +5486,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
     var payload = (list || []).map((t, i) => ({ i, text: clean(t) })).filter(r => r.text);
 
     if (!payload.length || !to) {
+      console.warn('[INSTANT] nothing to persist or missing target');
       return {};
     }
 
@@ -5168,8 +5505,10 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
       if (typeof response === 'string') {
         try { response = JSON.parse(response); } catch (_) { response = { raw: response }; }
       }
+      console.log('[INSTANT] persisted', response && response.data);
       return response && response.data;
     } catch (error) {
+      console.warn('[INSTANT] persist failed', error);
       return {};
     }
   }

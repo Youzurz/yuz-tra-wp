@@ -1,5 +1,3 @@
-
-
 /**
  * assets/js/yuz-translation-service.esm.js
  * Shim ESM : ré-exporte ce que la version UMD met sur window.YUZ_TranslationService
@@ -17,6 +15,9 @@
 (function (w) {
   var s = w && w.yuzTraSettings;
   if (!s || typeof s.ajax_url !== 'string' || !s.nonces) {
+    console.error('[YUZ-TRA][TRANSVERSE] yuzTraSettings missing or invalid. ' +
+      'class-yuz-assets must inject the minimal config BEFORE this script. ' +
+      'Expected shape: {ajax_url:string, nonces:object}');
     return; // hard stop: prevents undefined access later
   }
 })(window);

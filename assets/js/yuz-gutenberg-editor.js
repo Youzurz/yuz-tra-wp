@@ -1,4 +1,3 @@
-
 /**
  * YUZ-TRA – Gutenberg: panneau "Translate Page" + "Save & Translate"
  * Robuste: gère permalink indispo, brouillon non-enregistré, modules optionnels.

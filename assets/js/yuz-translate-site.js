@@ -1,6 +1,3 @@
-var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupCollapsed(){},groupEnd(){},table(){}};
-
-
 /**
  * assets/js/yuz-translate-site.js
  * Translate Site — admin tab & light front usage.
@@ -30,6 +27,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   // Tolerant bootstrap: allow late localization (fallback attached to yuz-global)
   let Y = window.yuzTS;
   if (Y) {
+    console.log('[YUZ][SITE] bootstrap global yuzTS', { hasNonces: !!(Y.nonces && Object.keys(Y.nonces||{}).length), nonceKeys: Object.keys(Y.nonces || {}) });
   }
   // Fallback: build from yuzTraSettings/yuzAS when localization was blocked by CSP
   function buildFromGlobalFallback() {
@@ -39,6 +37,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
       const nonces   = (G.nonces && typeof G.nonces === 'object') ? G.nonces : {};
       // Require at least the two TS nonces
       if (!nonces['yuz_tra_ts_get_settings'] && !nonces['yuz_tra_ts_upd_settings']) return null;
+      console.log('[YUZ][SITE] fallback constructed from yuzTraSettings/yuzAS', { ajax_url, nonceKeys: Object.keys(nonces || {}) });
       return { ajax_url, nonces, site_settings: (G.site_settings || {}) };
     } catch(_) { return null; }
   }
@@ -52,11 +51,13 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
       if (!Y && window.yuzTS) {
         // If it appears late, initialize now
         Y = window.yuzTS;
+        console.log('[YUZ][SITE] bootstrap late yuzTS', { nonceKeys: Object.keys(Y.nonces || {}) });
       } else if (!Y) {
         const fb2 = buildFromGlobalFallback();
         if (fb2) { Y = fb2; }
       }
       if (Y) {
+        console.log('[YUZ][SITE] init with yuzTS', { nonceKeys: Object.keys(Y.nonces || {}) });
         try { fetchAndInit(); bindChangeHandlers(); bindTranslateNow(); } catch (_) {}
       }
     });
@@ -65,6 +66,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
   }
 
   if (!Y.ajax_url) {
+    console.error('[YUZ][SITE] ajax_url manquant dans yuzTS. Abandon.');
     return;
   }
 
@@ -74,7 +76,7 @@ var yuz_release_console={log(){},debug(){},info(){},warn(){},error(){},groupColl
     const ts = new Date().toISOString();
     let s = `${LVL[level]||''} ${msg} at ${ts}`;
     if (ctx) { try { s += ` | ${JSON.stringify(ctx)}`; } catch(_){} }
-    (level==='critical'?yuz_release_console.error:level==='warning'?yuz_release_console.warn:yuz_release_console.log)(s);
+    (level==='critical'?console.error:level==='warning'?console.warn:console.log)(s);
   }
   function toast(message, type='info', duration=2600) {
     const el = document.createElement('div');
