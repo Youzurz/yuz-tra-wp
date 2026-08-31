@@ -160,6 +160,9 @@ class YUZ_API_Manager implements TranslationManagerInterface {
             $normalized['api_provider'] = $provider;
 
             $prefix = $provider === 'libretranslate' ? 'libre' : $provider;
+            if ($provider === 'openai' && empty($normalized['model']) && !empty($normalized['openai_model'])) {
+                $normalized['model'] = $normalized['openai_model'];
+            }
             $endpoint_key = $prefix . '_url';
             $api_key_key = $prefix . '_key';
 
@@ -185,6 +188,8 @@ class YUZ_API_Manager implements TranslationManagerInterface {
                     $normalized['endpoint'] = !empty($normalized['deepl_free'])
                         ? 'https://api-free.deepl.com/v2/translate'
                         : 'https://api.deepl.com/v2/translate';
+                } elseif ($provider === 'openai') {
+                    $normalized['endpoint'] = 'https://api.openai.com/v1/chat/completions';
                 }
             }
         }
@@ -239,10 +244,6 @@ class YUZ_API_Manager implements TranslationManagerInterface {
             return strtr($retrieved['exact'], array_flip($context['placeholders'] ?? []));
         }
         if (!$provider || !isset($this->adapters[$provider]) || empty($api['endpoint'])) throw new RuntimeException('translation_provider_not_configured');
-        if (in_array($provider, ['libre','libretranslate','google','deepl'], true) &&
-            strcasecmp(explode('_', $source)[0], explode('_', $target)[0]) === 0) {
-            throw new RuntimeException('provider_does_not_support_regional_translation');
-        }
         $api['translation_context']=$context;
         $api['retrieved_context']=$retrieved;
         $api['deadline']=$context['deadline'] ?? 0;

@@ -1105,6 +1105,7 @@ public function render_licenses_tab(array $settings = []): void {
                     <option value="deepl" <?php selected($provider, 'deepl'); ?>><?php esc_html_e('DeepL', 'yuz-translation'); ?></option>
                     <option value="custom" <?php selected($provider, 'custom'); ?>><?php esc_html_e('Custom', 'yuz-translation'); ?></option>
                     <option value="ollama" <?php selected($provider, 'ollama'); ?>>Ollama — relecture humaine obligatoire</option>
+                    <option value="openai" <?php selected($provider, 'openai'); ?>>OpenAI — coût externe, relecture humaine</option>
                 </select>
                 <p class="yuz-tra-description"><?php esc_html_e('Select the API provider for automatic translations.', 'yuz-translation'); ?></p>
             </td>
@@ -1117,6 +1118,14 @@ public function render_licenses_tab(array $settings = []): void {
             <th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th>
             <td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ['provider_timeout'=>45,'num_ctx'=>2048,'num_predict'=>512,'num_thread'=>2,'daily_token_limit'=>100000][$key] ?? ''); ?>"></td>
         </tr>
+        <?php endforeach; ?>
+        <?php foreach (['openai_url'=>'URL OpenAI (endpoint compatible)','openai_model'=>'Modèle OpenAI exact'] as $key=>$label): ?>
+        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ($key==='openai_url' ? 'https://api.openai.com/v1/chat/completions' : '')); ?>"></td></tr>
+        <?php endforeach; ?>
+        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_openai_key">Clé API OpenAI</label></th><td><input type="password" id="yuz_tra_openai_key" name="yuz_tra_at_settings[openai_key]" value="" autocomplete="new-password" placeholder="Conservée si laissée vide"></td></tr>
+        <tr class="yuz-cost-accounting"><th colspan="2"><h3>Comptabilité de rentabilité (USD, estimation administrateur)</h3><p class="description">Ces champs ne lisent pas la facturation OpenAI. Saisissez les tarifs réellement applicables ; aucun appel ne sera lancé par cette saisie.</p></th></tr>
+        <?php foreach (['available_balance_usd'=>'Solde fournisseur disponible','minimum_balance_usd'=>'Réserve minimale à protéger','input_cost_usd_per_million'=>'Coût entrant / million de tokens','output_cost_usd_per_million'=>'Coût sortant / million de tokens','sale_price_usd_per_million'=>'Prix de vente / million de tokens','fixed_monthly_cost_usd'=>'Coûts fixes mensuels','pricing_source'=>'Source/version des tarifs'] as $key=>$label): ?>
+        <tr class="yuz-cost-accounting"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ''); ?>" inputmode="decimal"></td></tr>
         <?php endforeach; ?>
         <script type="text/javascript">
             (function($) {
@@ -1445,11 +1454,16 @@ public function render_licenses_tab(array $settings = []): void {
             return;
         }
         $usage=YUZ_Translation_Budget::usage();
+        $finance=YUZ_Translation_Budget::financial_snapshot();
         echo '<section class="yuz-tra-section"><h2>Consommation réelle (UTC)</h2>';
         echo '<p>'.esc_html(sprintf('%d / %d caractères aujourd’hui ; %d / %d requêtes cette minute.',
             $usage['characters'],$usage['char_limit'],$usage['minute_requests'],$usage['requests_limit'])).'</p>';
         echo '<p>'.esc_html(sprintf('%d tentatives ; %d réussies ; %d échouées ; %d réponses en cache.',
             $usage['attempts'],$usage['successes'],$usage['failures'],$usage['cache_hits'])).'</p>';
+        echo '<h3>Rentabilité estimée — '.$finance['currency'].'</h3>';
+        echo '<p>'.esc_html(sprintf('Coût variable : %.6f · valeur facturable estimée : %.6f · marge estimée : %.6f.', $finance['variable_cost_usd'], $finance['estimated_revenue_usd'], $finance['estimated_margin_usd'])).'</p>';
+        echo '<p>'.esc_html($finance['is_profitable'] ? 'Seuil de rentabilité atteint selon les hypothèses saisies.' : 'Seuil de rentabilité non atteint selon les hypothèses saisies.').'</p>';
+        echo '<p class="description">Source des prix : '.esc_html($finance['prices_source']).'. Cette vue est un registre interne estimatif, pas une facture OpenAI.</p>';
         $last=get_option('yuz_tra_worker_last',[]);
         if ($last) echo '<pre>'.esc_html(wp_json_encode($last,JSON_PRETTY_PRINT)).'</pre>';
         echo '</section>';
@@ -1556,10 +1570,42 @@ public function render_license_plans_card(array $args = []): void {
         $this->logger->log('info', 'Render license plans card', $args);
     }
 
+    $plans = YUZ_Product_Catalog::current_offers();
     echo '<div class="card" style="padding:16px;margin:0 0 16px;background:#fff;border:1px solid #e5e5e5;">';
     echo '<h2>'.esc_html($args['title']).'</h2>';
-    echo '<p><a class="button button-primary" target="_blank" rel="noopener" href="'.esc_url($args['pricing_url']).'">'.esc_html($args['cta_label']).'</a></p>';
+    echo '<p>Choisissez une offre, consultez ses limites, puis ouvrez le paiement sécurisé. Le plugin reste utilisable sans abonnement.</p>';
+    echo '<p style="color:#50575e;font-size:13px;">Espace réservé aux services YUZ-TRA : aucune promotion ne s’affiche sur votre site public.</p>';
+    echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:16px 0;">';
+    foreach ($plans as $plan) {
+        echo '<section style="border:1px solid #dcdcde;border-radius:8px;padding:14px;">';
+        echo '<h3 style="margin-top:0;">'.esc_html($plan['name']).'</h3>';
+        echo '<strong>'.esc_html($plan['price']).'</strong>';
+        echo '<p>'.esc_html($plan['text']).'</p>';
+        $plan_url = add_query_arg(['product' => 'yuz-tra', 'plan' => sanitize_key($plan['slug'] ?? $plan['name'])], 'https://youzurz.com/fr/yuz-tra');
+        echo '<a class="button button-primary" target="_blank" rel="noopener" href="'.esc_url($plan_url . '#plans'). '">Voir et souscrire</a>';
+        echo '</section>';
+    }
     echo '</div>';
+    echo '<p><a class="button" target="_blank" rel="noopener" href="'.esc_url($args['pricing_url']).'">'.esc_html($args['cta_label']).'</a> ';
+    echo '<a class="button" target="_blank" rel="noopener" href="'.esc_url('https://youzurz.com/fr/support'). '">Support et accompagnement</a></p>';
+    echo '</div>';
+}
+
+/** Central YOUZURZ catalog, kept quiet and visible only in the admin service area. */
+public function render_product_catalog_card(): void {
+    echo '<div class="card" style="padding:16px;margin:0 0 16px;background:#fff;border:1px solid #e5e5e5;">';
+    echo '<h2>Catalogue des services YOUZURZ</h2>';
+    echo '<p>Retrouvez les produits installés et les services compatibles depuis un seul espace. Rien n’est affiché sur votre site public.</p>';
+    echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">';
+    foreach (YUZ_Product_Catalog::all() as $product) {
+        echo '<section style="border:1px solid #dcdcde;border-radius:8px;padding:14px;">';
+        echo '<h3 style="margin-top:0;">'.esc_html($product['name']).'</h3>';
+        echo '<p>'.esc_html($product['summary']).'</p>';
+        echo '<p><span style="font-weight:600;">'.($product['installed'] ? 'Installé' : 'Découvrir').'</span></p>';
+        echo '<a class="button" target="_blank" rel="noopener" href="'.esc_url($product['url']).'">Fiche produit</a>';
+        echo '</section>';
+    }
+    echo '</div></div>';
 }
 
 /**
@@ -1576,6 +1622,7 @@ public function render_licenses_content(array $context = []): void {
     }
 
     echo '<div class="yuz-license-wrap" style="max-width:980px;">';
+    $this->render_product_catalog_card();
     foreach ($sections as $key) {
         switch ($key) {
             case 'account':

@@ -3,6 +3,51 @@ defined('ABSPATH') || exit;
 
 /** Shared fail-closed budget. Failed attempts also consume quota. All buckets use UTC. */
 final class YUZ_Translation_Budget {
+    /** Return a non-negative decimal setting without treating blank as a price. */
+    private static function decimal(array $settings, string $key, float $default = 0.0): float {
+        if (!array_key_exists($key, $settings) || !is_scalar($settings[$key]) || !is_numeric($settings[$key])) return $default;
+        return max(0.0, (float) $settings[$key]);
+    }
+
+    /** Calculate money from measured tokens; this is an estimate, never an invoice claim. */
+    public static function financial_snapshot(): array {
+        $usage = self::usage();
+        $settings = self::settings();
+        $input_price = self::decimal($settings, 'input_cost_usd_per_million');
+        $output_price = self::decimal($settings, 'output_cost_usd_per_million');
+        $sale_price = self::decimal($settings, 'sale_price_usd_per_million');
+        $fixed_cost = self::decimal($settings, 'fixed_monthly_cost_usd');
+        $reserve = self::decimal($settings, 'minimum_balance_usd');
+        $input_cost = $usage['input_tokens'] / 1000000 * $input_price;
+        $output_cost = $usage['output_tokens'] / 1000000 * $output_price;
+        $revenue = ($usage['input_tokens'] + $usage['output_tokens']) / 1000000 * $sale_price;
+        $variable_cost = $input_cost + $output_cost;
+        return [
+            'input_cost_usd' => round($input_cost, 8),
+            'output_cost_usd' => round($output_cost, 8),
+            'variable_cost_usd' => round($variable_cost, 8),
+            'estimated_revenue_usd' => round($revenue, 8),
+            'estimated_margin_usd' => round($revenue - $variable_cost, 8),
+            'fixed_monthly_cost_usd' => round($fixed_cost, 8),
+            'estimated_monthly_margin_usd' => round($revenue - $variable_cost - $fixed_cost, 8),
+            'minimum_balance_usd' => round($reserve, 8),
+            'prices_source' => (string) ($settings['pricing_source'] ?? 'administrator estimate'),
+            'is_profitable' => $revenue >= $variable_cost + $fixed_cost,
+            'is_above_reserve' => $reserve <= 0.0 || $variable_cost < $reserve,
+            'currency' => 'USD',
+        ];
+    }
+
+    /** Fail closed before a paid request when the configured reserve would be crossed. */
+    public static function assert_affordable(int $input_tokens, int $output_tokens = 0): void {
+        $settings = self::settings();
+        $reserve = self::decimal($settings, 'minimum_balance_usd');
+        $available = self::decimal($settings, 'available_balance_usd');
+        $input_price = self::decimal($settings, 'input_cost_usd_per_million');
+        $output_price = self::decimal($settings, 'output_cost_usd_per_million');
+        $estimate = ($input_tokens / 1000000 * $input_price) + ($output_tokens / 1000000 * $output_price);
+        if ($available > 0 && $available - $estimate < $reserve) throw new RuntimeException('financial_reserve_would_be_crossed');
+    }
     public static function record_metrics(int $input, int $output, int $milliseconds): void {
         global $wpdb;
         $wpdb->query($wpdb->prepare("INSERT IGNORE INTO {$wpdb->prefix}yuz_tra_translation_usage (bucket) VALUES (%s)",'day:'.gmdate('Y-m-d')));

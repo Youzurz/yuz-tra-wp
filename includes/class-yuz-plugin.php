@@ -427,6 +427,7 @@ if (!class_exists('YUZ_Plugin')) {
                 'class-yuz-contracts.php',
                 'class-yuz-core.php',
                 'class-yuz-translation-budget.php',
+                'class-yuz-product-catalog.php',
                 'class-yuz-string-catalog.php',
                 'class-yuz-string-scanner.php',
                 'class-yuz-translation-jobs.php',

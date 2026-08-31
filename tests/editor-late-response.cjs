@@ -3,7 +3,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
-const src=fs.readFileSync(__dirname+'/../release/yuz-tra/assets/js/widgets/yuz-translation-editor.js','utf8');
+const src=fs.readFileSync(__dirname+'/../assets/js/widgets/yuz-translation-editor.js','utf8');
 function method(start,end,name,globals){const a=src.indexOf(start),b=src.indexOf(end,a);assert.ok(a>=0&&b>a);return vm.runInNewContext(`({${src.slice(a,b)}}).${name}`,globals);}
 for(const change of ['edit','selection','language','none']) test('late auto response: '+change,async()=>{
   let resolve,applied=0,saves=0;

@@ -1194,13 +1194,13 @@ class YUZ_Settings implements SettingsInterface {
                 $errors[] = sprintf('%s must be boolean', $key);
             }
         }
-        $urlKeys = ['url_to_load','libre_url','custom_url'];
+        $urlKeys = ['url_to_load','libre_url','custom_url','openai_url'];
         foreach ($urlKeys as $key) {
             if (isset($section[$key]) && !is_string($section[$key])) {
                 $warnings[] = sprintf('%s coerced to string', $key);
             }
         }
-        $stringKeys = ['api_provider','api_adapter','libre_key','google_key','google_project','deepl_key','custom_key','custom_auth','custom_method','custom_format','cron_interval'];
+        $stringKeys = ['api_provider','api_adapter','libre_key','google_key','google_project','deepl_key','custom_key','openai_key','openai_model','custom_auth','custom_method','custom_format','cron_interval','available_balance_usd','minimum_balance_usd','input_cost_usd_per_million','output_cost_usd_per_million','sale_price_usd_per_million','fixed_monthly_cost_usd','pricing_source'];
         foreach ($stringKeys as $key) {
             if (isset($section[$key]) && !is_string($section[$key])) {
                 $warnings[] = sprintf('%s coerced to string', $key);

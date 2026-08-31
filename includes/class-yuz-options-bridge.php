@@ -505,6 +505,9 @@ if (!function_exists('yuz_settings_registry')) {
                     'enable_auto_translate' => ['type' => 'bool',   'default' => false],
                     'api_provider'          => ['type' => 'string', 'default' => 'libretranslate'],
                     'ollama_url'            => ['type' => 'url', 'default' => ''],
+                    'openai_url'            => ['type' => 'url', 'default' => 'https://api.openai.com/v1/chat/completions'],
+                    'openai_key'            => ['type' => 'string', 'default' => ''],
+                    'openai_model'          => ['type' => 'string', 'default' => ''],
                     'model'                 => ['type' => 'string', 'default' => ''],
                     'model_revision'        => ['type' => 'string', 'default' => ''],
                     'provider_timeout'      => ['type' => 'int', 'default' => 45],
@@ -528,6 +531,13 @@ if (!function_exists('yuz_settings_registry')) {
                     'alternatives'          => ['type' => 'int',    'default' => 3],
                     'char_limit'            => ['type' => 'int',    'default' => 50000],
                     'requests_limit'        => ['type' => 'int',    'default' => 100],
+                    'available_balance_usd'  => ['type' => 'string', 'default' => ''],
+                    'minimum_balance_usd'    => ['type' => 'string', 'default' => ''],
+                    'input_cost_usd_per_million' => ['type' => 'string', 'default' => ''],
+                    'output_cost_usd_per_million' => ['type' => 'string', 'default' => ''],
+                    'sale_price_usd_per_million' => ['type' => 'string', 'default' => ''],
+                    'fixed_monthly_cost_usd' => ['type' => 'string', 'default' => ''],
+                    'pricing_source'         => ['type' => 'string', 'default' => 'administrator estimate'],
                     'block_crawlers'        => ['type' => 'bool',   'default' => false],
                     'log_queries'           => ['type' => 'bool',   'default' => false],
                 ],
@@ -824,7 +834,7 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
     }
 
     $old = get_option('yuz_tra_at_settings', []);
-    foreach (['libre_key', 'google_key', 'deepl_key', 'custom_key'] as $k) {
+    foreach (['libre_key', 'google_key', 'deepl_key', 'custom_key', 'openai_key'] as $k) {
         if (array_key_exists($k, $value)) {
             $v = trim((string) $value[$k]);
             if ($v === '' || $v === '***' || $v === '********') {
@@ -832,6 +842,13 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
             }
         }
     }
+    foreach (['available_balance_usd','minimum_balance_usd','input_cost_usd_per_million','output_cost_usd_per_million','sale_price_usd_per_million','fixed_monthly_cost_usd'] as $k) {
+        if (array_key_exists($k, $value)) {
+            $raw = trim((string) $value[$k]);
+            $value[$k] = $raw === '' ? '' : (is_numeric($raw) && (float) $raw >= 0 ? (string) (float) $raw : '');
+        }
+    }
+    if (array_key_exists('pricing_source', $value)) $value['pricing_source'] = sanitize_text_field((string) $value['pricing_source']);
     foreach (['enable_auto_translate', 'deepl_free', 'block_crawlers', 'log_queries'] as $k) {
         $value[$k] = !empty($value[$k]) ? 1 : 0;
     }
@@ -848,6 +865,9 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
         'enable_auto_translate' => 0,
         'api_provider'          => 'libretranslate',
         'libre_url'             => '',
+        'openai_url'            => 'https://api.openai.com/v1/chat/completions',
+        'openai_key'            => '',
+        'openai_model'          => '',
         'libre_key'             => '',
         'google_key'            => '',
         'google_project'        => '',
@@ -861,6 +881,13 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
         'alternatives'          => 3,
         'char_limit'            => 50000,
         'requests_limit'        => 100,
+        'available_balance_usd'  => '',
+        'minimum_balance_usd'    => '',
+        'input_cost_usd_per_million' => '',
+        'output_cost_usd_per_million' => '',
+        'sale_price_usd_per_million' => '',
+        'fixed_monthly_cost_usd' => '',
+        'pricing_source'         => 'administrator estimate',
         'block_crawlers'        => 0,
         'log_queries'           => 0,
     ];
@@ -1282,6 +1309,9 @@ add_filter('option_yuz_tra_at_settings', function ($opt) {
         'enable_auto_translate' => 0,
         'api_provider'          => 'libretranslate',
         'libre_url'             => '',
+        'openai_url'            => 'https://api.openai.com/v1/chat/completions',
+        'openai_key'            => '',
+        'openai_model'          => '',
         'libre_key'             => '',
         'google_key'            => '',
         'google_project'        => '',
@@ -1295,6 +1325,13 @@ add_filter('option_yuz_tra_at_settings', function ($opt) {
         'alternatives'          => 3,
         'char_limit'            => 50000,
         'requests_limit'        => 100,
+        'available_balance_usd'  => '',
+        'minimum_balance_usd'    => '',
+        'input_cost_usd_per_million' => '',
+        'output_cost_usd_per_million' => '',
+        'sale_price_usd_per_million' => '',
+        'fixed_monthly_cost_usd' => '',
+        'pricing_source'         => 'administrator estimate',
         'block_crawlers'        => 0,
         'log_queries'           => 0,
     ];

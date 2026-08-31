@@ -120,11 +120,13 @@ public static function tm(): YUZ_API_Manager {
              YUZ_TRA_INCLUDES . 'class-yuz-deepl-translate-adapter.php',
              YUZ_TRA_INCLUDES . 'class-yuz-google-translate-adapter.php',
              YUZ_TRA_INCLUDES . 'class-yuz-ollama-translate-adapter.php',
+             YUZ_TRA_INCLUDES . 'class-yuz-openai-translate-adapter.php',
          ];
         foreach ($adapterFiles as $f) { if (file_exists($f)) { require_once $f; } }
 
         $adapters = [
             'ollama'         => new YUZ_Ollama_Translate_Adapter(),
+            'openai'         => new YUZ_OpenAI_Translate_Adapter(),
             'custom'         => class_exists('YUZ_Custom_Translate_Adapter')   ? new YUZ_Custom_Translate_Adapter()   : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
             'libretranslate' => class_exists('YUZ_Libre_Translate_Adapter')    ? new YUZ_Libre_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
             'deepl'          => class_exists('YUZ_DeepL_Translate_Adapter')    ? new YUZ_DeepL_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
@@ -208,7 +210,7 @@ $missing[] = 'api_provider';
 // exigences minimales génériques: endpoint  clé si pertinent
 $ep = $api[$provider]['endpoint'] ?? $api['endpoint'] ?? '';
 $key = $api[$provider]['api_key'] ?? $api['api_key'] ?? '';
-if (in_array($provider, ['libretranslate','custom','google','deepl'], true)) {
+if (in_array($provider, ['libretranslate','custom','google','deepl','openai'], true)) {
 if (!$ep) { $missing[] = 'api_endpoint'; }
 // certains providers peuvent tourner sans clé, mais on la réclame par défaut
 if (!$key && $provider !== 'custom') { $warnings[] = 'api_key_missing'; }
