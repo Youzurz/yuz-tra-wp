@@ -33,6 +33,7 @@ jobs:
           npx playwright install --with-deps chromium
           export CHROMIUM_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")
           node workspace.cjs
+          node workspace-delayed.cjs
           node overlay.cjs
           node transport.cjs
       - uses: actions/upload-artifact@v4

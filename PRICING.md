@@ -1,6 +1,6 @@
 # Prix et coûts
 
-Le ZIP YUZ-TRA 1.5.0 est distribué sans paiement ni clé d’activation payante, sous
+Le ZIP YUZ-TRA 1.5.1 est distribué sans paiement ni clé d’activation payante, sous
 GPLv2 ou ultérieure, conformément à la licence déjà déclarée par le projet.
 Ce document ne crée pas d’offre commerciale ni d’engagement de support payant.
 

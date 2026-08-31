@@ -1,3 +1,9 @@
+# 1.5.1 — 2026-08-31
+
+- Lien direct vers l’atelier : le visuel rejoint les chaînes même si Vue termine son chargement plus tard.
+- Retour du focus au bouton Strings dans ce parcours ; un éditeur explicitement détruit n’est jamais réinséré.
+- Test de non-régression sur montage différé/masqué, en plus des contrôles souris, clavier et mobile.
+
 # 1.5.0 — 2026-08-31
 
 - Atelier commun : éditeur visuel à gauche, catalogue à droite, alignés en haut dans une seule couche native.

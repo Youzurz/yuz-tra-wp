@@ -146,6 +146,20 @@
   function saveLayout() {
     try { localStorage.setItem(prefKey, JSON.stringify(prefs)); } catch (_) {}
   }
+  function attachVisual() {
+    if (visual || !workspace) return;
+    const candidate = document.querySelector('#yuz-editor-container');
+    const modal = candidate?.querySelector('.yuz-modal');
+    if (!modal?.getClientRects().length) return;
+    visual = candidate;
+    placeholder = document.createComment('YUZ visual editor original position');
+    visual.before(placeholder);
+    workspace.querySelector('.yuz-work-visual').appendChild(visual);
+    workspace.classList.remove('yuz-work-single');
+    if (!returnFocus || returnFocus === document.body || !returnFocus.isConnected) {
+      returnFocus = visual.querySelector('[data-yuz-open-strings]') || visual;
+    }
+  }
   function createWorkspace() {
     workspace = document.createElement('dialog');
     workspace.id = 'yuz-workspace';
@@ -193,6 +207,13 @@
     }
     resizeHandle('[data-split]', false); resizeHandle('[data-resize]', true);
     window.addEventListener('resize', sizeWorkspace);
+    // Direct links can open Strings before Vue mounts/reveals its root. Observe
+    // real DOM readiness instead of guessing a timer or cloning an editor shell.
+    let attachFrame = 0;
+    new MutationObserver(() => {
+      if (!workspace.open || visual || attachFrame) return;
+      attachFrame = requestAnimationFrame(() => { attachFrame = 0; if (workspace.open) attachVisual(); });
+    }).observe(document.body, {subtree:true,childList:true,attributes:true,attributeFilter:['style','class']});
     document.addEventListener('yuz:ui:unmount', () => {
       // The main editor was explicitly destroyed: do not resurrect its detached
       // DOM when closing Strings. Keep the independent catalog and its draft.
@@ -206,15 +227,8 @@
     root.classList.remove('hidden');
     if (!mount && !workspace?.open) {
       if (!workspace) createWorkspace();
-      visual = document.querySelector('#yuz-editor-container');
-      const modal = visual?.querySelector('.yuz-modal');
-      const hasVisual = !!modal && !!modal.getClientRects().length;
-      workspace.classList.toggle('yuz-work-single', !hasVisual);
-      if (hasVisual) {
-        placeholder = document.createComment('YUZ visual editor original position');
-        visual.before(placeholder);
-        workspace.querySelector('.yuz-work-visual').appendChild(visual);
-      } else visual = null;
+      attachVisual();
+      workspace.classList.toggle('yuz-work-single', !visual);
       sizeWorkspace();
       workspace.showModal();
       root.focus({preventScroll:true});

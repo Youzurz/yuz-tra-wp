@@ -1,4 +1,4 @@
-# Confidentialité — YUZ-TRA 1.5.0
+# Confidentialité — YUZ-TRA 1.5.1
 
 Cette notice décrit le logiciel, pas une certification RGPD ni la politique juridique
 complète de votre site. L’exploitant détermine les finalités, la base légale, les durées
