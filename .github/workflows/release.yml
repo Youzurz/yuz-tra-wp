@@ -28,6 +28,7 @@ jobs:
           mkdir -p release
           ln -s .. release/yuz-tra
           node --test tests/editor-late-response.cjs
+          node --test tests/release-integrity.cjs
           npm ci --prefix tests/browser
           cd tests/browser
           npx playwright install --with-deps chromium
@@ -42,6 +43,7 @@ jobs:
           path: |
             dist/yuz-tra-*.zip
             dist/yuz-tra-*.sha256
+            dist/yuz-tra-*.manifest.json
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: verify
@@ -63,4 +65,5 @@ jobs:
             echo 'Release already exists; its files are never overwritten.'
             exit 0
           fi
-          gh release create "v$version" dist/*.zip dist/*.sha256 --target "$GITHUB_SHA" --prerelease --title "YUZ-TRA $version — évaluation indépendante" --notes-file RELEASE-NOTES.md
+          node -e 'const fs=require("fs"),m=JSON.parse(fs.readFileSync(process.argv[1]));if(m.source_commit!==process.env.GITHUB_SHA||m.build_mode!=="github-actions")process.exit(1)' "dist/yuz-tra-$version.manifest.json"
+          gh release create "v$version" dist/*.zip dist/*.sha256 dist/*.manifest.json --target "$GITHUB_SHA" --prerelease --title "YUZ-TRA $version — évaluation indépendante" --notes-file RELEASE-NOTES.md

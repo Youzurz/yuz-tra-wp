@@ -3,7 +3,7 @@
  * Plugin Name: YUZ-TRA
  * Plugin URI: https://github.com/Youzurz/yuz-tra-wp
  * Description: Traduction visuelle et catalogue Gettext WordPress, plugins et thèmes, avec relecture, publication et quotas.
- * Version: 1.5.1
+ * Version: 1.5.2
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: YUZ CLA

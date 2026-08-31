@@ -43,6 +43,8 @@ if (!class_exists('YUZ_String_Admin')) {
                 admin_url('admin.php')
             );
             echo '<div class="wrap"><h1>' . esc_html__('String Translation', 'yuz-translation') . '</h1>';
+            require_once __DIR__ . '/class-yuz-release.php';
+            YUZ_Release::render();
             echo '<p class="description">' . esc_html__('This tool now lives in the YUZ-TRA "Strings" tab.', 'yuz-translation') . ' ';
             echo '<a href="' . esc_url($tab_url) . '">' . esc_html__('Open the Strings tab', 'yuz-translation') . '</a>.</p>';
             self::render_tab_content();

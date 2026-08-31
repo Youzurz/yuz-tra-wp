@@ -1,10 +1,11 @@
-# YUZ-TRA 1.5.1 — distribution indépendante d’évaluation
+# YUZ-TRA 1.5.2 — distribution indépendante d’évaluation
 
-Télécharger **yuz-tra-1.5.1.zip** ci-dessous, pas l’archive « Source code ».
+Télécharger **yuz-tra-1.5.2.zip** ci-dessous, pas l’archive « Source code ».
 La somme SHA-256 est jointe. Le ZIP contient le dossier `yuz-tra`, directement
 installable depuis Extensions → Ajouter → Téléverser dans WordPress.
 
-- Correctif 1.5.1 : le panneau visuel rejoint aussi l’atelier lorsqu’un lien direct ouvre les chaînes avant le chargement de Vue. Un panneau détruit n’est jamais réinséré.
+- 1.5.2 : bandeau de version, téléchargement et parcours d’aide dans l’administration ; cohérence manifeste/header/readme contrôlée, provenance du commit et manifeste SHA-256 externe. Le raccordement GitLab reste non effectué faute de dépôt identifié.
+- Correctif 1.5.1 conservé : le panneau visuel rejoint aussi l’atelier lorsqu’un lien direct ouvre les chaînes avant le chargement de Vue. Un panneau détruit n’est jamais réinséré.
 - Atelier commun : visuel à gauche, chaînes à droite, alignés en haut.
 - Largeur/hauteur réglables, poignées souris/clavier, préférences locales et mobile empilé.
 - Conservation des saisies du catalogue à la fermeture/réouverture et raccourcis isolés.

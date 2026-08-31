@@ -963,3 +963,6 @@ readme.txt
 src/js/yuz-string-translation-editor.js
 src/js/yuz-translation-service.js
 yuz-tra.php
+version.json
+includes/class-yuz-release.php
+RELEASE-INTEGRITY.md

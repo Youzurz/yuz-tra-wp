@@ -1342,6 +1342,8 @@ class YUZ_Settings implements SettingsInterface {
         $page = isset($_GET['page']) ? sanitize_key($_GET['page']) : 'yuz-translation-settings';
 
         echo '<div class="wrap yuz-admin-shell" id="yuz-settings">';
+        require_once __DIR__ . '/class-yuz-release.php';
+        YUZ_Release::render();
 
         $locale = function_exists('get_user_locale') ? get_user_locale() : get_locale();
 
@@ -1360,8 +1362,8 @@ class YUZ_Settings implements SettingsInterface {
         if (!$rendered_toolbar) {
             echo '<div class="yuz-admin-toolbar" data-yuz-toolbar>'
                . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/support">' . esc_html__('Support', 'yuz-translation') . '</a>'
-               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/docs">'    . esc_html__('Documentation', 'yuz-translation') . '</a>'
-               . '<a class="button button-primary yuz-admin-toolbar__button yuz-admin-toolbar__button--primary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/pricing">'. esc_html__('Upgrade', 'yuz-translation') . '</a>'
+               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/documentation/">'    . esc_html__('Documentation', 'yuz-translation') . '</a>'
+               . '<a class="button button-primary yuz-admin-toolbar__button yuz-admin-toolbar__button--primary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/pricing/">'. esc_html__('Free features and costs', 'yuz-translation') . '</a>'
                . '</div>';
         }
 

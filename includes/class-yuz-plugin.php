@@ -406,7 +406,9 @@ if (!class_exists('YUZ_Plugin')) {
             defined('YUZ_TRA_ASSETS_DIR')  || define('YUZ_TRA_ASSETS_DIR', YUZ_TRA_DIR . 'assets/');
             defined('YUZ_TRA_ASSETS_URL')  || define('YUZ_TRA_ASSETS_URL', YUZ_TRA_URL . 'assets/');
             defined('YUZ_TRA_ASSETS')      || define('YUZ_TRA_ASSETS', YUZ_TRA_ASSETS_URL);
-            defined('YUZ_TRA_VERSION')     || define('YUZ_TRA_VERSION', '1.5.1');
+            // WordPress reads this same header; never maintain a second version literal.
+            $version_header = get_file_data($plugin_file, ['version' => 'Version'], 'plugin');
+            defined('YUZ_TRA_VERSION')     || define('YUZ_TRA_VERSION', $version_header['version']);
             defined('YUZ_LOG_ENABLED')     || define('YUZ_LOG_ENABLED', true);
             defined('YUZ_LOG_LEVEL')       || define('YUZ_LOG_LEVEL', 'warning');
             defined('YUZ_REWRITE_DEBUG')   || define('YUZ_REWRITE_DEBUG', false);

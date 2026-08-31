@@ -55,3 +55,9 @@
 - Activation corrigée : contrat cron, contraintes SQL nommées par préfixe, schéma auxiliaire additif.
 - Réglages automatiques unifiés, intervalle réconcilié, événements supprimés à la désactivation.
 - Suppression des chargements forcés d’un autre plugin et du dépannage de thème spécifiques à une installation.
+# 1.5.2 — 2026-08-31
+
+- Version installée, téléchargement et parcours documentaire visibles dans les réglages et le catalogue direct.
+- Version canonique dans version.json, header/readme contrôlés avant construction ; constante runtime lue dans le header.
+- Provenance du build et manifeste externe reliant tag, commit source et SHA-256 du ZIP.
+- Aucune intégration GitLab revendiquée sans accès et synchronisation vérifiés.

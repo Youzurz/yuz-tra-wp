@@ -1,4 +1,4 @@
-# YUZ-TRA 1.5.1
+# YUZ-TRA 1.5.2
 
 [Télécharger le ZIP](https://github.com/Youzurz/yuz-tra-wp/releases) · [Guide de démarrage](GETTING-STARTED.md) · [Support](https://github.com/Youzurz/yuz-tra-wp/issues/new/choose) · [Confidentialité](PRIVACY.md) · [Coûts](PRICING.md) · [Limites connues](KNOWN-LIMITS.md)
 
@@ -24,7 +24,7 @@ Extension WordPress : éditeur visuel et catalogue des chaînes Gettext du cœur
 
 ## Installation
 
-1. Sauvegarder la base et l’ancienne extension. Dans WordPress : Extensions → Ajouter → Téléverser, sélectionner `yuz-tra-1.5.1.zip`, installer puis activer. Pour une mise à jour, confirmer le remplacement de YUZ-TRA uniquement.
+1. Sauvegarder la base et l’ancienne extension. Dans WordPress : Extensions → Ajouter → Téléverser, sélectionner `yuz-tra-1.5.2.zip`, installer puis activer. Pour une mise à jour, confirmer le remplacement de YUZ-TRA uniquement.
 2. Configurer les langues dans YUZ-TRA. Pour l’administration, la langue affichée suit celle du profil utilisateur WordPress ; pour les pages WordPress, elle suit la langue active du routeur YUZ.
 3. Ouvrir YUZ-TRA → onglet Strings/Chaînes, ou `/wp-admin/admin.php?page=yuz-string-translation-editor`.
 4. Lancer « Scanner WordPress, plugins et thèmes ». Le scan fonctionne par étapes et déduplique les chaînes. Relancer après une mise à jour d’extension. Les appels PHP rencontrés lors des visites sont aussi collectés, sans traduction distante pendant le rendu.
@@ -89,3 +89,9 @@ Schéma additif : sources, traductions par langue et journal de consommation dan
 Les textes sélectionnés ou mis en file sont envoyés au fournisseur configuré quand une traduction est demandée. Ne pas activer la traduction silencieuse pour des chaînes sensibles sans examiner ce périmètre. Garder les traces de debug désactivées en production : certaines traces historiques peuvent contenir du texte traduit.
 
 Le paquet ne contient ni configuration de site, ni clé, ni compte de test, ni sauvegarde, ni capture réseau. Il n’active pas d’autres plugins et ne modifie pas TranslatePress.
+
+## Version, provenance et intégrité
+
+Le bandeau WordPress affiche la version installée et les liens de téléchargement et d’aide.
+[RELEASE-INTEGRITY.md](RELEASE-INTEGRITY.md) décrit les contrôles automatiques, le manifeste
+SHA-256 et le raccordement GitLab restant à effectuer. Aucun miroir non vérifié n’est annoncé.

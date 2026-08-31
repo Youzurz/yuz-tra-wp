@@ -4,7 +4,7 @@ Tags: translation, multilingual, localization, gettext, woocommerce
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.5.1
+Stable tag: 1.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -68,7 +68,7 @@ no bug report or translation content is automatically transmitted to the maintai
 == Installation ==
 
 1. Back up the database and previous plugin. Try staging first.
-2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.1.zip and activate it.
+2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.2.zip and activate it.
 3. Configure source and target languages in YUZ-TRA.
 4. Open Strings, scan installed code and filter by domain/language.
 5. Edit and publish, or select up to five strings for provider translation and review.
