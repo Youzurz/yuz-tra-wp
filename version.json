@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "slug": "yuz-tra",
-  "version": "1.5.3",
-  "channel": "evaluation",
+  "version": "1.5.4",
+  "channel": "stable",
   "repository": "https://github.com/Youzurz/yuz-tra-wp",
   "product_url": "https://youzurz.com/yuz-tra/",
   "requires_wordpress": "6.5",

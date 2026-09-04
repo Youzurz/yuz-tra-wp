@@ -18,7 +18,7 @@ final class YUZ_Release {
         echo '<section class="yuz-release-card" aria-label="' . esc_attr__('Version and downloads', 'yuz-tra') . '" style="margin:16px 0;padding:20px;border:1px solid #c3d4ee;border-radius:12px;background:#fff;color:#17243d">';
         echo '<h2 style="margin-top:0">YUZ-TRA · ' . esc_html__('Installed version', 'yuz-tra') . ' <strong data-yuz-installed-version>' . esc_html($header['version']) . '</strong></h2>';
         echo '<p>' . esc_html__('Visual translation and WordPress string catalog: edit, review and publish.', 'yuz-tra') . '</p>';
-        echo '<p>' . esc_html__('Independent evaluation release. Not approved by WordPress.org. Back up and test on staging before updating.', 'yuz-tra') . '</p>';
+        echo '<p>' . esc_html__('Open-source release. Back up and test on staging before updating.', 'yuz-tra') . '</p>';
         if (!$coherent) {
             echo '<p role="alert"><strong>' . esc_html__('Version metadata mismatch: download links use the release list. This installation must be checked.', 'yuz-tra') . '</strong></p>';
         }

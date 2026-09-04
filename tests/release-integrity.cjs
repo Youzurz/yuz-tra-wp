@@ -13,5 +13,6 @@ for(const [name,file,from,to]of [
  ['header drift','yuz-tra.php',/Version: \d+\.\d+\.\d+/,'Version: 99.0.0'],
  ['readme drift','readme.txt',/Stable tag: \d+\.\d+\.\d+/,'Stable tag: 99.0.0'],
  ['repository drift','version.json',/Youzurz\/yuz-tra-wp/,'Other/untrusted'],
+ ['unsupported release channel','version.json',/"channel": "(?:stable|evaluation)"/,'"channel": "unknown"'],
  ['runtime hard-coded version','includes/class-yuz-plugin.php',/define\('YUZ_TRA_VERSION', \$version_header\['version'\]\)/,"define('YUZ_TRA_VERSION', '99.0.0')"],
 ])test(name+' blocks build',()=>{const dir=fixture(),p=path.join(dir,file);fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace(from,to));assert.notEqual(run(dir).status,0);});

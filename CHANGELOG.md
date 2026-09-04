@@ -1,3 +1,23 @@
+# 1.5.4 — 2026-09-04
+
+- Métadonnées durables pour la soumission WordPress.org, sans présentation de placeholder d’évaluation.
+- Auteur du paquet normalisé sur `YOUZURZ (YUZ CLA GPT)`.
+- Changelog et consignes de mise à jour alignés sur le stable tag.
+- Recette fraîche du ZIP exact dans WordPress 7.1 avec Plugin Check 2.1.0.
+
+# 1.5.3 — 2026-09-04
+
+- Domaine de traduction normalisé sur le slug `yuz-tra`.
+- En-tête de mise à jour tiers retiré du paquet WordPress.org.
+- Build GitHub Actions reproductible avec empreinte et manifeste de provenance externes.
+
+# 1.5.2 — 2026-08-31
+
+- Version installée, téléchargement et parcours documentaire visibles dans les réglages et le catalogue direct.
+- Version canonique dans version.json, header/readme contrôlés avant construction ; constante runtime lue dans le header.
+- Provenance du build et manifeste externe reliant tag, commit source et SHA-256 du ZIP.
+- Aucune intégration GitLab revendiquée sans accès et synchronisation vérifiés.
+
 # 1.5.1 — 2026-08-31
 
 - Lien direct vers l’atelier : le visuel rejoint les chaînes même si Vue termine son chargement plus tard.
@@ -55,9 +75,3 @@
 - Activation corrigée : contrat cron, contraintes SQL nommées par préfixe, schéma auxiliaire additif.
 - Réglages automatiques unifiés, intervalle réconcilié, événements supprimés à la désactivation.
 - Suppression des chargements forcés d’un autre plugin et du dépannage de thème spécifiques à une installation.
-# 1.5.2 — 2026-08-31
-
-- Version installée, téléchargement et parcours documentaire visibles dans les réglages et le catalogue direct.
-- Version canonique dans version.json, header/readme contrôlés avant construction ; constante runtime lue dans le header.
-- Provenance du build et manifeste externe reliant tag, commit source et SHA-256 du ZIP.
-- Aucune intégration GitLab revendiquée sans accès et synchronisation vérifiés.

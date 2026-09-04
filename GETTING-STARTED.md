@@ -3,17 +3,18 @@
 ## 1. Télécharger le bon fichier
 
 Sur la [page des versions](https://github.com/Youzurz/yuz-tra-wp/releases), choisir
-**yuz-tra-1.5.3.zip** dans « Assets ». Ne pas choisir « Source code.zip » : c’est
+**yuz-tra-1.5.4.zip** dans « Assets ». Ne pas choisir « Source code.zip » : c’est
 l’archive du dépôt, pas l’extension prête à téléverser.
-La version est une distribution indépendante d’évaluation, pas une validation WordPress.org.
+La release GitHub est la distribution vérifiable du même code source. Une présence dans
+l’annuaire WordPress.org dépend de sa procédure de revue officielle.
 
 Le fichier `.sha256` permet de vérifier l’intégrité, sans garantir à lui seul la sécurité :
 
 ```sh
-sha256sum -c yuz-tra-1.5.3.zip.sha256
+sha256sum -c yuz-tra-1.5.4.zip.sha256
 ```
 
-Sur macOS : `shasum -a 256 yuz-tra-1.5.3.zip` et comparer avec le fichier de contrôle.
+Sur macOS : `shasum -a 256 yuz-tra-1.5.4.zip` et comparer avec le fichier de contrôle.
 
 ## 2. Installer sur staging
 
@@ -68,7 +69,8 @@ Ne pas l’activer sur tout le catalogue avant d’avoir testé un petit périm�
 ## 6. Mettre à jour ou revenir en arrière
 
 Lire CHANGELOG.md et KNOWN-LIMITS.md, sauvegarder, essayer la nouvelle version sur staging,
-puis téléverser le ZIP. Pas de mise à jour automatique dans cette distribution.
+puis téléverser le ZIP. Une installation provenant de WordPress.org utilise son mécanisme
+de mise à jour ; une installation directe depuis GitHub se met à jour manuellement.
 Un retour à l’ancien ZIP ne restaure pas la base : en cas de problème de migration,
 utiliser la sauvegarde correspondante avec l’administrateur. La désactivation conserve
 les données et arrête les événements cron YUZ.

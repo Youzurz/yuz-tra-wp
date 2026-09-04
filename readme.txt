@@ -4,7 +4,7 @@ Tags: translation, multilingual, localization, gettext, woocommerce
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.3
+Stable tag: 1.5.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,9 +26,7 @@ publish missing translations in explicitly enabled silent mode. Ollama output
 always stays pending review. Resource limits are configurable safety budgets, not
 a paid feature unlock. No translation correctness or legal compliance is guaranteed.
 
-This ZIP is independently distributed, not approved or hosted by WordPress.org.
-It is an evaluation release with remaining WordPress.org review work documented
-in the repository. Test on staging and back up before replacing an existing plugin.
+YUZ-TRA is open-source software. Test on staging and back up before replacing an existing plugin.
 Declared minimum versions have not all been tested; acceptance tests used WordPress
 7.1, PHP 8.3 and WooCommerce 10.8.1.
 
@@ -68,7 +66,7 @@ no bug report or translation content is automatically transmitted to the maintai
 == Installation ==
 
 1. Back up the database and previous plugin. Try staging first.
-2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.3.zip and activate it.
+2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.4.zip and activate it.
 3. Configure source and target languages in YUZ-TRA.
 4. Open Strings, scan installed code and filter by domain/language.
 5. Edit and publish, or select up to five strings for provider translation and review.
@@ -89,8 +87,8 @@ Translation providers and hosting may charge separately. No paid support plan or
 guaranteed response time is offered by this package. See PRICING.md.
 
 = Are updates automatic? =
-Not for this independently distributed ZIP. Read CHANGELOG.md, back up and upload the
-new ZIP in WordPress. WordPress.org automatic distribution is not active for this release.
+WordPress.org installations use the standard WordPress update mechanism. For a ZIP
+installed directly from GitHub, read CHANGELOG.md, back up and upload the new ZIP manually.
 
 = What happens to my data when I deactivate or delete it? =
 Deactivation unschedules YUZ cron. Catalogs, memory, glossary, options and historical
@@ -98,6 +96,16 @@ logs are retained; deleting plugin files is not a data-erasure operation. Arrang
 site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Changelog ==
+
+= 1.5.4 =
+* Production-ready WordPress.org metadata and durable update guidance.
+* Package author normalized to YOUZURZ (YUZ CLA GPT).
+* Fresh WordPress 7.1 and Plugin Check 2.1.0 validation of the exact release ZIP.
+
+= 1.5.3 =
+* Translation domain normalized to the `yuz-tra` slug.
+* Third-party update header removed from the WordPress.org package.
+* Reproducible GitHub Actions build with external SHA-256 and provenance manifest.
 
 = 1.5.1 =
 * Shared top-aligned visual and string workspace, accessible resizing and local preferences.
@@ -110,5 +118,5 @@ site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Upgrade Notice ==
 
-= 1.5.1 =
+= 1.5.4 =
 Back up first. Test on staging. Review provider settings and privacy policy before enabling automatic translation.

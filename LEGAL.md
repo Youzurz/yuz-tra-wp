@@ -1,9 +1,10 @@
 # Licence, identité et limites juridiques
 
 Le code YUZ-TRA est publié par le compte GitHub **Youzurz**, avec l’auteur déclaré
-**YUZ CLA** et le site **https://youzurz.com/**. La licence préexistante GPLv2 ou ultérieure
+**YOUZURZ (YUZ CLA GPT)** et le site **https://youzurz.com/**. La licence préexistante GPLv2 ou ultérieure
 est conservée ; LICENSE contient le texte et THIRD-PARTY.md les attributions tierces.
-Cette publication ne revendique aucune affiliation ou approbation de WordPress.org.
+Cette publication ne revendique aucune affiliation avec WordPress.org. Une éventuelle
+présence dans l’annuaire relève exclusivement de la procédure officielle de revue.
 
 La distribution directe d’un plugin n’est pas une admission dans l’annuaire WordPress.
 Le code source correspondant et les notices restent disponibles. Les droits accordés

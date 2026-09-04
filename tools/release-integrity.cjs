@@ -7,7 +7,7 @@ const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 function check(){
  const m=JSON.parse(read('version.json'));
  assert.equal(m.schema_version,1);assert.equal(m.slug,'yuz-tra');
- assert.match(m.version,/^\d+\.\d+\.\d+$/);assert.equal(m.channel,'evaluation');
+ assert.match(m.version,/^\d+\.\d+\.\d+$/);assert.ok(['stable','evaluation'].includes(m.channel),'Unsupported release channel');
  assert.equal(m.repository,'https://github.com/Youzurz/yuz-tra-wp');
  const header=read('yuz-tra.php'),readme=read('readme.txt');
  for(const [field,value]of [['Version',m.version],['Requires at least',m.requires_wordpress],['Requires PHP',m.requires_php],['Plugin URI',m.repository],['Text Domain',m.slug]])
