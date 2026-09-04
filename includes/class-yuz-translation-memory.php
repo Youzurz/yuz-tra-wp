@@ -64,25 +64,23 @@ final class YUZ_Translation_Memory {
     public static function import_csv(string $csv): int {
         global $wpdb;
         if (strlen($csv)>200000 || !get_current_user_id()) throw new InvalidArgumentException('invalid_glossary_import');
-        $stream=fopen('php://temp','r+');
-        fwrite($stream,$csv); rewind($stream);
-        try {
-            $header=fgetcsv($stream,0,',','"','');
-            if ($header!==['source_lang','target_lang','domain','context','source','target']) throw new InvalidArgumentException('invalid_glossary_header');
-            $rows=[];
-            while (($row=fgetcsv($stream,0,',','"',''))!==false) {
-                if ($row===[null]) continue;
-                if (count($row)!==6 || count($rows)>=500) throw new InvalidArgumentException('invalid_glossary_rows');
-                [$src,$tgt,$domain,$ctx,$text,$translation]=$row;
-                foreach ([$src,$tgt] as $lang) if (!preg_match('/^[a-zA-Z]{2,3}(?:[_-][a-zA-Z0-9]+)*$/D',$lang)) throw new InvalidArgumentException('invalid_glossary_locale');
-                if (!preg_match('/^[a-zA-Z0-9_.-]{1,191}$/D',$domain) || $text==='' || $translation==='' || strlen($text)>1000 || strlen($translation)>2000 || strlen($ctx)>1000) throw new InvalidArgumentException('invalid_glossary_term');
-                if (YUZ_String_Catalog::tokens($text)!==YUZ_String_Catalog::tokens($translation)) throw new InvalidArgumentException('glossary_placeholder_mismatch');
-                $src=str_replace('-','_',$src); $tgt=str_replace('-','_',$tgt);
-                $rows[]=['identity_hash'=>hash('sha256',wp_json_encode([$src,$tgt,$domain,$ctx,$text])),
-                    'source_lang'=>$src,'target_lang'=>$tgt,'domain'=>$domain,'context'=>$ctx,
-                    'source_text'=>$text,'target_text'=>$translation,'approved_by'=>get_current_user_id(),'approved_at'=>gmdate('Y-m-d H:i:s')];
-            }
-        } finally { fclose($stream); }
+        $lines=preg_split('/\r\n|\r|\n/',trim($csv));
+        $header=str_getcsv((string)array_shift($lines),',','"','');
+        if ($header!==['source_lang','target_lang','domain','context','source','target']) throw new InvalidArgumentException('invalid_glossary_header');
+        $rows=[];
+        foreach ($lines as $line) {
+            if (trim($line)==='') continue;
+            $row=str_getcsv($line,',','"','');
+            if (count($row)!==6 || count($rows)>=500) throw new InvalidArgumentException('invalid_glossary_rows');
+            [$src,$tgt,$domain,$ctx,$text,$translation]=$row;
+            foreach ([$src,$tgt] as $lang) if (!preg_match('/^[a-zA-Z]{2,3}(?:[_-][a-zA-Z0-9]+)*$/D',$lang)) throw new InvalidArgumentException('invalid_glossary_locale');
+            if (!preg_match('/^[a-zA-Z0-9_.-]{1,191}$/D',$domain) || $text==='' || $translation==='' || strlen($text)>1000 || strlen($translation)>2000 || strlen($ctx)>1000) throw new InvalidArgumentException('invalid_glossary_term');
+            if (YUZ_String_Catalog::tokens($text)!==YUZ_String_Catalog::tokens($translation)) throw new InvalidArgumentException('glossary_placeholder_mismatch');
+            $src=str_replace('-','_',$src); $tgt=str_replace('-','_',$tgt);
+            $rows[]=['identity_hash'=>hash('sha256',wp_json_encode([$src,$tgt,$domain,$ctx,$text])),
+                'source_lang'=>$src,'target_lang'=>$tgt,'domain'=>$domain,'context'=>$ctx,
+                'source_text'=>$text,'target_text'=>$translation,'approved_by'=>get_current_user_id(),'approved_at'=>gmdate('Y-m-d H:i:s')];
+        }
         if (!$rows) throw new InvalidArgumentException('empty_glossary');
         if (!YUZ_DB::ensure_string_tables()) throw new RuntimeException('memory_storage_unavailable');
         $wpdb->query('START TRANSACTION');

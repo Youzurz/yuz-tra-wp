@@ -476,7 +476,9 @@ class YUZ_Translation_Manager {
 
         // 7️⃣ Construction de l’objet final
         return [
-            'ajax_url'          => admin_url('admin-ajax.php'),
+            // Keep AJAX on the current origin so authenticated internal aliases
+            // and reverse-proxy hosts do not leak requests to the public URL.
+            'ajax_url'          => admin_url('admin-ajax.php', 'relative'),
             'trace_upload_url'  => esc_url_raw($trace_path),
             'source_language'   => $source_lang,
             'default_language'  => $default_lang,

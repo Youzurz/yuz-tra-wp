@@ -7,14 +7,13 @@
 if (!defined('ABSPATH')) { exit; }
 
 // Enable tracing now; you can also toggle with ?yuztrace=1 in URL
-$__yuz_trace_enabled = true;
+$__yuz_trace_enabled = false;
 if (defined('YUZ_TRACE') && YUZ_TRACE) { $__yuz_trace_enabled = true; }
 if (isset($_GET['yuztrace'])) { $__yuz_trace_enabled = true; }
 
 function yuz_trace_log($stage, $data = []){
     global $__yuz_trace_enabled;
     if (!$__yuz_trace_enabled) { return; }
-    $file = WP_CONTENT_DIR . '/redirection.log';
     $row  = [
         't'      => gmdate('c'),
         'stage'  => $stage,
@@ -24,7 +23,7 @@ function yuz_trace_log($stage, $data = []){
         'ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
     ];
     if (!empty($data)) { $row['data'] = $data; }
-    @file_put_contents($file, json_encode($row, JSON_UNESCAPED_SLASHES) . PHP_EOL, FILE_APPEND);
+    error_log('[YUZ request trace] '.wp_json_encode($row, JSON_UNESCAPED_SLASHES));
 }
 
 add_action('parse_request', function($wp){
@@ -81,4 +80,3 @@ add_action('shutdown', function(){
     ];
     yuz_trace_log('shutdown', $summary);
 });
-

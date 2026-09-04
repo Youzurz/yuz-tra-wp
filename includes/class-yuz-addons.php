@@ -189,7 +189,7 @@ public function enqueue_scripts(string $hook): void {
 public function render_tab(): void {
 if (!current_user_can('manage_options')) {
 $this->logger->log('critical', 'User lacks manage_options capability in YUZ_Addons::render_tab');
-wp_die(esc_html__('Unauthorized', 'yuz-translation'));
+wp_die(esc_html__('Unauthorized', 'yuz-tra'));
         }
 // POST → passer par l’AjaxInterface::handleRequest
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -199,7 +199,7 @@ $this->ajax->handleRequest(
 function ($post_data) {
 $this->logger->log('info', 'Processing addons form');
 update_option('yuz_addons_last_save', time());
-return ['success' => true, 'message' => __('Addons settings updated.', 'yuz-translation')];
+return ['success' => true, 'message' => __('Addons settings updated.', 'yuz-tra')];
                 },
                 [],
 true
@@ -208,11 +208,11 @@ true
 $addons = $this->get_available_addons();
 ?>
 <div class="wrap">
-<h1><?php esc_html_e('Addons', 'yuz-translation'); ?></h1>
+<h1><?php esc_html_e('Addons', 'yuz-tra'); ?></h1>
 <form method="post" action="">
 <?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
 <div class="yuz-section">
-<h2 class="yuz-section-title"><?php esc_html_e('Available Addons', 'yuz-translation'); ?></h2>
+<h2 class="yuz-section-title"><?php esc_html_e('Available Addons', 'yuz-tra'); ?></h2>
 <hr>
 <table class="form-table">
 <?php foreach ($addons as $addon): ?>
@@ -221,16 +221,16 @@ $addons = $this->get_available_addons();
 <td>
 <p><?php echo esc_html($addon['description']); ?></p>
 <?php if (!empty($addon['active'])): ?>
-<button type="button" class="button yuz-deactivate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Deactivate', 'yuz-translation'); ?></button>
+<button type="button" class="button yuz-deactivate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Deactivate', 'yuz-tra'); ?></button>
 <?php else: ?>
-<button type="button" class="button button-primary yuz-activate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Activate', 'yuz-translation'); ?></button>
+<button type="button" class="button button-primary yuz-activate-addon" data-addon="<?php echo esc_attr($addon['slug']); ?>"><?php esc_html_e('Activate', 'yuz-tra'); ?></button>
 <?php endif; ?>
 </td>
 </tr>
 <?php endforeach; ?>
 </table>
 </div>
-<?php submit_button(__('Save Changes', 'yuz-translation')); ?>
+<?php submit_button(__('Save Changes', 'yuz-tra')); ?>
 </form>
 </div>
 <?php
@@ -269,7 +269,7 @@ if (!$loaded) wp_send_json_error(['message'=>'addon_not_loaded'],422);
 // Active l’option
 update_option("yuz_addon_{$addon_slug}", 1);
 if ((int)get_option("yuz_addon_{$addon_slug}") !== 1) wp_send_json_error(['message'=>'addon_save_failed'],500);
-wp_send_json_success(['message' => __('Addon activated', 'yuz-translation'), 'loaded' => (bool)$loaded]);
+wp_send_json_success(['message' => __('Addon activated', 'yuz-tra'), 'loaded' => (bool)$loaded]);
 $this->logger->log('success', "Addon {$addon_slug} activated");
     }
 /**
@@ -283,7 +283,7 @@ $addon_slug = sanitize_text_field($_POST['addon'] ?? '');
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 update_option("yuz_addon_{$addon_slug}", 0);
 if ((int)get_option("yuz_addon_{$addon_slug}") !== 0) wp_send_json_error(['message'=>'addon_save_failed'],500);
-wp_send_json_success(['message' => __('Addon deactivated', 'yuz-translation')]);
+wp_send_json_success(['message' => __('Addon deactivated', 'yuz-tra')]);
 $this->logger->log('success', "Addon {$addon_slug} deactivated");
     }
 }

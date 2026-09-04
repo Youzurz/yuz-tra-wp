@@ -106,7 +106,7 @@ self::$booted = true;
 // Gardes minimales
 if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
 error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Licenses::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
-wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-translation'));
+wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-tra'));
             }
         // Logger
         $logger = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();

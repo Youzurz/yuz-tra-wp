@@ -139,7 +139,7 @@ if (!class_exists('YUZ_Debug_Probe')) {
                         fd.append('action', 'yuz_probe_client_log');
                         fd.append('kind', kind);
                         fd.append('payload', JSON.stringify(data));
-                        w.fetch('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', {
+                        w.fetch('<?php echo esc_url(admin_url('admin-ajax.php', 'relative')); ?>', {
                             method: 'POST',
                             credentials: 'same-origin',
                             body: fd

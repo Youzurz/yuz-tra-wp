@@ -67,11 +67,11 @@ class YUZ_Blocks {
             $current_lang    = get_locale();
             $translated_strings = [
                 /* translators: %s: current language name or code. */
-                'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-translation'),
+                'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
                 /* translators: %s: target language name or code. */
-                'switch_to_label'    => esc_html__('Switch to %s', 'yuz-translation'),
-                'powered_by'         => esc_html__('Powered by', 'yuz-translation'),
-                'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-translation'),
+                'switch_to_label'    => esc_html__('Switch to %s', 'yuz-tra'),
+                'powered_by'         => esc_html__('Powered by', 'yuz-tra'),
+                'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-tra'),
             ];
             include plugin_dir_path(YUZ_TRA_PLUGIN_FILE) . 'partials/yuz-language-switcher.php';
             return (string) ob_get_clean();

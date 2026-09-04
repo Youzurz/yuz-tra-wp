@@ -1,4 +1,6 @@
 <?php
+namespace YUZTRA\Interfaces;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * YUZ-TRA Plugin Global Interfaces and Fallbacks
  *
@@ -68,9 +70,6 @@
  *   — Toute logique transverse doit passer par services/contrats, jamais par un hook non autorisé.
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
-
-namespace YUZTRA\Interfaces;
-if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // --- DÉCLARATION INLINE DE GeneralInterface ---
 if (! interface_exists(GeneralInterface::class)) {

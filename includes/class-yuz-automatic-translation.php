@@ -133,7 +133,7 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
         // Gardes minimales
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
             error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Automatic_Translation::init');
-            wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-translation'));
+            wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-tra'));
         }
 
         // 1) Logger / Health / DB
@@ -273,12 +273,12 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
             : (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
         if (!$can_translate) {
             $this->logger->log('critical', 'User lacks yuz_translate_content capability in YUZ_Automatic_Translation::render_tab');
-            wp_die(esc_html__('Unauthorized', 'yuz-translation'));
+            wp_die(esc_html__('Unauthorized', 'yuz-tra'));
         }
 
         // Classic POST fallback for form submits (prevents raw JSON echo)
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'yuz_con_nonce')) {
-            if (!current_user_can('manage_options')) wp_die(esc_html__('Unauthorized','yuz-translation'));
+            if (!current_user_can('manage_options')) wp_die(esc_html__('Unauthorized','yuz-tra'));
             $this->logger->log('info', 'Processing POST submit in YUZ_Automatic_Translation::render_tab');
             $input = isset($_POST['yuz_tra_at_settings']) && is_array($_POST['yuz_tra_at_settings'])
                 ? (array) wp_unslash($_POST['yuz_tra_at_settings'])
@@ -292,9 +292,9 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
                     $this->translation_manager->set_api_settings($settings);
                     YUZ_Cron::reconcile_schedule();
 
-                    echo '<div class="updated"><p>'.esc_html__('Translation settings saved.', 'yuz-translation').'</p></div>';
+                    echo '<div class="updated"><p>'.esc_html__('Translation settings saved.', 'yuz-tra').'</p></div>';
                 } else {
-                    echo '<div class="error"><p>'.esc_html__('Failed to update API settings', 'yuz-translation').'</p></div>';
+                    echo '<div class="error"><p>'.esc_html__('Failed to update API settings', 'yuz-tra').'</p></div>';
                 }
             }
         }
@@ -310,10 +310,10 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
         }
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Automatic Translation', 'yuz-translation'); ?></h1>
+            <h1><?php esc_html_e('Automatic Translation', 'yuz-tra'); ?></h1>
 
             <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true'): ?>
-                <div class="updated"><p><?php esc_html_e('Translation settings saved.', 'yuz-translation'); ?></p></div>
+                <div class="updated"><p><?php esc_html_e('Translation settings saved.', 'yuz-tra'); ?></p></div>
             <?php endif; ?>
 
             <form method="post" action="options.php">
@@ -334,7 +334,7 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
             ?>
 
             <div class="yuz-section">
-                <h2 class="yuz-section-title"><?php esc_html_e('API Settings', 'yuz-translation'); ?></h2>
+                <h2 class="yuz-section-title"><?php esc_html_e('API Settings', 'yuz-tra'); ?></h2>
                 <hr>
                 <table class="form-table">
                     <?php
@@ -360,7 +360,7 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
                 </table>
             </div>
 
-            <?php submit_button(__('Save Changes', 'yuz-translation')); ?>
+            <?php submit_button(__('Save Changes', 'yuz-tra')); ?>
         </form>
         </div>
         <?php
@@ -384,7 +384,7 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
         if (empty($settings['enable_auto_translate']) || !in_array($settings['translation_mode'] ?? 'manual',['silent','all','auto'],true)) wp_send_json_error(['message'=>'Enable silent translation in settings before queuing a batch.'],400);
         if (!self::queue_full_site()) wp_send_json_error(['message'=>'batch_schedule_failed'],503);
         wp_send_json_success(['status'=>'queued','scheduled_at'=>wp_next_scheduled('yuz_auto_translation_tick'),
-            'message' => __('Automatic translation queued. It will run in background.', 'yuz-translation')]);
+            'message' => __('Automatic translation queued. It will run in background.', 'yuz-tra')]);
     }
 
     /**

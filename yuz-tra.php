@@ -10,9 +10,7 @@
  * Author URI: https://youzurz.com/
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Update URI: https://github.com/Youzurz/yuz-tra-wp
- * Text Domain: yuz-translation
- * Domain Path: /languages
+ * Text Domain: yuz-tra
  */
 defined('ABSPATH') || exit;
 require_once __DIR__ . '/includes/class-yuz-plugin.php';

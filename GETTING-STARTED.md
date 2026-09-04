@@ -3,17 +3,17 @@
 ## 1. Télécharger le bon fichier
 
 Sur la [page des versions](https://github.com/Youzurz/yuz-tra-wp/releases), choisir
-**yuz-tra-1.5.2.zip** dans « Assets ». Ne pas choisir « Source code.zip » : c’est
+**yuz-tra-1.5.3.zip** dans « Assets ». Ne pas choisir « Source code.zip » : c’est
 l’archive du dépôt, pas l’extension prête à téléverser.
 La version est une distribution indépendante d’évaluation, pas une validation WordPress.org.
 
 Le fichier `.sha256` permet de vérifier l’intégrité, sans garantir à lui seul la sécurité :
 
 ```sh
-sha256sum -c yuz-tra-1.5.2.zip.sha256
+sha256sum -c yuz-tra-1.5.3.zip.sha256
 ```
 
-Sur macOS : `shasum -a 256 yuz-tra-1.5.2.zip` et comparer avec le fichier de contrôle.
+Sur macOS : `shasum -a 256 yuz-tra-1.5.3.zip` et comparer avec le fichier de contrôle.
 
 ## 2. Installer sur staging
 
@@ -24,7 +24,7 @@ confirmer le remplacement de **YUZ-TRA uniquement**. Ne pas supprimer TranslateP
 ou d’autres extensions pour installer ce paquet.
 
 Prérequis déclarés : WordPress 6.5+, PHP 8.1+. Les tests de cette livraison utilisent
-WordPress 7.0 et PHP 8.3. Vérifier la recette et les limites avant un site de production.
+WordPress 7.1 et PHP 8.3. Vérifier la recette et les limites avant un site de production.
 
 ## 3. Traduire une première chaîne, sans service payant
 

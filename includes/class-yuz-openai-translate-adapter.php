@@ -20,7 +20,8 @@ final class YUZ_OpenAI_Translate_Adapter implements \YUZTRA\Interfaces\Translate
         $response = wp_remote_post($endpoint,['timeout'=>min(120,max(5,(int)($settings['provider_timeout'] ?? 45))),'redirection'=>0,'limit_response_size'=>200000,
             'headers'=>['Authorization'=>'Bearer '.$key,'Content-Type'=>'application/json'],'body'=>wp_json_encode($body)]);
         if (is_wp_error($response)) throw new RuntimeException('openai_transport_failed');
-        if (wp_remote_retrieve_response_code($response)!==200) throw new RuntimeException('openai_http_'.wp_remote_retrieve_response_code($response));
+        $response_code = (int) wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) throw new RuntimeException('openai_http_failed');
         $payload=json_decode(wp_remote_retrieve_body($response),true);
         $usage=$payload['usage'] ?? [];
         if (isset($usage['prompt_tokens'],$usage['completion_tokens'])) YUZ_Translation_Budget::record_metrics((int)$usage['prompt_tokens'],(int)$usage['completion_tokens'],(int)round(1000*(microtime(true)-$started)));

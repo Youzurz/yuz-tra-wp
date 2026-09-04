@@ -65,8 +65,8 @@ if (!class_exists('YUZ_HTML_Translator')) {
                         } else {
                             throw new RuntimeException('empty_from_provider');
                         }
-                    } catch (\Throwable $e) {
-                        throw new RuntimeException('html_translation_failed', 0, $e);
+                    } catch (\Throwable) {
+                        throw new RuntimeException('html_translation_failed');
                     }
                 }
             }

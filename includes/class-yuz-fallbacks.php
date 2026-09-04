@@ -1,4 +1,6 @@
 <?php
+namespace YUZTRA\Fallbacks;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * Class YUZ_Fallbacks
  * Centralizes fallback (null) implementations for interfaces in the YUZ-TRA plugin.
@@ -77,10 +79,6 @@
  *   — Toute logique transverse doit passer par services/contrats, jamais par un hook non autorisé.
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
-
-namespace YUZTRA\Fallbacks;
-
-if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Load global interface
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';

@@ -10,8 +10,9 @@ function check(){
  assert.match(m.version,/^\d+\.\d+\.\d+$/);assert.equal(m.channel,'evaluation');
  assert.equal(m.repository,'https://github.com/Youzurz/yuz-tra-wp');
  const header=read('yuz-tra.php'),readme=read('readme.txt');
- for(const [field,value]of [['Version',m.version],['Requires at least',m.requires_wordpress],['Requires PHP',m.requires_php],['Plugin URI',m.repository],['Update URI',m.repository]])
+ for(const [field,value]of [['Version',m.version],['Requires at least',m.requires_wordpress],['Requires PHP',m.requires_php],['Plugin URI',m.repository],['Text Domain',m.slug]])
   assert.equal(header.match(new RegExp('^ \\* '+field+': (.+)$','m'))?.[1],value,'Header '+field);
+ assert.doesNotMatch(header,/^ \\* Update URI:/m,'WordPress.org package must not declare Update URI');
  assert.equal(readme.match(/^Stable tag: (.+)$/m)?.[1],m.version,'readme Stable tag');
  assert.equal(readme.match(/^Requires at least: (.+)$/m)?.[1],m.requires_wordpress);
  assert.equal(readme.match(/^Requires PHP: (.+)$/m)?.[1],m.requires_php);
@@ -43,7 +44,11 @@ if(process.argv[2]==='--stage'){
  const zip=process.argv[3],manifest=JSON.parse(fs.readFileSync(process.argv[4],'utf8'));
  assert.equal(manifest.version,m.version);assert.equal(manifest.tag,'v'+m.version);
  assert.equal(manifest.artifact.sha256,sha(fs.readFileSync(zip)));assert.equal(manifest.artifact.bytes,fs.statSync(zip).size);
- assert.equal(manifest.artifact.url,m.repository+'/releases/download/v'+m.version+'/'+path.basename(zip));
+ const allowedArtifactUrls=[
+  m.repository+'/releases/download/v'+m.version+'/'+path.basename(zip),
+  'https://youzurz.com/downloads/'+path.basename(zip),
+ ];
+ assert.ok(allowedArtifactUrls.includes(manifest.artifact.url),'Unexpected artifact URL');
  const build=JSON.parse(cp.execFileSync('unzip',['-p',zip,'yuz-tra/build-provenance.json'],{encoding:'utf8'}));
  assert.equal(build.source_commit,manifest.source_commit);assert.equal(build.version,m.version);
  assert.equal(build.source_files_sha256,sha(JSON.stringify(build.files)));

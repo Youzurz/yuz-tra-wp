@@ -85,11 +85,11 @@ $use_native_name = isset($use_native_name) ? (bool)$use_native_name : !empty(get
 $languages = isset($languages) ? $languages : [];
 $translated_strings = isset($translated_strings) ? $translated_strings : [
     /* translators: %s: current language name or code. */
-    'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-translation'),
+    'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
     /* translators: %s: target language name or code. */
-    'switch_to_label'    => esc_html__('Switch to %s', 'yuz-translation'),
-    'powered_by'         => esc_html__('Powered by', 'yuz-translation'),
-    'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-translation'),
+    'switch_to_label'    => esc_html__('Switch to %s', 'yuz-tra'),
+    'powered_by'         => esc_html__('Powered by', 'yuz-tra'),
+    'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-tra'),
 ];
 $current_url_for_switcher = isset($current_url_for_switcher) ? (string) $current_url_for_switcher : '';
 if ($current_url_for_switcher === '' && isset($this) && isset($this->url_converter) && method_exists($this->url_converter, 'cur_page_url')) {
@@ -222,7 +222,7 @@ $resolve_display_label = static function ($lang, bool $force_native, string $act
   data-auto-flip="1"
   data-align="auto"
   data-ssr="1"
-  aria-label="<?php esc_attr_e('Language switcher', 'yuz-translation'); ?>"
+  aria-label="<?php esc_attr_e('Language switcher', 'yuz-tra'); ?>"
 >
   <button
     class="yuz-current-lang"

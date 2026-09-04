@@ -38,7 +38,6 @@ if (!class_exists('YUZ_Plugin')) {
             add_action('plugins_loaded', ['YUZ_Cron', 'init'], 26);
 
             add_action('init', [__CLASS__, 'guard_language_flags'], 5);
-            add_action('init', [__CLASS__, 'load_textdomain'], 20);
             add_action('init', ['YUZ_Core', 'init'], 30);
             add_action('init', [__CLASS__, 'sync_caps_from_option'], 20);
 
@@ -327,9 +326,6 @@ if (!class_exists('YUZ_Plugin')) {
                     $langs = (array) $wpdb->get_results("SELECT language_code, slug, browser_slug, is_translatable FROM {$lang_table} WHERE is_translatable = 1 ORDER BY language_weight, id", ARRAY_A);
                     if (empty($langs)) { \WP_CLI::warning('No translatable languages found.'); return; }
 
-                    // Prepare file logs for IDE visibility
-                    $log_path = defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/rewrite.log' : null;
-                    $log2_path = defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/rewrite2.log' : null;
                     $log_lines = [];
                     $log_lines[] = sprintf("Rules total=%d, YUZ-related=%d", $rule_count, $yuz_rule_count);
 
@@ -382,9 +378,9 @@ if (!class_exists('YUZ_Plugin')) {
                         else { \WP_CLI::warning(sprintf('Rewrite partial (%d/%d)', $found, $total)); }
                     }
 
-                    // Write logs to files for IDE visibility
-                    if ($log_path) { @file_put_contents($log_path, implode(PHP_EOL, $log_lines) . PHP_EOL); }
-                    if ($log2_path) { @file_put_contents($log2_path, implode(PHP_EOL, $log_lines) . PHP_EOL); }
+                    if ($verbose) {
+                        foreach ($log_lines as $log_line) { \WP_CLI::log($log_line); }
+                    }
                 });
             }
 
@@ -579,17 +575,6 @@ if (!class_exists('YUZ_Plugin')) {
             if ($need) {
                 self::ensure_tables_once();
             }
-        }
-
-        /**
-         * Loads text domain for translations.
-         */
-        public static function load_textdomain(): void {
-            load_plugin_textdomain(
-                'yuz_translation',
-                false,
-                dirname(plugin_basename(YUZ_TRA_PLUGIN_FILE)) . '/languages'
-            );
         }
 
         /**

@@ -592,7 +592,7 @@ final class YUZ_Assets implements AssetsInterface {
     public function log_deprecated(string $what, string $since): void {
         if (function_exists('_doing_it_wrong')) {
             /* translators: %s: version number. */
-            _doing_it_wrong( esc_html( $what ), sprintf( esc_html__( 'Deprecated since %s', 'yuz-translation' ), esc_html( $since ) ), esc_html( $since ) );
+            _doing_it_wrong( esc_html( $what ), sprintf( esc_html__( 'Deprecated since %s', 'yuz-tra' ), esc_html( $since ) ), esc_html( $since ) );
         }
         $this->log_debug('deprecated', ['what' => $what, 'since' => $since]);
     }
@@ -2084,7 +2084,7 @@ public function enqueue_front(): void {
         }
         $this->enqueue_script('yuz-gutenberg-editor');
         if (function_exists('wp_set_script_translations')) {
-            wp_set_script_translations('yuz-gutenberg-editor', 'yuz-translation', plugin_dir_path(__FILE__) . '../languages');
+            wp_set_script_translations('yuz-gutenberg-editor', 'yuz-tra', plugin_dir_path(__FILE__) . '../languages');
         }
     }
 
@@ -2927,31 +2927,31 @@ public function enqueue_front(): void {
         $config = ['items_per_page' => 20, 'see_more_max_length' => 140];
         $strings = apply_filters('yuz/assets/payload/string-editor/strings', []);
         $default_actions = apply_filters('yuz/assets/payload/string-editor/default-actions', [
-            'actions'      => ['edit' => __('Edit', 'yuz-translation'), 'delete' => __('Delete', 'yuz-translation')],
+            'actions'      => ['edit' => __('Edit', 'yuz-tra'), 'delete' => __('Delete', 'yuz-tra')],
             'bulk_actions' => [
-                'publish' => ['name' => __('Publish', 'yuz-translation')],
-                'delete'  => ['name' => __('Delete', 'yuz-translation')],
+                'publish' => ['name' => __('Publish', 'yuz-tra')],
+                'delete'  => ['name' => __('Delete', 'yuz-tra')],
             ],
         ]);
         $status_filters = apply_filters('yuz/assets/payload/string-editor/status-filters', [
             'translation_status' => [
-                'published'          => __('Published', 'yuz-translation'),
-                'queued'             => __('Queued for publish', 'yuz-translation'),
-                'pending_review'     => __('Pending review', 'yuz-translation'),
-                'machine_translated' => __('Machine translated', 'yuz-translation'),
-                'not_translated'     => __('Untranslated', 'yuz-translation'),
-                'archived'           => __('Archived', 'yuz-translation'),
+                'published'          => __('Published', 'yuz-tra'),
+                'queued'             => __('Queued for publish', 'yuz-tra'),
+                'pending_review'     => __('Pending review', 'yuz-tra'),
+                'machine_translated' => __('Machine translated', 'yuz-tra'),
+                'not_translated'     => __('Untranslated', 'yuz-tra'),
+                'archived'           => __('Archived', 'yuz-tra'),
             ],
         ]);
         $types_cfg = apply_filters('yuz/assets/payload/string-editor/types-config', [
             'strings' => [
                 'category_based'          => false,
-                'name'                    => __('Strings', 'yuz-translation'),
+                'name'                    => __('Strings', 'yuz-tra'),
                 'type'                    => 'strings',
-                'table_columns'           => ['original' => __('Original', 'yuz-translation'), 'context' => __('Context', 'yuz-translation')],
+                'table_columns'           => ['original' => __('Original', 'yuz-tra'), 'context' => __('Context', 'yuz-tra')],
                 'filters'                 => [],
                 'add_new'                 => false,
-                'search_name'             => __('Search Strings', 'yuz-translation'),
+                'search_name'             => __('Search Strings', 'yuz-tra'),
                 'scan_gettext'            => true,
                 'show_original_language'  => true,
             ],

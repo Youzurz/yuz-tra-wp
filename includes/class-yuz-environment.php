@@ -96,7 +96,7 @@ add_action('wp_ajax_nopriv_yuz_detect_user_environment', [__CLASS__, 'detect_use
          */
 public static function detect_user_environment(): void {
 if (!check_ajax_referer('yuz_tra_nonce', 'nonce', false)) {
-wp_send_json_error(['message' => __('Invalid nonce', 'yuz-translation')]);
+wp_send_json_error(['message' => __('Invalid nonce', 'yuz-tra')]);
             }
 // Préférences du navigateur
 $accept = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';

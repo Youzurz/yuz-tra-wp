@@ -69,7 +69,7 @@ add_filter('yuz/assets/payload/switcher', function($payload){
     }
 
     return [
-        'ajax_url' => admin_url('admin-ajax.php'),
+        'ajax_url' => admin_url('admin-ajax.php', 'relative'),
 
         // Nonces normalisés (CIA)
         'nonces' => [
@@ -133,7 +133,7 @@ add_filter('yuz/assets/payload/translation-editor', function($payload){
     ];
 
     return [
-        'ajax_url' => admin_url('admin-ajax.php'),
+        'ajax_url' => admin_url('admin-ajax.php', 'relative'),
         'nonces'   => $nonces,
         'defaultLang'   => get_locale(),
         'site_settings' => [

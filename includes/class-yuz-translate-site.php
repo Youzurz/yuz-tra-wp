@@ -138,7 +138,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         // Gardes minimales
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
             error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Translate_Site::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
-            wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-translation'));
+            wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-tra'));
         }
 
         // 1) Logger / Health / DB
@@ -295,7 +295,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
             : (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
         if ( ! $can_translate ) {
             $this->log('critical', 'User lacks yuz_translate_content capability in YUZ_Translate_Site::render_tab');
-            wp_die(esc_html__('Unauthorized', 'yuz-translation'));
+            wp_die(esc_html__('Unauthorized', 'yuz-tra'));
         }
 
         // Server-side POST fallback (in addition to AJAX) for persistence when JS is disabled
@@ -323,10 +323,10 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
                         'submitted' => $settings,
                         'canonical_after' => $canonical,
                     ]);
-                    echo '<div class="updated"><p>'.esc_html__('Translate Site settings saved.', 'yuz-translation').'</p></div>';
+                    echo '<div class="updated"><p>'.esc_html__('Translate Site settings saved.', 'yuz-tra').'</p></div>';
                 } else {
                     $this->log('error', 'Translate Site POST save failed', ['submitted' => $settings]);
-                    echo '<div class="error"><p>'.esc_html__('Failed to save settings.', 'yuz-translation').'</p></div>';
+                    echo '<div class="error"><p>'.esc_html__('Failed to save settings.', 'yuz-tra').'</p></div>';
                 }
             } else {
                 $this->log('warning', 'Translate Site POST with empty payload');
@@ -359,10 +359,10 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         ]);
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Translate Site', 'yuz-translation'); ?></h1>
+            <h1><?php esc_html_e('Translate Site', 'yuz-tra'); ?></h1>
 
             <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true'): ?>
-                <div class="updated"><p><?php esc_html_e('Translate Site settings saved.', 'yuz-translation'); ?></p></div>
+                <div class="updated"><p><?php esc_html_e('Translate Site settings saved.', 'yuz-tra'); ?></p></div>
             <?php endif; ?>
 
             <form id="yuz-translate-site-form" method="post" action="" data-yuz-ts-action="update_settings">
@@ -374,7 +374,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
                 ?>
 
                 <div class="yuz-section">
-                    <h2 class="yuz-section-title"><?php esc_html_e('Options', 'yuz-translation'); ?></h2>
+                    <h2 class="yuz-section-title"><?php esc_html_e('Options', 'yuz-tra'); ?></h2>
                     <hr>
                     <table class="form-table">
                         <?php
@@ -416,7 +416,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
                     </table>
                 </div>
 
-                <?php submit_button(__('Save Changes', 'yuz-translation')); ?>
+                <?php submit_button(__('Save Changes', 'yuz-tra')); ?>
             </form>
         </div>
         <?php
@@ -436,7 +436,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
             wp_schedule_single_event(time() + 1, 'yuz_continue_translation');
         }
 
-        wp_send_json_success(['message' => __('Translation queued. It will run in background.', 'yuz-translation')]);
+        wp_send_json_success(['message' => __('Translation queued. It will run in background.', 'yuz-tra')]);
     }
 
     /**
@@ -468,11 +468,11 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
 
     $wp_admin_bar->add_node( [
         'id'    => 'yuz-translate-now',
-        'title' => __( 'Translate Now', 'yuz-translation' ),
+        'title' => __( 'Translate Now', 'yuz-tra' ),
         'href'  => $editor_url,
         'meta'  => [
             'class'    => 'yuz-translate-now',
-            'title'    => __( 'Start translation for this page', 'yuz-translation' ),
+            'title'    => __( 'Start translation for this page', 'yuz-tra' ),
             'tabindex' => -1,
         ],
     ] );
@@ -485,7 +485,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
     $wp_admin_bar->add_node( [
         'id'     => 'yuz-translation-settings',
         'parent' => 'yuz-translate-now',
-        'title'  => __( 'Translation settings', 'yuz-translation' ),
+        'title'  => __( 'Translation settings', 'yuz-tra' ),
         'href'   => $settings_url,
     ] );
 

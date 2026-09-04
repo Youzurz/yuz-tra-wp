@@ -41,11 +41,11 @@ if (!function_exists('yuz_tra_status_catalog')) {
     function yuz_tra_status_catalog(): array
     {
         return [
-            YUZ_TRA_STATUS_DRAFT        => ['key' => 'draft',      'label' => __('Draft', 'yuz-translation')],
-            YUZ_TRA_STATUS_IN_REVIEW    => ['key' => 'in_review',  'label' => __('In review', 'yuz-translation')],
-            YUZ_TRA_STATUS_REVIEWED     => ['key' => 'reviewed',   'label' => __('Reviewed', 'yuz-translation')],
-            YUZ_TRA_STATUS_PUBLISHED    => ['key' => 'published',  'label' => __('Published', 'yuz-translation')],
-            YUZ_TRA_STATUS_ARCHIVED     => ['key' => 'archived',   'label' => __('Archived', 'yuz-translation')],
+            YUZ_TRA_STATUS_DRAFT        => ['key' => 'draft',      'label' => __('Draft', 'yuz-tra')],
+            YUZ_TRA_STATUS_IN_REVIEW    => ['key' => 'in_review',  'label' => __('In review', 'yuz-tra')],
+            YUZ_TRA_STATUS_REVIEWED     => ['key' => 'reviewed',   'label' => __('Reviewed', 'yuz-tra')],
+            YUZ_TRA_STATUS_PUBLISHED    => ['key' => 'published',  'label' => __('Published', 'yuz-tra')],
+            YUZ_TRA_STATUS_ARCHIVED     => ['key' => 'archived',   'label' => __('Archived', 'yuz-tra')],
         ];
     }
 }
@@ -55,7 +55,7 @@ if (!function_exists('yuz_tra_status_label')) {
     {
         $catalog = yuz_tra_status_catalog();
         /* translators: %d: translation status ID. */
-        return $catalog[$status]['label'] ?? sprintf(__('Status #%d', 'yuz-translation'), $status);
+        return $catalog[$status]['label'] ?? sprintf(__('Status #%d', 'yuz-tra'), $status);
     }
 }
 

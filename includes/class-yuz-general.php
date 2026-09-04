@@ -180,7 +180,7 @@ class YUZ_General implements GeneralInterface {
 
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('General', 'yuz-translation'); ?></h1>
+            <h1><?php esc_html_e('General', 'yuz-tra'); ?></h1>
 
             <form id="yuz-general-settings-form" method="post" action="options.php">
                 <?php settings_fields('yuz_tra_general_settings_group'); ?>
@@ -194,7 +194,7 @@ class YUZ_General implements GeneralInterface {
                 <input type="hidden" name="yuz_tra_sw_settings[_sentinel]" value="1" />
 
                 <div class="yuz-section" data-section="website_languages">
-                    <h2 class="yuz-section-title"><?php esc_html_e('Website Languages', 'yuz-translation'); ?></h2>
+                    <h2 class="yuz-section-title"><?php esc_html_e('Website Languages', 'yuz-tra'); ?></h2>
                     <hr>
                     <table class="form-table">
                         <?php
@@ -207,7 +207,7 @@ class YUZ_General implements GeneralInterface {
                 </div>
 
                 <div class="yuz-section" data-section="language_settings">
-                    <h2 class="yuz-section-title"><?php esc_html_e('Language Settings', 'yuz-translation'); ?></h2>
+                    <h2 class="yuz-section-title"><?php esc_html_e('Language Settings', 'yuz-tra'); ?></h2>
                     <hr>
                     <table class="form-table">
                         <?php
@@ -219,7 +219,7 @@ class YUZ_General implements GeneralInterface {
                 </div>
 
                 <div class="yuz-section" data-section="language_switcher">
-                    <h2 class="yuz-section-title"><?php esc_html_e('Language Switcher', 'yuz-translation'); ?></h2>
+                    <h2 class="yuz-section-title"><?php esc_html_e('Language Switcher', 'yuz-tra'); ?></h2>
                     <hr>
                     <?php
                     $this->renderer->render_shortcode_block($switcher_settings);
@@ -229,7 +229,7 @@ class YUZ_General implements GeneralInterface {
                     ?>
                 </div>
 
-                <?php submit_button(__('Save Changes', 'yuz-translation')); ?>
+                <?php submit_button(__('Save Changes', 'yuz-tra')); ?>
             </form>
         </div>
         <?php
@@ -246,7 +246,7 @@ class YUZ_General {
         add_action('admin_notices', function() {
             ?>
             <div class="notice notice-error is-dismissible">
-                <p><?php esc_html_e('Error: GeneralInterface missing. YUZ_General functionality disabled. Please check plugin files.', 'yuz-translation'); ?></p>
+                <p><?php esc_html_e('Error: GeneralInterface missing. YUZ_General functionality disabled. Please check plugin files.', 'yuz-tra'); ?></p>
             </div>
             <?php
         });

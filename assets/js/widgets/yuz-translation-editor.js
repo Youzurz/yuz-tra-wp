@@ -823,7 +823,14 @@ const $ = window.jQuery;
       const forcedOn = /\byuzprobe=1\b/.test(search);
       const telemetryFlag = window.yuzTraSettings?.telemetry?.pipeline_probe;
       const enabled = !forcedOff && (forcedOn || telemetryFlag === true || window.YUZ_DEBUG === true);
-      const endpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || '/wp-admin/admin-ajax.php';
+      const configuredEndpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || '/wp-admin/admin-ajax.php';
+      const endpoint = (() => {
+        try {
+          const parsed = new URL(configuredEndpoint, window.location.href);
+          if (parsed.pathname.endsWith('/admin-ajax.php')) return parsed.pathname + parsed.search;
+        } catch (_) { }
+        return configuredEndpoint;
+      })();
 
       if (!enabled || !endpoint) {
         const noop = () => { };
@@ -2641,6 +2648,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         },
 
         saveTranslationForItem(item, code, translatedText, options = {}) {
+          const dirtyIdAtStart = item.id;
           const editedAtStart = item.translations?.[code]?.edited;
           let translationId = pickTranslationId(item, code);
           if (options.forceCreate) {
@@ -2680,7 +2688,10 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               { translated: payload.translated_text, translation_id: savedId || translationId },
               { setStatus: String(hasNewerEdit ? (item.translations?.[code]?.status ?? '1') : (payload.status ?? '2')), clearEdited: !hasNewerEdit, textForStatus: payload.translated_text }
             );
-            if (!hasNewerEdit) this.dirtySet.delete(item.id);
+            if (!hasNewerEdit) {
+              this.dirtySet.delete(dirtyIdAtStart);
+              this.dirtySet.delete(item.id);
+            }
             const payloadOrigin = canonicalOrigin(payload.origin || options.origin || 'manual');
             const targetId = savedId || translationId || pickTranslationId(item, code);
             if (payloadOrigin === 'manual' && targetId) {

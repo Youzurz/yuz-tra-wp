@@ -1,14 +1,7 @@
 CHANGELOG.md
-GETTING-STARTED.md
-KNOWN-LIMITS.md
-LEGAL.md
 LICENSE
-PRICING.md
-PRIVACY.md
 README.md
 SECURITY.md
-SUPPORT.md
-THIRD-PARTY.md
 assets/css/yuz-general-settings.css
 assets/css/yuz-language-switcher.css
 assets/css/yuz-publish-controller.css
@@ -965,7 +958,5 @@ src/js/yuz-translation-service.js
 yuz-tra.php
 version.json
 includes/class-yuz-release.php
-RELEASE-INTEGRITY.md
 includes/class-yuz-openai-translate-adapter.php
 includes/class-yuz-product-catalog.php
-PRICING-ROADMAP.md

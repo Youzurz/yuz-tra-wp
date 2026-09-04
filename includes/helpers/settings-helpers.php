@@ -16,14 +16,13 @@ if (!defined('ABSPATH')) {
 if (!function_exists('yuz_settings_sanitize_section')) {
     function yuz_settings_sanitize_section($name, $raw = []) {
         if (defined('YUZ_DEBUG_SANITIZE') && YUZ_DEBUG_SANITIZE) {
-            $logfile = rtrim(WP_CONTENT_DIR, '/\\') . '/debug-yuz-sanitize.log';
             $snapshot = [
                 'canonical' => $name,
                 'raw'       => $raw,
                 '_POST'     => $_POST,
                 'timestamp' => gmdate('Y-m-d H:i:s'),
             ];
-            file_put_contents($logfile, print_r($snapshot, true) . "\n\n", FILE_APPEND);
+            do_action('yuz_tra_debug_sanitize', $snapshot);
         }
 
         $canonical = yuz_settings__resolve_canonical($name);

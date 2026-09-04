@@ -2,7 +2,7 @@
 Contributors: youzurz
 Tags: translation, multilingual, localization, gettext, woocommerce
 Requires at least: 6.5
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 8.1
 Stable tag: 1.5.3
 License: GPLv2 or later
@@ -30,7 +30,7 @@ This ZIP is independently distributed, not approved or hosted by WordPress.org.
 It is an evaluation release with remaining WordPress.org review work documented
 in the repository. Test on staging and back up before replacing an existing plugin.
 Declared minimum versions have not all been tested; acceptance tests used WordPress
-7.0, PHP 8.3 and WooCommerce 10.8.1.
+7.1, PHP 8.3 and WooCommerce 10.8.1.
 
 Source, readable bundled libraries, build instructions and known limits:
 https://github.com/Youzurz/yuz-tra-wp
@@ -68,7 +68,7 @@ no bug report or translation content is automatically transmitted to the maintai
 == Installation ==
 
 1. Back up the database and previous plugin. Try staging first.
-2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.2.zip and activate it.
+2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.3.zip and activate it.
 3. Configure source and target languages in YUZ-TRA.
 4. Open Strings, scan installed code and filter by domain/language.
 5. Edit and publish, or select up to five strings for provider translation and review.
@@ -90,8 +90,7 @@ guaranteed response time is offered by this package. See PRICING.md.
 
 = Are updates automatic? =
 Not for this independently distributed ZIP. Read CHANGELOG.md, back up and upload the
-new ZIP in WordPress. Update URI prevents an unrelated directory plugin overwriting
-this plugin. WordPress.org automatic distribution is not active for this release.
+new ZIP in WordPress. WordPress.org automatic distribution is not active for this release.
 
 = What happens to my data when I deactivate or delete it? =
 Deactivation unschedules YUZ cron. Catalogs, memory, glossary, options and historical

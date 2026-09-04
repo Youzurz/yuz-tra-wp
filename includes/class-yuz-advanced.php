@@ -141,12 +141,12 @@ class YUZ_Advanced implements AdvancedInterface {
     {
         $has_diag = class_exists('YUZ_Diagnostic'); // sidecar optionnel
         $tabs = [
-            'troubleshooting' => __('Troubleshooting', 'yuz-translation'),
-            'debug'           => __('Debug', 'yuz-translation'),
-            'tools'           => __('Tools', 'yuz-translation'),
+            'troubleshooting' => __('Troubleshooting', 'yuz-tra'),
+            'debug'           => __('Debug', 'yuz-tra'),
+            'tools'           => __('Tools', 'yuz-tra'),
         ];
         if ($has_diag) {
-            $tabs['diagnostics'] = __('Diagnostics', 'yuz-translation');
+            $tabs['diagnostics'] = __('Diagnostics', 'yuz-tra');
         }
         // Hook 1 : permettre d’ajouter/enlever des sous-onglets
         $tabs = apply_filters('yuz_advanced_tabs', $tabs);
@@ -172,7 +172,7 @@ class YUZ_Advanced implements AdvancedInterface {
     public function render_tab(): void
     {
         if ( ! current_user_can('manage_options') ) {
-            echo '<div class="notice notice-error"><p>'.esc_html__('Unauthorized', 'yuz-translation').'</p></div>';
+            echo '<div class="notice notice-error"><p>'.esc_html__('Unauthorized', 'yuz-tra').'</p></div>';
             return;
         }
 
@@ -183,7 +183,7 @@ class YUZ_Advanced implements AdvancedInterface {
 
         $tabs = $this->get_tabs();
         if (empty($tabs)) {
-            echo '<div class="wrap"><h1>'.esc_html__('Advanced', 'yuz-translation').'</h1><p>'.esc_html__('No sections available.', 'yuz-translation').'</p></div>';
+            echo '<div class="wrap"><h1>'.esc_html__('Advanced', 'yuz-tra').'</h1><p>'.esc_html__('No sections available.', 'yuz-tra').'</p></div>';
             return;
         }
 
@@ -194,7 +194,7 @@ class YUZ_Advanced implements AdvancedInterface {
         );
         ?>
         <div class="wrap" id="yuz-advanced">
-            <h1><?php esc_html_e('Advanced', 'yuz-translation'); ?></h1>
+            <h1><?php esc_html_e('Advanced', 'yuz-tra'); ?></h1>
 
             <h2 class="nav-tab-wrapper">
                 <?php foreach ($tabs as $slug => $label): ?>
@@ -240,7 +240,7 @@ class YUZ_Advanced implements AdvancedInterface {
 
                 if ( ! has_action('yuz_advanced_render_tab_'.$active) ) {
                     echo '<div class="notice notice-info"><p>'
-                         . esc_html__('This section is planned but not implemented yet.', 'yuz-translation')
+                         . esc_html__('This section is planned but not implemented yet.', 'yuz-tra')
                          . '</p></div>';
                 }
         }
@@ -273,7 +273,7 @@ class YUZ_Advanced implements AdvancedInterface {
             update_option('yuz_fix_dynamic',    $fix);
             update_option('yuz_disable_dynamic',$stop);
 
-            echo '<div class="updated notice"><p>'.esc_html__('Settings saved.', 'yuz-translation').'</p></div>';
+            echo '<div class="updated notice"><p>'.esc_html__('Settings saved.', 'yuz-tra').'</p></div>';
         }
 
         // Lecture depuis settings consolidés avec fallback legacy
@@ -289,31 +289,31 @@ class YUZ_Advanced implements AdvancedInterface {
             <?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
             <table class="form-table">
                 <tr>
-                    <th><?php esc_html_e('Fix missing dynamic content', 'yuz-translation'); ?></th>
+                    <th><?php esc_html_e('Fix missing dynamic content', 'yuz-tra'); ?></th>
                     <td>
                         <label class="switch">
                             <input type="checkbox" name="yuz_fix_dynamic" value="1" <?php checked($fix_dynamic); ?> />
                             <span class="slider round"></span>
                         </label>
                         <label style="margin-left:8px;">
-                            <?php esc_html_e('May help content inserted via JS appear in translations.', 'yuz-translation'); ?>
+                            <?php esc_html_e('May help content inserted via JS appear in translations.', 'yuz-tra'); ?>
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e('Disable dynamic translation', 'yuz-translation'); ?></th>
+                    <th><?php esc_html_e('Disable dynamic translation', 'yuz-tra'); ?></th>
                     <td>
                         <label class="switch">
                             <input type="checkbox" name="yuz_disable_dynamic" value="1" <?php checked($disable_dynamic); ?> />
                             <span class="slider round"></span>
                         </label>
                         <label style="margin-left:8px;">
-                            <?php esc_html_e('Skip detecting strings added dynamically via JavaScript.', 'yuz-translation'); ?>
+                            <?php esc_html_e('Skip detecting strings added dynamically via JavaScript.', 'yuz-tra'); ?>
                         </label>
                     </td>
                 </tr>
             </table>
-            <?php submit_button( __( 'Save Changes', 'yuz-translation' ) ); ?>
+            <?php submit_button( __( 'Save Changes', 'yuz-tra' ) ); ?>
         </form>
         <?php
     }
@@ -329,7 +329,7 @@ class YUZ_Advanced implements AdvancedInterface {
             if (in_array($level, $allowed, true)) {
                 update_option('yuz_tra_log_level', $level);
             }
-            echo '<div class="updated notice"><p>'.esc_html__('Settings saved.', 'yuz-translation').'</p></div>';
+            echo '<div class="updated notice"><p>'.esc_html__('Settings saved.', 'yuz-tra').'</p></div>';
         }
 
         $debug_mode = (int) get_option('yuz_debug_mode', 0);
@@ -339,7 +339,7 @@ class YUZ_Advanced implements AdvancedInterface {
             <?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
             <table class="form-table">
                 <tr>
-                    <th><label for="debug_mode"><?php esc_html_e('Enable Debug Mode', 'yuz-translation'); ?></label></th>
+                    <th><label for="debug_mode"><?php esc_html_e('Enable Debug Mode', 'yuz-tra'); ?></label></th>
                     <td>
                         <label class="switch">
                             <input type="checkbox" id="debug_mode" name="debug_mode" value="1" <?php checked($debug_mode); ?> />
@@ -348,7 +348,7 @@ class YUZ_Advanced implements AdvancedInterface {
                     </td>
                 </tr>
                 <tr>
-                    <th><label for="yuz_tra_log_level"><?php esc_html_e('Log Level', 'yuz-translation'); ?></label></th>
+                    <th><label for="yuz_tra_log_level"><?php esc_html_e('Log Level', 'yuz-tra'); ?></label></th>
                     <td>
                         <select id="yuz_tra_log_level" name="yuz_tra_log_level">
                             <?php
@@ -358,15 +358,15 @@ class YUZ_Advanced implements AdvancedInterface {
                             }
                             ?>
                         </select>
-                        <p class="description"><?php esc_html_e('Controls plugin verbosity without editing wp-config.php. Default: warning.', 'yuz-translation'); ?></p>
+                        <p class="description"><?php esc_html_e('Controls plugin verbosity without editing wp-config.php. Default: warning.', 'yuz-tra'); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th><?php esc_html_e('Logs path', 'yuz-translation'); ?></th>
+                    <th><?php esc_html_e('Logs path', 'yuz-tra'); ?></th>
                     <td><code><?php echo esc_html( WP_CONTENT_DIR . '/debug.log' ); ?></code></td>
                 </tr>
             </table>
-            <?php submit_button( __( 'Save Changes', 'yuz-translation' ) ); ?>
+            <?php submit_button( __( 'Save Changes', 'yuz-tra' ) ); ?>
         </form>
         <?php
     }
@@ -375,31 +375,31 @@ class YUZ_Advanced implements AdvancedInterface {
     {
         ?>
         <div class="yuz-section">
-            <h2 class="yuz-section-title"><?php esc_html_e('Maintenance Tools', 'yuz-translation'); ?></h2>
-            <p class="description"><?php esc_html_e('Clear caches and reset temporary state.', 'yuz-translation'); ?></p>
+            <h2 class="yuz-section-title"><?php esc_html_e('Maintenance Tools', 'yuz-tra'); ?></h2>
+            <p class="description"><?php esc_html_e('Clear caches and reset temporary state.', 'yuz-tra'); ?></p>
             <button type="button" id="yuz-clear-cache" class="button">
-                <?php esc_html_e('Clear All Cache', 'yuz-translation'); ?>
+                <?php esc_html_e('Clear All Cache', 'yuz-tra'); ?>
             </button>
             <span id="yuz-clear-cache-result" style="margin-left:8px;"></span>
         </div>
 
         <div class="yuz-section" style="margin-top:24px">
-            <h2 class="yuz-section-title"><?php esc_html_e('Translations Table Maintenance', 'yuz-translation'); ?></h2>
-            <p class="description"><?php esc_html_e('Backup and clean the translations table: remove empty translations, normalize locales, deduplicate.', 'yuz-translation'); ?></p>
+            <h2 class="yuz-section-title"><?php esc_html_e('Translations Table Maintenance', 'yuz-tra'); ?></h2>
+            <p class="description"><?php esc_html_e('Backup and clean the translations table: remove empty translations, normalize locales, deduplicate.', 'yuz-tra'); ?></p>
 
             <input type="hidden" id="yuz_tra_maintenance_nonce" value="<?php echo esc_attr( wp_create_nonce('yuz_hvy_nonce') ); ?>">
             <div class="yuz-tools-actions">
-                <button type="button" id="yuz-maint-metrics" class="button button-secondary" style="margin-right:12px"><?php esc_html_e('Preview Metrics', 'yuz-translation'); ?></button>
-                <button type="button" id="yuz-maint-backup" class="button" style="margin-right:12px"><?php esc_html_e('Backup Table', 'yuz-translation'); ?></button>
-                <button type="button" id="yuz-maint-cleanup" class="button button-primary" style="margin-right:12px"><?php esc_html_e('Run Full Cleanup', 'yuz-translation'); ?></button>
+                <button type="button" id="yuz-maint-metrics" class="button button-secondary" style="margin-right:12px"><?php esc_html_e('Preview Metrics', 'yuz-tra'); ?></button>
+                <button type="button" id="yuz-maint-backup" class="button" style="margin-right:12px"><?php esc_html_e('Backup Table', 'yuz-tra'); ?></button>
+                <button type="button" id="yuz-maint-cleanup" class="button button-primary" style="margin-right:12px"><?php esc_html_e('Run Full Cleanup', 'yuz-tra'); ?></button>
             </div>
 
             <details style="margin-top:12px">
-                <summary><?php esc_html_e('Advanced (single operations)', 'yuz-translation'); ?></summary>
+                <summary><?php esc_html_e('Advanced (single operations)', 'yuz-tra'); ?></summary>
                 <div style="margin-top:8px">
-                    <button type="button" id="yuz-maint-delete-empties" class="button button-secondary" style="margin-right:8px"><?php esc_html_e('Delete Empty Translations', 'yuz-translation'); ?></button>
-                    <button type="button" id="yuz-maint-normalize-locales" class="button button-secondary" style="margin-right:8px"><?php esc_html_e('Normalize Locales', 'yuz-translation'); ?></button>
-                    <button type="button" id="yuz-maint-dedupe" class="button button-secondary" style="margin-right:8px"><?php esc_html_e('Deduplicate', 'yuz-translation'); ?></button>
+                    <button type="button" id="yuz-maint-delete-empties" class="button button-secondary" style="margin-right:8px"><?php esc_html_e('Delete Empty Translations', 'yuz-tra'); ?></button>
+                    <button type="button" id="yuz-maint-normalize-locales" class="button button-secondary" style="margin-right:8px"><?php esc_html_e('Normalize Locales', 'yuz-tra'); ?></button>
+                    <button type="button" id="yuz-maint-dedupe" class="button button-secondary" style="margin-right:8px"><?php esc_html_e('Deduplicate', 'yuz-tra'); ?></button>
                 </div>
             </details>
             <pre id="yuz-maintenance-result" style="margin-top:12px; padding:12px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; max-height:380px; overflow:auto;"></pre>
@@ -411,19 +411,19 @@ class YUZ_Advanced implements AdvancedInterface {
     {
         $has_diag   = class_exists('YUZ_Diagnostic');
         $diag_cache = get_option('yuz_diagnostic_cache', []);
-        $diag_report= $diag_cache['report'] ?? __('No diagnostics run yet.', 'yuz-translation');
+        $diag_report= $diag_cache['report'] ?? __('No diagnostics run yet.', 'yuz-tra');
 
         if ( ! $has_diag ) {
             echo '<div class="notice notice-info"><p>'
-               . esc_html__('Diagnostics module is not installed. Add yuz-tra-diagnostic.php to enable this section.', 'yuz-translation')
+               . esc_html__('Diagnostics module is not installed. Add yuz-tra-diagnostic.php to enable this section.', 'yuz-tra')
                . '</p></div>';
             return;
         }
         ?>
         <div class="yuz-section">
-            <p class="description"><?php esc_html_e('Collect environment, files, DB and settings checks.', 'yuz-translation'); ?></p>
+            <p class="description"><?php esc_html_e('Collect environment, files, DB and settings checks.', 'yuz-tra'); ?></p>
             <button type="button" id="yuz-run-diagnostics" class="button button-primary">
-                <?php esc_html_e('Run Diagnostics', 'yuz-translation'); ?>
+                <?php esc_html_e('Run Diagnostics', 'yuz-tra'); ?>
             </button>
             <pre id="yuz-diagnostic-report" style="margin-top:12px;"><?php echo esc_html($diag_report); ?></pre>
         </div>

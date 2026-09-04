@@ -680,12 +680,12 @@ class YUZ_Rewrite implements RewriteInterface {
         if (!current_user_can('manage_options')) {
             wp_send_json_error([
                 'code'    => 'unauthorized',
-                'message' => __('Unauthorized', 'yuz-translation'),
+                'message' => __('Unauthorized', 'yuz-tra'),
             ], 403);
         }
         $this->maybe_flush_rules();
         wp_send_json_success([
-            'message' => __('Rewrite rules flushed', 'yuz-translation'),
+            'message' => __('Rewrite rules flushed', 'yuz-tra'),
         ]);
     }
 

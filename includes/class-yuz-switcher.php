@@ -265,11 +265,11 @@ class YUZ_Switcher implements SwitcherInterface {
         $use_native_name = !empty(get_option('yuz_tra_settings', [])['native_language_name']);
         $translated_strings = [
             /* translators: %s: current language name or code. */
-            'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-translation'),
+            'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
             /* translators: %s: target language name or code. */
-            'switch_to_label'    => esc_html__('Switch to %s', 'yuz-translation'),
-            'powered_by'         => esc_html__('Powered by', 'yuz-translation'),
-            'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-translation'),
+            'switch_to_label'    => esc_html__('Switch to %s', 'yuz-tra'),
+            'powered_by'         => esc_html__('Powered by', 'yuz-tra'),
+            'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-tra'),
         ];
 
         $current_url_for_switcher = $this->current_url_for_switcher();
@@ -356,11 +356,11 @@ class YUZ_Switcher implements SwitcherInterface {
         $use_native_name = !empty(get_option('yuz_tra_settings', [])['native_language_name']);
         $translated_strings = [
             /* translators: %s: current language name or code. */
-            'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-translation'),
+            'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
             /* translators: %s: target language name or code. */
-            'switch_to_label'    => esc_html__('Switch to %s', 'yuz-translation'),
-            'powered_by'         => esc_html__('Powered by', 'yuz-translation'),
-            'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-translation'),
+            'switch_to_label'    => esc_html__('Switch to %s', 'yuz-tra'),
+            'powered_by'         => esc_html__('Powered by', 'yuz-tra'),
+            'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-tra'),
         ];
 
         $current_url_for_switcher = $this->current_url_for_switcher();
@@ -447,11 +447,11 @@ class YUZ_Switcher implements SwitcherInterface {
         $use_native_name = !empty(get_option('yuz_tra_settings', [])['native_language_name']);
         $translated_strings = [
             /* translators: %s: current language name or code. */
-            'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-translation'),
+            'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
             /* translators: %s: target language name or code. */
-            'switch_to_label'    => esc_html__('Switch to %s', 'yuz-translation'),
-            'powered_by'         => esc_html__('Powered by', 'yuz-translation'),
-            'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-translation'),
+            'switch_to_label'    => esc_html__('Switch to %s', 'yuz-tra'),
+            'powered_by'         => esc_html__('Powered by', 'yuz-tra'),
+            'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-tra'),
         ];
 
         $current_url_for_switcher = $this->current_url_for_switcher();
@@ -624,7 +624,7 @@ class YUZ_Switcher implements SwitcherInterface {
             ],
             'languages' => $langs,
             'ajax' => [
-                'url'           => admin_url('admin-ajax.php'),
+                'url'           => admin_url('admin-ajax.php', 'relative'),
                 'nonce'         => wp_create_nonce('yuz_tra_nonce'),
                 'action'        => 'yuz_tra_sw_switch_language',
                 'centralAction' => 'yuz_tra_ajax',

@@ -1348,8 +1348,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
                 }
                 $ok = $this->update_language_weights($sanitized);
                 return $ok
-                    ? ['success' => true, 'message' => __('Language weights updated successfully', 'yuz-translation'), 'timestamp' => current_time('mysql')]
-                    : ['success' => false, 'error'   => ['code' => 'update_failed', 'message' => __('Failed to update language weights', 'yuz-translation'), 'details' => ''], 'timestamp' => current_time('mysql')];
+                    ? ['success' => true, 'message' => __('Language weights updated successfully', 'yuz-tra'), 'timestamp' => current_time('mysql')]
+                    : ['success' => false, 'error'   => ['code' => 'update_failed', 'message' => __('Failed to update language weights', 'yuz-tra'), 'details' => ''], 'timestamp' => current_time('mysql')];
             }
         );
     }

@@ -645,7 +645,7 @@ class YUZ_Settings implements SettingsInterface {
 
         return [
             // ⬇⬇⬇ ce que tes scripts attendent vraiment
-            'ajax_url'            => admin_url('admin-ajax.php'),
+            'ajax_url'            => admin_url('admin-ajax.php', 'relative'),
             'rest_url'            => esc_url_raw( rest_url('yuz-tra/v1') ),
             'can_manage_options'  => current_user_can('manage_options'),
             'capabilities'        => ['can_manage_options' => current_user_can('manage_options')],
@@ -676,8 +676,8 @@ class YUZ_Settings implements SettingsInterface {
     public function add_admin_page() {
         // Page principale → route vers l’onglet "General"
         add_menu_page(
-            __('YUZ-TRA', 'yuz-translation'),
-            __('YUZ-TRA', 'yuz-translation'),
+            __('YUZ-TRA', 'yuz-tra'),
+            __('YUZ-TRA', 'yuz-tra'),
             'manage_options',
             'yuz-translation-settings',
             [$this, 'render_settings_page'],
@@ -1316,13 +1316,13 @@ class YUZ_Settings implements SettingsInterface {
     public function render_settings_page() {
         // Slugs officiels
         $tabs = [
-            'general'               => __('General', 'yuz-translation'),
-            'translate-site'        => __('Translate Site', 'yuz-translation'),
-            'strings'               => __('Strings', 'yuz-translation'),
-            'automatic-translation' => __('Automatic Translation', 'yuz-translation'),
-            'advanced'              => __('Advanced', 'yuz-translation'),
-            'addons'                => __('Add-ons', 'yuz-translation'),
-            'licenses'              => __('Licenses', 'yuz-translation'),
+            'general'               => __('General', 'yuz-tra'),
+            'translate-site'        => __('Translate Site', 'yuz-tra'),
+            'strings'               => __('Strings', 'yuz-tra'),
+            'automatic-translation' => __('Automatic Translation', 'yuz-tra'),
+            'advanced'              => __('Advanced', 'yuz-tra'),
+            'addons'                => __('Add-ons', 'yuz-tra'),
+            'licenses'              => __('Licenses', 'yuz-tra'),
         ];
         // Back-compat : anciens slugs → officiels
         $aliases = [
@@ -1361,13 +1361,13 @@ class YUZ_Settings implements SettingsInterface {
 
         if (!$rendered_toolbar) {
             echo '<div class="yuz-admin-toolbar" data-yuz-toolbar>'
-               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/support">' . esc_html__('Support', 'yuz-translation') . '</a>'
-               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/documentation/">'    . esc_html__('Documentation', 'yuz-translation') . '</a>'
-               . '<a class="button button-primary yuz-admin-toolbar__button yuz-admin-toolbar__button--primary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/pricing/">'. esc_html__('Free features and costs', 'yuz-translation') . '</a>'
+               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/support">' . esc_html__('Support', 'yuz-tra') . '</a>'
+               . '<a class="button button-secondary yuz-admin-toolbar__button yuz-admin-toolbar__button--secondary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/documentation/">'    . esc_html__('Documentation', 'yuz-tra') . '</a>'
+               . '<a class="button button-primary yuz-admin-toolbar__button yuz-admin-toolbar__button--primary" target="_blank" rel="noopener noreferrer" href="https://youzurz.com/yuz-tra/pricing/">'. esc_html__('Free features and costs', 'yuz-tra') . '</a>'
                . '</div>';
         }
 
-        echo '<h1>' . esc_html__('YUZ-TRA', 'yuz-translation') . '</h1>';
+        echo '<h1>' . esc_html__('YUZ-TRA', 'yuz-tra') . '</h1>';
 
         // onglets
         echo '<h2 class="nav-tab-wrapper yuz-admin-tabs">';
@@ -1394,9 +1394,17 @@ class YUZ_Settings implements SettingsInterface {
         foreach ($candidates as $hook) {
             if (has_action($hook)) { do_action($hook); $handled = true; break; }
         }
+        // Le catalogue commercial doit rester visible même si le module historique
+        // YUZ_Licenses n'a pas pu enregistrer son hook (ordre de chargement ou
+        // extension tierce défaillante). On rend le contenu via le renderer déjà
+        // disponible au lieu d'afficher un écran vide.
+        if (!$handled && $current === 'licenses' && $renderer && method_exists($renderer, 'render_licenses_content')) {
+            $renderer->render_licenses_content(['source' => 'settings-route-fallback']);
+            $handled = true;
+        }
         if (!$handled) {
             echo '<div class="notice notice-info"><p>'
-               . esc_html__('This tab is not implemented yet.', 'yuz-translation')
+               . esc_html__('This tab is not implemented yet.', 'yuz-tra')
                . '</p></div>';
         }
 

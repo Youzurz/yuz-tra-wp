@@ -1,4 +1,4 @@
-# YUZ-TRA 1.5.2
+# YUZ-TRA 1.5.3
 
 [Télécharger le ZIP](https://github.com/Youzurz/yuz-tra-wp/releases) · [Guide de démarrage](GETTING-STARTED.md) · [Support](https://github.com/Youzurz/yuz-tra-wp/issues/new/choose) · [Confidentialité](PRIVACY.md) · [Coûts](PRICING.md) · [Limites connues](KNOWN-LIMITS.md)
 
@@ -24,13 +24,13 @@ Extension WordPress : éditeur visuel et catalogue des chaînes Gettext du cœur
 
 ## Installation
 
-1. Sauvegarder la base et l’ancienne extension. Dans WordPress : Extensions → Ajouter → Téléverser, sélectionner `yuz-tra-1.5.2.zip`, installer puis activer. Pour une mise à jour, confirmer le remplacement de YUZ-TRA uniquement.
+1. Sauvegarder la base et l’ancienne extension. Dans WordPress : Extensions → Ajouter → Téléverser, sélectionner `yuz-tra-1.5.3.zip`, installer puis activer. Pour une mise à jour, confirmer le remplacement de YUZ-TRA uniquement.
 2. Configurer les langues dans YUZ-TRA. Pour l’administration, la langue affichée suit celle du profil utilisateur WordPress ; pour les pages WordPress, elle suit la langue active du routeur YUZ.
 3. Ouvrir YUZ-TRA → onglet Strings/Chaînes, ou `/wp-admin/admin.php?page=yuz-string-translation-editor`.
 4. Lancer « Scanner WordPress, plugins et thèmes ». Le scan fonctionne par étapes et déduplique les chaînes. Relancer après une mise à jour d’extension. Les appels PHP rencontrés lors des visites sont aussi collectés, sans traduction distante pendant le rendu.
 5. Choisir langue, domaine et filtre ; saisir puis publier, ou sélectionner jusqu’à cinq chaînes et demander une traduction automatique. Les chaînes déjà renseignées ne sont pas écrasées par ce bouton.
 
-Prérequis déclarés : WordPress 6.5+, PHP 8.1+, extensions DOM et mbstring recommandées, base MySQL/MariaDB avec verrous nommés. Recette réalisée sur WordPress 7.0, PHP 8.3 et WooCommerce 10.8.1 ; les autres versions ne sont pas toutes certifiées.
+Prérequis déclarés : WordPress 6.5+, PHP 8.1+, extensions DOM et mbstring recommandées, base MySQL/MariaDB avec verrous nommés. Recette réalisée sur WordPress 7.1, PHP 8.3 et WooCommerce 10.8.1 ; les autres versions ne sont pas toutes certifiées.
 
 ## Relecture et publication
 

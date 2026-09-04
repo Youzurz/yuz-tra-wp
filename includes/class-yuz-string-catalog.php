@@ -89,11 +89,12 @@ final class YUZ_String_Catalog {
         self::$busy = true;
         try {
             global $wpdb;
-            $values=[];
             foreach ($pending as [$text,$domain,$context,$plural]) {
-                $values[]=$wpdb->prepare('(%s,%s,%s,%s,%s,%s,%s)', self::identity($text,$domain,$context,$plural),$domain,$context,$text,$plural,self::source_language($domain),gmdate('Y-m-d H:i:s'));
+                $wpdb->query($wpdb->prepare(
+                    'INSERT IGNORE INTO %i (identity_hash,domain,context,original,plural_original,source_lang,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                    $wpdb->prefix.'yuz_tra_string_sources',self::identity($text,$domain,$context,$plural),$domain,$context,$text,$plural,self::source_language($domain),gmdate('Y-m-d H:i:s')
+                ));
             }
-            $wpdb->query("INSERT IGNORE INTO {$wpdb->prefix}yuz_tra_string_sources (identity_hash,domain,context,original,plural_original,source_lang,created_at) VALUES ".implode(',',$values));
         }
         finally { self::$busy = false; }
     }
@@ -114,13 +115,15 @@ final class YUZ_String_Catalog {
         global $wpdb;
         $count=0;
         foreach(array_chunk($rows,100) as $chunk) {
-            $values=[];
             foreach($chunk as [$text,$domain,$context,$plural]) {
                 if($text==='' || strlen($text)>20000 || strlen($plural)>20000 || strlen($domain)>191 || !preg_match('//u',$text.$domain.$context.$plural))continue;
-                $values[]=$wpdb->prepare('(%s,%s,%s,%s,%s,%s,%s)',self::identity($text,$domain,$context,$plural),$domain,$context,$text,$plural,self::source_language($domain),gmdate('Y-m-d H:i:s'));
+                $result=$wpdb->query($wpdb->prepare(
+                    'INSERT IGNORE INTO %i (identity_hash,domain,context,original,plural_original,source_lang,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                    $wpdb->prefix.'yuz_tra_string_sources',self::identity($text,$domain,$context,$plural),$domain,$context,$text,$plural,self::source_language($domain),gmdate('Y-m-d H:i:s')
+                ));
+                if($result===false)throw new RuntimeException('catalog_write_failed');
                 $count++;
             }
-            if($values && $wpdb->query("INSERT IGNORE INTO {$wpdb->prefix}yuz_tra_string_sources (identity_hash,domain,context,original,plural_original,source_lang,created_at) VALUES ".implode(',',$values))===false)throw new RuntimeException('catalog_write_failed');
         }
         return $count;
     }
@@ -174,8 +177,7 @@ final class YUZ_String_Catalog {
             self::$published=[];
             return;
         }
-        $sql = $wpdb->prepare("INSERT INTO $t (source_id,lang,forms,status,origin,updated_at) VALUES (%d,%s,%s,%d,%s,%s) ON DUPLICATE KEY UPDATE forms=VALUES(forms),status=VALUES(status),origin=VALUES(origin),attempts=0,retry_after=NULL,last_error='',updated_at=VALUES(updated_at)", $id, $lang, wp_json_encode(array_values($forms)), $status, $origin, gmdate('Y-m-d H:i:s'));
-        if ($wpdb->query($sql) === false) throw new RuntimeException('translation_write_failed');
+        if ($wpdb->query($wpdb->prepare("INSERT INTO %i (source_id,lang,forms,status,origin,updated_at) VALUES (%d,%s,%s,%d,%s,%s) ON DUPLICATE KEY UPDATE forms=VALUES(forms),status=VALUES(status),origin=VALUES(origin),attempts=0,retry_after=NULL,last_error='',updated_at=VALUES(updated_at)", $t, $id, $lang, wp_json_encode(array_values($forms)), $status, $origin, gmdate('Y-m-d H:i:s'))) === false) throw new RuntimeException('translation_write_failed');
         self::$published = [];
     }
 
@@ -188,18 +190,20 @@ final class YUZ_String_Catalog {
         global $wpdb;
         if (!self::valid_language($lang)) throw new InvalidArgumentException('invalid_language');
         $s = $wpdb->prefix . 'yuz_tra_string_sources'; $t = $wpdb->prefix . 'yuz_tra_string_targets';
-        $where = ['1=1']; $args = [$lang];
-        if ($domain !== '') { $where[] = 's.domain=%s'; $args[] = $domain; }
-        if ($q !== '') { $where[] = '(s.original LIKE %s OR s.context LIKE %s OR t.forms LIKE %s)'; $like = '%' . $wpdb->esc_like($q) . '%'; array_push($args, $like, $like, $like); }
-        if ($status >= 0) { $where[] = 'COALESCE(t.status,0)=%d'; $args[] = $status; }
-        $from = "FROM $s s LEFT JOIN $t t ON t.source_id=s.id AND t.lang=%s WHERE " . implode(' AND ', $where);
-        $total = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) $from", $args));
-        $rows = $wpdb->get_results($wpdb->prepare("SELECT s.*,t.forms,COALESCE(t.status,0) AS status,t.origin,t.last_error $from ORDER BY s.id LIMIT 30 OFFSET %d", array_merge($args, [(max(1, $page)-1)*30])), ARRAY_A) ?: [];
+        $like = '%' . $wpdb->esc_like($q) . '%';
+        $total = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM %i s LEFT JOIN %i t ON t.source_id=s.id AND t.lang=%s WHERE (%s='' OR s.domain=%s) AND (%s='' OR s.original LIKE %s OR s.context LIKE %s OR t.forms LIKE %s) AND (%d<0 OR COALESCE(t.status,0)=%d)",
+            $s,$t,$lang,$domain,$domain,$q,$like,$like,$like,$status,$status
+        ));
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.*,t.forms,COALESCE(t.status,0) AS status,t.origin,t.last_error FROM %i s LEFT JOIN %i t ON t.source_id=s.id AND t.lang=%s WHERE (%s='' OR s.domain=%s) AND (%s='' OR s.original LIKE %s OR s.context LIKE %s OR t.forms LIKE %s) AND (%d<0 OR COALESCE(t.status,0)=%d) ORDER BY s.id LIMIT 30 OFFSET %d",
+            $s,$t,$lang,$domain,$domain,$q,$like,$like,$like,$status,$status,(max(1,$page)-1)*30
+        ), ARRAY_A) ?: [];
         foreach ($rows as &$row) {
             $count = $row['plural_original'] === '' ? 1 : self::plural_rule($lang)[0];
             $row['forms'] = json_decode($row['forms'] ?? '', true) ?: array_fill(0, $count, '');
         }
-        return ['rows' => $rows, 'total' => $total, 'page' => $page, 'per_page' => 30, 'domains' => $wpdb->get_col("SELECT DISTINCT domain FROM $s ORDER BY domain"), 'usage' => YUZ_Translation_Budget::usage()];
+        return ['rows' => $rows, 'total' => $total, 'page' => $page, 'per_page' => 30, 'domains' => $wpdb->get_col($wpdb->prepare('SELECT DISTINCT domain FROM %i ORDER BY domain',$s)), 'usage' => YUZ_Translation_Budget::usage()];
     }
 
     public static function translate(int $id, string $lang, int $status = 2, float $deadline = 0): void {
