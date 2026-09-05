@@ -1,4 +1,4 @@
-# Confidentialité — YUZ-TRA 1.5.1
+# Confidentialité — YUZ-TRA 1.5.5
 
 Cette notice décrit le logiciel, pas une certification RGPD ni la politique juridique
 complète de votre site. L’exploitant détermine les finalités, la base légale, les durées
@@ -9,9 +9,11 @@ de conservation, les destinataires et les modalités d’exercice des droits sel
 Sources, contextes/domaines, traductions, états de publication, mémoire approuvée,
 glossaire, identifiant du validateur et dates sont stockés dans la base du site.
 Les réglages fournisseur peuvent contenir des clés API : limiter les droits administrateur
-et protéger les sauvegardes. Les tâches persistantes peuvent contenir du texte et leurs
-résultats. Les journaux historiques peuvent contenir des textes ou erreurs fournisseur :
-désactiver le debug en production et contrôler leur accès et leur rétention.
+et protéger les sauvegardes. Les clés enregistrées ne sont pas réaffichées dans les champs
+du navigateur et les diagnostics 1.5.5 ne sérialisent plus les réglages complets. Les tâches
+persistantes peuvent contenir du texte et leurs résultats. Des journaux historiques créés
+par une version antérieure peuvent encore contenir des textes ou réglages fournisseur :
+contrôler leur accès et leur rétention, puis les purger selon la politique du site.
 
 Les tables, tâches historiques et options ne sont pas effacées à la désactivation ni à
 la suppression des fichiers. La désactivation retire les événements cron YUZ. Pas de
@@ -37,6 +39,10 @@ Le catalogue ne contacte pas un fournisseur à son ouverture. Le plugin ne trans
 automatiquement les signalements à GitHub. Les liens de documentation et de support
 sont ouverts seulement à l’initiative de l’utilisateur, et GitHub applique sa propre
 [politique de confidentialité](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
+
+Les probes front et la télémétrie RUM sont désactivés par défaut. RUM ne peut être
+enregistré côté serveur qu’après activation explicite de la constante `YUZ_TRA_RUM` ;
+il appartient alors à l’exploitant de fournir l’information et le consentement requis.
 
 ## Dans le navigateur
 

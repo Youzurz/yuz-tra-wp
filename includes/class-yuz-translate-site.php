@@ -299,7 +299,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         }
 
         // Server-side POST fallback (in addition to AJAX) for persistence when JS is disabled
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'yuz_con_nonce')) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'yuz_con_nonce')) {
             $this->log('info', 'Processing POST submit for Translate Site settings');
 
             $input = isset($_POST['yuz_tra_ts_settings']) && is_array($_POST['yuz_tra_ts_settings'])

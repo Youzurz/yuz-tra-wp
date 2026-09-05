@@ -68,12 +68,11 @@
     try {
       const s = window.yuzTraSettings || {};
       const nn = s.nonces || {};
-      const nval = nn.ajax_nonce || nn.yuz_tra_nonce || nn.yuz_nonce || nn.nonce || '';
+      const nval = nn.yuz_log_nonce || '';
       return {
-        nonce: (nn.yuz_tra_nonce || nval),
+        nonce: nval,
         ajax_nonce: nval,
-        yuz_tra_nonce: nval,
-        yuz_nonce: nval
+        yuz_log_nonce: nval
       };
     } catch (_) {
       return {};
@@ -203,6 +202,7 @@
       if (candidateLang) payload.lang = candidateLang;
 
       Object.assign(payload, __yuzGetMultiNonce());
+      if (!payload.nonce) return;
       jQuery.post(s.ajax_url, payload).fail(function () {});
     } catch (_) { /* noop */ }
   }

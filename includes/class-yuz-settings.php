@@ -515,14 +515,16 @@ class YUZ_Settings implements SettingsInterface {
     }
 
     public function ajax_router() {
-        error_log('[YUZ][AJAX] handling ' . ($_POST['action'] ?? '(none)') . ' with data=' . wp_json_encode($_POST));
-        $action = sanitize_text_field($_POST['action'] ?? '');
-        $nonce  = $_POST['nonce'] ?? '';
+        $action = isset($_POST['action']) ? sanitize_key(wp_unslash((string) $_POST['action'])) : '';
+        $nonce  = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash((string) $_POST['nonce'])) : '';
 
         $nonce_ok = wp_verify_nonce($nonce, 'yuz_tra_nonce') || wp_verify_nonce($nonce, 'yuz_con_nonce');
         if (!$nonce_ok) {
-            error_log('[YUZ][AJAX] invalid nonce for ' . $action);
             wp_send_json_error(['error' => 'Invalid nonce']);
+        }
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('[YUZ][AJAX] handling authenticated action=' . $action);
         }
 
         switch ($action) {

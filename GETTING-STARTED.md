@@ -3,7 +3,7 @@
 ## 1. Télécharger le bon fichier
 
 Sur la [page des versions](https://github.com/Youzurz/yuz-tra-wp/releases), choisir
-**yuz-tra-1.5.4.zip** dans « Assets ». Ne pas choisir « Source code.zip » : c’est
+**yuz-tra-1.5.5.zip** dans « Assets ». Ne pas choisir « Source code.zip » : c’est
 l’archive du dépôt, pas l’extension prête à téléverser.
 La release GitHub est la distribution vérifiable du même code source. Une présence dans
 l’annuaire WordPress.org dépend de sa procédure de revue officielle.
@@ -11,10 +11,10 @@ l’annuaire WordPress.org dépend de sa procédure de revue officielle.
 Le fichier `.sha256` permet de vérifier l’intégrité, sans garantir à lui seul la sécurité :
 
 ```sh
-sha256sum -c yuz-tra-1.5.4.zip.sha256
+sha256sum -c yuz-tra-1.5.5.zip.sha256
 ```
 
-Sur macOS : `shasum -a 256 yuz-tra-1.5.4.zip` et comparer avec le fichier de contrôle.
+Sur macOS : `shasum -a 256 yuz-tra-1.5.5.zip` et comparer avec le fichier de contrôle.
 
 ## 2. Installer sur staging
 

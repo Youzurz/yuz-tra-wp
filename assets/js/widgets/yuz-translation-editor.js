@@ -880,9 +880,11 @@ const $ = window.jQuery;
           }
           const payload = new URLSearchParams({
             action: 'yuz_dom_log',
+            nonce: window.yuzTraSettings?.nonces?.yuz_log_nonce || '',
             event: `pipeline:${event}`,
             context: JSON.stringify(context)
           });
+          if (!payload.get('nonce')) return;
           const data = payload.toString();
           if (navigator.sendBeacon) {
             navigator.sendBeacon(endpoint, new Blob([data], { type: 'application/x-www-form-urlencoded' }));

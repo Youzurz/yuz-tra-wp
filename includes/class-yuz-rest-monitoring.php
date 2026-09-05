@@ -14,6 +14,10 @@ class YUZ_Rest_Monitoring
 
     public static function init(): void
     {
+        $enabled = defined('YUZ_TRA_RUM') && YUZ_TRA_RUM;
+        if (!$enabled) {
+            return;
+        }
         add_action('rest_api_init', [__CLASS__, 'register_routes']);
     }
 
@@ -198,4 +202,3 @@ class YUZ_Rest_Monitoring
         return false;
     }
 }
-

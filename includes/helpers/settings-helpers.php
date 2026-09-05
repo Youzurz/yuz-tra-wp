@@ -18,8 +18,10 @@ if (!function_exists('yuz_settings_sanitize_section')) {
         if (defined('YUZ_DEBUG_SANITIZE') && YUZ_DEBUG_SANITIZE) {
             $snapshot = [
                 'canonical' => $name,
-                'raw'       => $raw,
-                '_POST'     => $_POST,
+                'raw_type'  => gettype($raw),
+                'raw_keys'  => is_array($raw) ? array_map('sanitize_key', array_keys($raw)) : [],
+                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Structural diagnostics only; request values are never copied.
+                'post_keys' => array_map('sanitize_key', array_keys($_POST)),
                 'timestamp' => gmdate('Y-m-d H:i:s'),
             ];
             do_action('yuz_tra_debug_sanitize', $snapshot);
@@ -220,12 +222,16 @@ if (!function_exists('yuz_settings_cache_heavy_request')) {
             return true;
         }
         foreach (['yuzprobe','yuzscan','yuzdom','yuzcacheflush'] as $flag) {
+            // Cache routing only; no state change or request value is persisted.
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended
             if (!empty($_GET[$flag])) {
                 return true;
             }
         }
+        // Cache routing only; authenticated handlers verify their own nonce.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
         if (defined('DOING_AJAX') && DOING_AJAX && !empty($_POST['action'])) {
-            $action = (string) $_POST['action'];
+            $action = sanitize_key(wp_unslash((string) $_POST['action']));
             if (strpos($action, 'yuz_') === 0) {
                 return true;
             }

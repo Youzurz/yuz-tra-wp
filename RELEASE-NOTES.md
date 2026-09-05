@@ -1,9 +1,10 @@
-# YUZ-TRA 1.5.4 — candidat WordPress.org
+# YUZ-TRA 1.5.5 — candidat de durcissement
 
-Télécharger **yuz-tra-1.5.4.zip** ci-dessous, pas l’archive « Source code ».
+Télécharger **yuz-tra-1.5.5.zip** ci-dessous, pas l’archive « Source code ».
 La somme SHA-256 est jointe. Le ZIP contient le dossier `yuz-tra`, directement
 installable depuis Extensions → Ajouter → Téléverser dans WordPress.
 
+- 1.5.5 : journaux sans secrets, clés non réaffichées, import CSV contrôlé, routes anonymes réduites aux lectures front nécessaires et tests de sécurité ciblés.
 - 1.5.4 : métadonnées WordPress.org durables, auteur `YOUZURZ (YUZ CLA GPT)`, changelog et consignes de mise à jour alignés.
 - 1.5.3 : domaine de traduction normalisé sur le slug `yuz-tra`, en-tête WordPress.org sans serveur de mise à jour tiers et contrôles de paquet renforcés.
 - 1.5.2 : bandeau de version, téléchargement et parcours d’aide dans l’administration ; cohérence manifeste/header/readme contrôlée, provenance du commit et manifeste SHA-256 externe.

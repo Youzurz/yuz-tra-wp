@@ -1152,7 +1152,6 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering LibreTranslate fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
         $libre_url = (string) ($options_settings['libre_url'] ?? '');
-        $libre_key = (string) ($options_settings['libre_key'] ?? '');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-libretranslate" style="<?php echo ($provider === 'libretranslate') ? '' : 'display:none;'; ?>">
@@ -1165,8 +1164,8 @@ public function render_licenses_tab(array $settings = []): void {
         <tr class="yuz-tra-api-provider-field yuz-libretranslate" style="<?php echo ($provider === 'libretranslate') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="libre_key"><?php esc_html_e('LibreTranslate API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_libre_key" name="yuz_tra_at_settings[libre_key]" value="<?php echo esc_attr($libre_key); ?>" placeholder="<?php esc_attr_e('Enter API key (optional)', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('Optional API key for LibreTranslate.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_libre_key" name="yuz_tra_at_settings[libre_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('Optional API key for LibreTranslate. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <?php
@@ -1205,15 +1204,14 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering Google fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering Google fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
-        $google_key = (string) ($options_settings['google_key'] ?? '');
         $google_proj = (string) ($options_settings['google_project'] ?? '');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-google" style="<?php echo ($provider === 'google') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="google_key"><?php esc_html_e('Google API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_google_key" name="yuz_tra_at_settings[google_key]" value="<?php echo esc_attr($google_key); ?>" placeholder="<?php esc_attr_e('Enter Google API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for Google Translate.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_google_key" name="yuz_tra_at_settings[google_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for Google Translate. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-google" style="<?php echo ($provider === 'google') ? '' : 'display:none;'; ?>">
@@ -1236,15 +1234,14 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering DeepL fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering DeepL fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
-        $deepl_key = (string) ($options_settings['deepl_key'] ?? '');
         $deepl_free = (string) ($options_settings['deepl_free'] ?? '0');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-deepl" style="<?php echo ($provider === 'deepl') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="deepl_key"><?php esc_html_e('DeepL API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_deepl_key" name="yuz_tra_at_settings[deepl_key]" value="<?php echo esc_attr($deepl_key); ?>" placeholder="<?php esc_attr_e('Enter DeepL API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for DeepL.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_deepl_key" name="yuz_tra_at_settings[deepl_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for DeepL. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-deepl" style="<?php echo ($provider === 'deepl') ? '' : 'display:none;'; ?>">
@@ -1272,7 +1269,6 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering custom fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
         $custom_url = (string) ($options_settings['custom_url'] ?? '');
-        $custom_key = (string) ($options_settings['custom_key'] ?? '');
         $custom_auth = (string) ($options_settings['custom_auth'] ?? 'none');
         $custom_method = (string) ($options_settings['custom_method'] ?? 'POST');
         $custom_fmt = (string) ($options_settings['custom_format'] ?? 'JSON');
@@ -1288,8 +1284,8 @@ public function render_licenses_tab(array $settings = []): void {
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="custom_key"><?php esc_html_e('Custom API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_custom_key" name="yuz_tra_at_settings[custom_key]" value="<?php echo esc_attr($custom_key); ?>" placeholder="<?php esc_attr_e('Enter custom API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for the custom API.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_custom_key" name="yuz_tra_at_settings[custom_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for the custom API. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">

@@ -4,7 +4,7 @@ Tags: translation, multilingual, localization, gettext, woocommerce
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.4
+Stable tag: 1.5.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,7 +66,7 @@ no bug report or translation content is automatically transmitted to the maintai
 == Installation ==
 
 1. Back up the database and previous plugin. Try staging first.
-2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.4.zip and activate it.
+2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.5.zip and activate it.
 3. Configure source and target languages in YUZ-TRA.
 4. Open Strings, scan installed code and filter by domain/language.
 5. Edit and publish, or select up to five strings for provider translation and review.
@@ -97,6 +97,14 @@ site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Changelog ==
 
+= 1.5.5 =
+* Prevent provider credentials and complete automatic-translation settings from reaching diagnostic logs.
+* Validate CSV uploads with WordPress file inspection and safe local redirects.
+* Restrict anonymous AJAX to the two read-only routes required for front-end translation.
+* Require authentication, capability and nonces for diagnostic log endpoints.
+* Disable probes and RUM telemetry by default and remove source/target previews from metrics.
+* Add focused security regression tests for these controls.
+
 = 1.5.4 =
 * Production-ready WordPress.org metadata and durable update guidance.
 * Package author normalized to YOUZURZ (YUZ CLA GPT).
@@ -118,5 +126,5 @@ site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Upgrade Notice ==
 
-= 1.5.4 =
+= 1.5.5 =
 Back up first. Test on staging. Review provider settings and privacy policy before enabling automatic translation.

@@ -102,6 +102,12 @@ if (!class_exists('YUZ_Ajax')) {
             'yuz_tra_js_get_regular',
         ];
 
+        /** Read-only routes required to translate pages for logged-out visitors. */
+        private const PUBLIC_AJAX_ACTIONS = [
+            'yuz_get_regular',
+            'yuz_tra_js_get_regular',
+        ];
+
         /** @var \YUZ_Logger|\YUZTRA\Fallbacks\NullLogger */
         private $logger;
 
@@ -112,12 +118,13 @@ if (!class_exists('YUZ_Ajax')) {
 
         /**
          * Low-level trace logger to a dedicated uploads file (yuz-trace.log).
-         * Lightweight, opt-in via constant YUZ_TRA_TRACE_AUTO=true or query header X-YUZ-TRACE.
+         * Lightweight and explicitly enabled server-side with YUZ_TRA_TRACE_AUTO.
          */
         private function trace_log(string $tag, array $ctx = []): void {
             try {
-                $trace_on = (defined('YUZ_TRA_TRACE_AUTO') && YUZ_TRA_TRACE_AUTO) || !empty($_SERVER['HTTP_X_YUZ_TRACE']);
+                $trace_on = defined('YUZ_TRA_TRACE_AUTO') && YUZ_TRA_TRACE_AUTO;
                 if (!$trace_on) return;
+                if (!is_user_logged_in() || (!current_user_can('manage_options') && !current_user_can('yuz_translate_content'))) return;
                 if (!function_exists('wp_upload_dir')) return;
                 $uploads = wp_upload_dir();
                 if (empty($uploads['basedir'])) return;
@@ -236,32 +243,25 @@ if (!class_exists('YUZ_Ajax')) {
     add_action('wp_ajax_yuz_tra_get_languages', [$this, 'ajax_get_languages']);
     add_action('wp_ajax_nopriv_yuz_tra_get_languages', [$this, 'ajax_get_languages']);
     add_action('wp_ajax_yuz_tra_diag_chain', [$this, 'yuz_tra_diag_chain']);
-    add_action('wp_ajax_nopriv_yuz_tra_diag_chain', [$this, 'yuz_tra_diag_chain']);
 
     // Maintenance (admin‑only)
     add_action('wp_ajax_yuz_tra_maintenance', [$this, 'ajax_maintenance']);
 
-    // Lightweight DOM debug logger (front and nopriv)
+    // Lightweight DOM debug logger for authenticated translators only.
     add_action('wp_ajax_yuz_dom_log',       [$this, 'yuz_dom_log']);
-    // Allow front probes to log without auth (debug-only endpoint)
-    add_action('wp_ajax_nopriv_yuz_dom_log', [$this, 'yuz_dom_log']);
 
     // Front trace beacon -> uploads/yuz-trace.log
     add_action('wp_ajax_yuz_trace_beacon', [$this, 'yuz_trace_beacon']);
-    add_action('wp_ajax_nopriv_yuz_trace_beacon', [$this, 'yuz_trace_beacon']);
 
     // One-shot diagnostic hook (requires nonce + trace flag)
     add_action('wp_ajax_yuz_diag', [$this, 'yuz_diag']);
 }
 
 	private function is_trace_request(): bool {
-            if (isset($_REQUEST['yuztrace']) && $_REQUEST['yuztrace'] === '1') {
-                return true;
-            }
-            if (!empty($_SERVER['HTTP_X_YUZ_TRACE'])) {
-                return true;
-            }
-            return false;
+            return defined('YUZ_TRA_TRACE_AUTO')
+                && YUZ_TRA_TRACE_AUTO
+                && is_user_logged_in()
+                && (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
         }
 
         private function trace_upload_path(): ?string {
@@ -563,10 +563,14 @@ if (!class_exists('YUZ_Ajax')) {
          * AJAX: Minimal DOM logger for field diagnostics.
          * - Accepts event (string) and context (JSON string or plain text)
          * - Writes to wp-content/uploads/yuz-dom.log (fallback: wp-content/yuz-dom.log)
-         * - NOPRIV allowed and nonce optional on purpose (debug only)
+         * - Authenticated translator and log nonce required.
          */
         public function yuz_dom_log(): void {
-            // Soft validation (no nonce to keep it usable in front probes)
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['ok' => false, 'error' => 'forbidden'], 403);
+            }
+            check_ajax_referer('yuz_log_nonce', 'nonce');
+
             $event   = isset($_POST['event']) ? sanitize_text_field(wp_unslash((string) $_POST['event'])) : '';
             $rawCtx  = isset($_POST['context']) ? wp_unslash((string) $_POST['context']) : '';
             $context = null;
@@ -624,6 +628,9 @@ if (!class_exists('YUZ_Ajax')) {
          * Accepts a JSON payload (marker + context) and mirrors it to uploads/yuz-trace.log.
          */
         public function yuz_trace_beacon(): void {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['ok' => false, 'error' => 'forbidden'], 403);
+            }
             check_ajax_referer('yuz_log_nonce', 'nonce');
             $payload_raw = isset($_POST['payload']) ? wp_unslash((string) $_POST['payload']) : '';
             if ($payload_raw === '') {
@@ -1028,7 +1035,9 @@ if (!class_exists('YUZ_Ajax')) {
                 $registered = 0;
                 foreach ($module_actions as $action => $method) {
                     add_action("wp_ajax_{$action}",        [$instance, $method]);
-                    add_action("wp_ajax_nopriv_{$action}", [$instance, $method]);
+                    if (in_array($action, self::PUBLIC_AJAX_ACTIONS, true)) {
+                        add_action("wp_ajax_nopriv_{$action}", [$instance, $method]);
+                    }
                     YUZ_Health_Check::ensure(
                         has_action("wp_ajax_{$action}"),
                         "Missing AJAX handler for action '{$action}' in module '{$module}'",
@@ -4252,8 +4261,7 @@ public function yuz_tra_ts_start_translation() {
                     }
 
                     if (defined('WP_DEBUG') && WP_DEBUG && $single_translation === '') {
-                        $raw = substr(wp_json_encode($response, JSON_UNESCAPED_UNICODE), 0, 1024);
-                        error_log('[YUZ][AJAX][TM] req=' . $req_id . ' single_empty RAW=' . $raw);
+                        error_log('[YUZ][AJAX][TM] req=' . $req_id . ' single_empty response_count=' . count($normalized));
                     }
 
                     return [
@@ -4545,9 +4553,13 @@ public function yuz_tra_ts_start_translation() {
                 if ($action==='yuz_ai_glossary_upload') {
                     if (empty($_POST['approved'])) throw new InvalidArgumentException('explicit_human_approval_required');
                     $csv=wp_unslash($_POST['csv'] ?? '');
-                    if (!empty($_FILES['file']['tmp_name'])) {
-                        if (!is_uploaded_file($_FILES['file']['tmp_name']) || $_FILES['file']['size']>200000 || $_FILES['file']['error']!==UPLOAD_ERR_OK) throw new InvalidArgumentException('invalid_glossary_upload');
-                        $csv=file_get_contents($_FILES['file']['tmp_name']);
+                    $upload = isset($_FILES['file']) && is_array($_FILES['file']) ? $_FILES['file'] : [];
+                    $tmp_name = isset($upload['tmp_name']) && is_string($upload['tmp_name']) ? $upload['tmp_name'] : '';
+                    if ($tmp_name !== '') {
+                        $upload_error = isset($upload['error']) ? (int) $upload['error'] : UPLOAD_ERR_NO_FILE;
+                        $upload_size  = isset($upload['size']) ? (int) $upload['size'] : 0;
+                        if ($upload_error !== UPLOAD_ERR_OK || $upload_size <= 0 || $upload_size > 200000 || !is_uploaded_file($tmp_name)) throw new InvalidArgumentException('invalid_glossary_upload');
+                        $csv=file_get_contents($tmp_name);
                     }
                     wp_send_json_success(['imported'=>YUZ_Translation_Memory::import_csv((string)$csv)]);
                 }
@@ -5430,9 +5442,14 @@ public function yuz_tra_ts_start_translation() {
                     if ($logger) {
                         try {
                             $logger->log('debug', 'Auto translation API settings', [
-                                'cid'      => $cid,
-                                'raw'      => wp_json_encode($raw_api_settings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                                'resolved' => wp_json_encode($resolved_api_settings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                                'cid'               => $cid,
+                                'provider'          => $provider ?? '',
+                                'configured_fields' => array_keys(array_filter(
+                                    $raw_api_settings,
+                                    static fn($value): bool => $value !== '' && $value !== null
+                                )),
+                                'has_endpoint'      => !empty($resolved_api_settings['endpoint']),
+                                'has_api_key'       => !empty($resolved_api_settings['api_key']),
                             ]);
                         } catch (\Throwable $ignored) {}
                     }
@@ -5538,7 +5555,6 @@ public function yuz_tra_ts_start_translation() {
 
                     if ($is_probe && $this->logger) {
                         try {
-                            $sample = array_slice(array_values(array_filter(array_map('strval', $originals))), 0, 5);
                             $this->logger->log('info', 'YUZ-PROBE request (yuz_get_regular)', [
                                 'target'    => $target_code,
                                 'source'    => $source_code,
@@ -5546,7 +5562,7 @@ public function yuz_tra_ts_start_translation() {
                                 'context'   => $context,
                                 'page_url'  => $page_url,
                                 'count'     => count($originals),
-                                'sample'    => wp_json_encode($sample, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                                'sample_count' => min(5, count($originals)),
                             ]);
                         } catch (\Throwable $ignored) {}
                     }

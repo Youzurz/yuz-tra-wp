@@ -1,3 +1,12 @@
+# 1.5.5 — 2026-09-05
+
+- Les clés fournisseur et les réglages complets ne sont plus sérialisés dans les journaux de diagnostic.
+- Les champs de clés sont désormais en écriture seule : une valeur enregistrée n’est jamais réinjectée dans le HTML.
+- L’import CSV contrôle l’erreur d’envoi, le fichier temporaire, le nom, le type réel et la taille avant lecture.
+- Les redirections de l’import utilisent `wp_safe_redirect` et des tests ciblés empêchent le retour de ces défauts.
+- Les routes AJAX anonymes dynamiques sont remplacées par une liste de deux lectures front ; les probes et écritures de logs exigent authentification, capacité et nonce.
+- Les métriques front ne conservent plus d’extraits des contenus source/cible ; les probes et la télémétrie RUM sont désactivés par défaut.
+
 # 1.5.4 — 2026-09-04
 
 - Métadonnées durables pour la soumission WordPress.org, sans présentation de placeholder d’évaluation.

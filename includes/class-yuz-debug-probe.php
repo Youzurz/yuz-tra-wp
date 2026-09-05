@@ -82,10 +82,16 @@ if (!class_exists('YUZ_Debug_Probe')) {
          * AJAX capture hook for diagnostics.
          */
         public static function capture_ajax(): void {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                return;
+            }
             $payload = [
-                'post'   => array_map('wp_unslash', $_POST), // phpcs:ignore WordPress.Security.NonceVerification.Missing
-                'get'    => array_map('wp_unslash', $_GET),  // phpcs:ignore WordPress.Security.NonceVerification.Missing
-                'action' => $_POST['action'] ?? $_GET['action'] ?? '', // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Probe records keys only before the real handler validates its nonce.
+                'post_keys' => array_map('sanitize_key', array_keys($_POST)),
+                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Probe records keys only.
+                'get_keys'  => array_map('sanitize_key', array_keys($_GET)),
+                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Routing metadata only.
+                'action'    => isset($_POST['action']) ? sanitize_key(wp_unslash((string) $_POST['action'])) : '',
             ];
             self::log('ajax_capture', $payload);
         }
@@ -137,6 +143,7 @@ if (!class_exists('YUZ_Debug_Probe')) {
                     try {
                         var fd = new FormData();
                         fd.append('action', 'yuz_probe_client_log');
+                        fd.append('nonce', '<?php echo esc_js(wp_create_nonce('yuz_log_nonce')); ?>');
                         fd.append('kind', kind);
                         fd.append('payload', JSON.stringify(data));
                         w.fetch('<?php echo esc_url(admin_url('admin-ajax.php', 'relative')); ?>', {
@@ -196,8 +203,12 @@ if (!class_exists('YUZ_Debug_Probe')) {
          * Receives client logs via admin-ajax.
          */
         public static function handle_client_log(): void {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['error' => 'forbidden'], 403);
+            }
+            check_ajax_referer('yuz_log_nonce', 'nonce');
             $kind    = isset($_POST['kind']) ? sanitize_text_field(wp_unslash($_POST['kind'])) : 'client';
-            $payload = isset($_POST['payload']) ? wp_unslash($_POST['payload']) : '';
+            $payload = isset($_POST['payload']) ? sanitize_textarea_field(wp_unslash($_POST['payload'])) : '';
             self::log('client_trace', [
                 'kind'    => $kind,
                 'payload' => $payload,
