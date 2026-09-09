@@ -614,32 +614,7 @@ if (!class_exists('YUZ_Frontend')) {
             }
             // Fallback: error_log.
             $line = sprintf('[YUZ][%s][%s] %s %s', strtoupper($level), $this->trace_id, $message, wp_json_encode($payload));
-            error_log($line);
-            // Best-effort file log.
-            $this->write_file_log($line . "\n");
-        }
-
-        /** Append to uploads/yuz-logs/yuz-frontend.log with tiny rotation. */
-        private function write_file_log(string $line): void {
-            $uploads = wp_upload_dir();
-            if (!empty($uploads['error'])) { return; }
-            $dir = trailingslashit($uploads['basedir']) . 'yuz-logs/';
-            if (!wp_mkdir_p($dir)) { return; }
-            $file = $dir . 'yuz-frontend.log';
-            // naive rotation at ~5MB.
-            if (file_exists($file) && filesize($file) > 5 * 1024 * 1024) {
-                global $wp_filesystem;
-                if (!function_exists('WP_Filesystem')) {
-                    require_once ABSPATH . 'wp-admin/includes/file.php';
-                }
-                if (!is_object($wp_filesystem)) {
-                    WP_Filesystem();
-                }
-                if (is_object($wp_filesystem)) {
-                    $wp_filesystem->move($file, $file . '.' . gmdate('Ymd_His'), true);
-                }
-            }
-            @file_put_contents($file, $line, FILE_APPEND);
+            yuz_tra_debug_log($line);
         }
 
         /** Interface requirement; rendering is done via hooks. */

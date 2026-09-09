@@ -85,7 +85,7 @@ if (!class_exists('YUZ_Front_Buffer')) {
                 return YUZ_Front_Renderer::translate_page($output);
             } catch (\Throwable $e) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('[YUZ-TRA] front buffer failed: ' . $e->getMessage());
+                    yuz_tra_debug_log('[YUZ-TRA] front buffer failed: ' . $e->getMessage());
                 }
                 return $output;
             }

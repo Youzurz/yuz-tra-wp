@@ -13,6 +13,7 @@
  * Text Domain: yuz-tra
  */
 defined('ABSPATH') || exit;
+require_once __DIR__ . '/includes/helpers/debug-helpers.php';
 require_once __DIR__ . '/includes/class-yuz-plugin.php';
 YUZ_Plugin::boot(__FILE__);
 

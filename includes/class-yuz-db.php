@@ -137,7 +137,7 @@ if (!class_exists('YUZ_DB')) {
             }
             $logged_actions[$log_key] = true;
             $details = is_array($details) ? $details : [];
-            $details['request_uri'] = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field($_SERVER['REQUEST_URI']) : '';
+            $details['request_uri'] = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
             $translator = 'system';
             if (function_exists('is_user_logged_in') && is_user_logged_in()) {
                 $user = wp_get_current_user();

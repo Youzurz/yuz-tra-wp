@@ -113,7 +113,7 @@ class YUZ_Advanced implements AdvancedInterface {
         self::$booted = true;
 
         if ( ! defined('YUZ_TRA_INCLUDES') || ! defined('YUZ_TRA_PLUGIN_FILE') ) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZ_Advanced::init');
+            yuz_tra_debug_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZ_Advanced::init');
             return;
         }
 
@@ -163,7 +163,7 @@ class YUZ_Advanced implements AdvancedInterface {
 
     private function get_active_tab(string $fallback): string
     {
-        $active = isset($_GET['subtab']) ? sanitize_key($_GET['subtab']) : $fallback;
+        $active = isset($_GET['subtab']) ? sanitize_key(wp_unslash($_GET['subtab'])) : $fallback;
         $tabs   = $this->get_tabs();
         return array_key_exists($active, $tabs) ? $active : $fallback;
     }

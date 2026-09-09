@@ -188,7 +188,7 @@ if (!self::$debug) {
 return;
             }
 $prefix = self::$prefixes[$level] ?? self::$prefixes['info'];
-error_log(sprintf('%s %s: %s', $prefix, $message, print_r($context, true)));
+yuz_tra_debug_log(sprintf('%s %s: %s', $prefix, $message, print_r($context, true)));
         }
     }
 }

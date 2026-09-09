@@ -54,7 +54,7 @@ class YUZ_Rest_Monitoring
                 'referer' => $client['referer'],
                 'event'   => $event,
             ];
-            error_log('[YUZ-RUM] ' . wp_json_encode($log, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            yuz_tra_debug_log('[YUZ-RUM] ' . wp_json_encode($log, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         }
 
         return new WP_REST_Response(['ok' => true], 200);

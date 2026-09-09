@@ -121,17 +121,17 @@ class YUZ_PDCA_Manager implements PDCAInterface {
     ];
 
     public static function run_all(): void {
-        error_log('[PDCA][PLAN] Démarrage du diagnostic PDCA global');
+        yuz_tra_debug_log('[PDCA][PLAN] Démarrage du diagnostic PDCA global');
         $results = [];
 
         foreach (self::$components as $name => $path) {
             $full = plugin_dir_path(__DIR__) . $path;
             $exists = file_exists($full);
             $results[$name] = $exists ? 'OK' : 'KO';
-            error_log(sprintf('[PDCA][CHECK] Composant %s (%s) : %s', $name, $path, $exists ? 'OK' : 'KO'));
+            yuz_tra_debug_log(sprintf('[PDCA][CHECK] Composant %s (%s) : %s', $name, $path, $exists ? 'OK' : 'KO'));
         }
 
-        error_log('[PDCA][ACT] Résumé PDCA global : ' . json_encode($results));
+        yuz_tra_debug_log('[PDCA][ACT] Résumé PDCA global : ' . json_encode($results));
         // TODO: push $results vers un log dédié ou stocker en option pour affichage admin
     }
 
@@ -139,19 +139,19 @@ class YUZ_PDCA_Manager implements PDCAInterface {
      * PLAN phase.
      */
    public function plan(): void {
-        error_log('[PDCA][PLAN] Starting PDCA planning phase');
+        yuz_tra_debug_log('[PDCA][PLAN] Starting PDCA planning phase');
     }
 
     public function do(): void {
-        error_log('[PDCA][DO] Executing PDCA do phase');
+        yuz_tra_debug_log('[PDCA][DO] Executing PDCA do phase');
     }
 
     public function check(): bool {
-        error_log('[PDCA][CHECK] Verifying PDCA results');
+        yuz_tra_debug_log('[PDCA][CHECK] Verifying PDCA results');
         return true;
     }
 
     public function act(): void {
-        error_log('[PDCA][ACT] Acting upon PDCA recommendations');
+        yuz_tra_debug_log('[PDCA][ACT] Acting upon PDCA recommendations');
     }
 }

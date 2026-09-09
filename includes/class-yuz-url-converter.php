@@ -140,7 +140,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         ];
         $prefix = $prefixes[$lvl] ?? $prefixes['info'];
         $suffix = $ctx ? ' | Context: ' . wp_json_encode($ctx) : '';
-        error_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
+        yuz_tra_debug_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
     }
 
     /* ---------------------------- SETTINGS HELPERS --------------------------- */
@@ -1226,7 +1226,7 @@ public function normalize(string $url): string
             return $final_url;
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
+                yuz_tra_debug_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
             }
             return $base;
         }

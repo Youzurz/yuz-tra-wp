@@ -23,7 +23,7 @@ function yuz_trace_log($stage, $data = []){
         'ip'     => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
     ];
     if (!empty($data)) { $row['data'] = $data; }
-    error_log('[YUZ request trace] '.wp_json_encode($row, JSON_UNESCAPED_SLASHES));
+    yuz_tra_debug_log('[YUZ request trace] '.wp_json_encode($row, JSON_UNESCAPED_SLASHES));
 }
 
 add_action('parse_request', function($wp){

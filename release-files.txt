@@ -905,6 +905,7 @@ includes/class-yuz-fallbacks.php
 includes/class-yuz-footer.php
 includes/class-yuz-front-buffer.php
 includes/front-template.php
+includes/helpers/debug-helpers.php
 includes/class-yuz-front-renderer.php
 includes/class-yuz-frontend.php
 includes/class-yuz-general.php

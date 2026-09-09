@@ -87,3 +87,11 @@ test('front-end telemetry is private by default and never stores content preview
   assert.match(restMonitoring, /defined\('YUZ_TRA_RUM'\) && YUZ_TRA_RUM/);
   assert.match(restMonitoring, /if \(!\$enabled\) \{\s*return;/);
 });
+
+test('legacy AJAX and frontend diagnostics cannot recreate public log files', () => {
+  for (const source of [ajax, frontend, debugProbe]) {
+    assert.doesNotMatch(source, /\bfile_put_contents\s*\(/);
+    assert.doesNotMatch(source, /\berror_log\s*\(/);
+  }
+  assert.match(ajax, /diagnostics_disabled_or_write_failed/);
+});

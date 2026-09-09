@@ -278,7 +278,7 @@ class YUZ_Editor {
         check_ajax_referer('yuz_tra_nonce', 'nonce');
         $this->logger->log('info', 'Starting translation via AJAX');
 
-        $page_url   = isset($_POST['page_url']) ? esc_url_raw($_POST['page_url']) : home_url();
+        $page_url   = isset($_POST['page_url']) ? esc_url_raw(wp_unslash($_POST['page_url'])) : home_url();
         $editor_url = add_query_arg('yuz-edit-translation', '1', $page_url);
 
         wp_send_json_success(['editor_url' => $editor_url]);
@@ -352,9 +352,9 @@ class YUZ_Editor {
         check_ajax_referer('yuz_tra_nonce', 'nonce');
         $this->logger->log('info', 'Translating text via AJAX');
 
-        $text        = sanitize_text_field($_POST['text'] ?? '');
-        $source_lang = sanitize_text_field($_POST['source_lang'] ?? '');
-        $target_lang = sanitize_text_field($_POST['target_lang'] ?? '');
+        $text        = sanitize_text_field(wp_unslash($_POST['text'] ?? ''));
+        $source_lang = sanitize_text_field(wp_unslash($_POST['source_lang'] ?? ''));
+        $target_lang = sanitize_text_field(wp_unslash($_POST['target_lang'] ?? ''));
 
         if (empty($text) || empty($source_lang) || empty($target_lang)) {
             wp_send_json_error(['message' => 'Missing required parameters for translation'], 400);
@@ -389,12 +389,11 @@ class YUZ_Editor {
             'user_login'     => wp_get_current_user()->user_login ?? null,
             'has_cap'        => current_user_can('yuz_translate_content'),
             'cookie_present' => isset($_COOKIE['wordpress_logged_in_'.COOKIEHASH]),
-            'received_nonce' => $_POST['nonce'] ?? null,
-            'expected_nonce' => wp_create_nonce('yuz_tra_nonce'),
+            'nonce_valid'    => true,
             'headers'        => [
                 'ua'          => sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? '')),
-                'xrw'         => $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '',
-                'cfipcountry' => $_SERVER['HTTP_CF_IPCOUNTRY'] ?? '',
+                'xrw'         => sanitize_text_field(wp_unslash($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')),
+                'cfipcountry' => sanitize_text_field(wp_unslash($_SERVER['HTTP_CF_IPCOUNTRY'] ?? '')),
             ],
         ]);
     }

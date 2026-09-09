@@ -23,6 +23,12 @@ Le journal général utilise par défaut l’option privée `yuz_tra_private_log
 à 200 lignes de 8 000 octets. Un fichier personnalisé n’est accepté que si son chemin
 résolu se trouve hors des racines web connues ; aucun fichier public de secours
 n’est créé en cas d’échec de configuration.
+Les diagnostics historiques sont désactivés hors mode `WP_DEBUG`, `YUZ_TRA_DEBUG`
+ou `YUZ_TRA_TRACE_AUTO`. Les anciennes traces DOM, AJAX et frontend n’écrivent
+plus de fichiers publics ; les fichiers provenant d’anciennes versions restent à purger.
+Lorsqu’ils sont activés, l’option privée `yuz_tra_legacy_diagnostics` conserve au plus
+100 messages de 4 000 octets. Les valeurs reconnues comme identifiants secrets sont
+masquées ; ce masquage ne remplace pas une politique de minimisation des données.
 
 Les tables, tâches historiques et options ne sont pas effacées à la désactivation ni à
 la suppression des fichiers. La désactivation retire les événements cron YUZ. Pas de

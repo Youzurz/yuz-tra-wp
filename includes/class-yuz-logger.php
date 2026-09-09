@@ -221,7 +221,7 @@ if (!class_exists('YUZ_Logger')) {
             }
             // Écriture avec verrou pour éviter la corruption.
             if (@file_put_contents($this->file, $line, FILE_APPEND | LOCK_EX) === false) {
-                error_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
+                yuz_tra_debug_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
                 return;
             }
         }

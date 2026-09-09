@@ -5,6 +5,9 @@ function yuztra_assert($condition, string $label): void {
     if (!$condition) throw new RuntimeException('FAIL ' . $label);
     WP_CLI::log('PASS ' . $label);
 }
+delete_option('yuz_tra_legacy_diagnostics');
+yuz_tra_debug_log('REVIEW_DIAGNOSTIC_DISABLED');
+yuztra_assert(get_option('yuz_tra_legacy_diagnostics', false) === false, 'legacy diagnostic disabled by default');
 YUZ_DB::ensure_string_tables();
 $logger=new YUZ_Logger();
 $logger->log('error','YUZTRA_PRIVATE_LOG_ACCEPTANCE');
@@ -66,4 +69,44 @@ $_POST['_wpnonce']='invalid';
 $old=['floating_theme'=>'dark'];
 yuztra_assert(apply_filters('pre_update_option_yuz_tra_sw_settings', [], $old)===$old, 'legacy settings merge requires valid settings nonce');
 $_POST=$request_before;
+// Exercise the actual handlers with WordPress users and nonces, intercepting only their exit.
+if (!defined('DOING_AJAX')) define('DOING_AJAX', true);
+require_once WP_PLUGIN_DIR . '/yuz-tra/includes/class-yuz-ajax.php';
+class Yuztra_Review_Ajax_Exit extends RuntimeException {}
+add_filter('wp_die_ajax_handler', static function () {
+    return static function () { throw new Yuztra_Review_Ajax_Exit(); };
+});
+$handler=(new ReflectionClass('YUZ_Ajax'))->newInstanceWithoutConstructor();
+$author_id=wp_insert_user(['user_login'=>'yuztra-review-author','user_pass'=>wp_generate_password(),'role'=>'author']);
+yuztra_assert(!is_wp_error($author_id), 'test author created in disposable database');
+wp_set_current_user($author_id);
+foreach (['yuz_gt_save'=>'yuz_int_nonce','yuz_slugs_save'=>'yuz_int_nonce','yuz_eml_save'=>'yuz_int_nonce',
+    'yuz_tra_at_get_api_test'=>'yuz_api_nonce','yuz_tra_tm_test_api'=>'yuz_api_nonce'] as $method=>$nonce_action) {
+    $_POST=$_REQUEST=['nonce'=>wp_create_nonce($nonce_action),'items'=>'[]'];
+    ob_start();
+    try { $handler->$method(); } catch (Yuztra_Review_Ajax_Exit $exit) {}
+    $response=json_decode(ob_get_clean(),true);
+    yuztra_assert(($response['success'] ?? null)===false && ($response['data']['message'] ?? '')==='forbidden', 'author denied global handler '.$method);
+}
+wp_set_current_user($admin->ID);
+$source_post=wp_insert_post(['post_title'=>'Original title','post_name'=>'original-permalink','post_status'=>'publish']);
+$_POST=$_REQUEST=['nonce'=>wp_create_nonce('yuz_int_nonce'),'items'=>wp_slash(wp_json_encode([
+    ['object_id'=>$source_post,'object_type'=>'post','post_type'=>'post','lang'=>'fr_FR','slug'=>'permalien-traduit','status'=>4]
+]))];
+ob_start();
+try { $handler->yuz_slugs_save(); } catch (Yuztra_Review_Ajax_Exit $exit) {}
+$response=json_decode(ob_get_clean(),true);
+yuztra_assert(($response['success'] ?? false)===true, 'administrator saves target-language slug');
+yuztra_assert(get_post_field('post_name',$source_post)==='original-permalink', 'target slug does not overwrite original permalink');
+$_POST=$request_before;
+define('YUZ_TRA_DEBUG', true);
+for ($i=0;$i<105;$i++) yuz_tra_debug_log('diagnostic '.$i.' api_key=private-test-value Authorization: Bearer test-bearer-secret');
+$diagnostics=get_option('yuz_tra_legacy_diagnostics', []);
+yuztra_assert(count($diagnostics)===100, 'opt-in private diagnostics have bounded retention');
+yuztra_assert(!str_contains(wp_json_encode($diagnostics),'private-test-value'), 'private diagnostics redact credential values');
+yuztra_assert(!str_contains(wp_json_encode($diagnostics),'test-bearer-secret'), 'private diagnostics redact bearer tokens');
+$emit=new ReflectionMethod('YUZ_Ajax','emit_trace_marker');
+$emit->setAccessible(true);
+yuztra_assert($emit->invoke($handler,'REVIEW_TRACE',['count'=>1]) === true, 'trace marker is persisted privately');
+yuztra_assert(!is_file(wp_upload_dir()['basedir'].'/yuz-tra/yuz-trace.log'), 'trace marker never creates public file');
 WP_CLI::success('Reviewer runtime acceptance passed.');

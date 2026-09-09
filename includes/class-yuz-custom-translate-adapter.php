@@ -76,7 +76,7 @@ if (!function_exists('yuz_tra_adapter_log')) {
         if (!$enabled) {
             return;
         }
-        error_log(...$args);
+        yuz_tra_debug_log(...$args);
     }
 }
 
