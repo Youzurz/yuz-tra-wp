@@ -203,6 +203,10 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
         $group  = yuz_tra_request_text('option_page');
 
         if ($action === 'update' && $group === 'yuz_tra_general_settings_group') {
+            $nonce = isset($_POST['_wpnonce']) && is_string($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
+            if (!current_user_can('manage_options') || !wp_verify_nonce($nonce, 'yuz_tra_general_settings_group-options')) {
+                return $old;
+            }
             $raw = isset($_POST[$opt]) && is_array($_POST[$opt]) ? wp_unslash($_POST[$opt]) : [];
             if (empty($raw)) {
                 if (function_exists('error_log')) {
@@ -233,6 +237,8 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
             if (function_exists('error_log')) {
                 yuz_tra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $opt . '] overriding with POST payload keys=' . implode(',', array_keys($merged)));
             }
+
+            $merged = yuz_settings_sanitize_section($opt, $merged);
 
             // Synchronize legacy containers used by canonical migration logic.
             if ($opt === 'yuz_tra_ws_settings') {
@@ -317,7 +323,7 @@ add_action('admin_init', function () {
     $snapshot = [
         'action' => $action,
         'option_page' => $group,
-        'root_keys' => array_keys($_POST),
+        'root_keys' => array_map('sanitize_key', array_keys($_POST)),
         'payload' => [],
     ];
 
@@ -328,7 +334,7 @@ add_action('admin_init', function () {
         ];
         if (isset($_POST[$opt])) {
             if (is_array($_POST[$opt])) {
-                $entry['keys'] = array_keys($_POST[$opt]);
+                $entry['keys'] = array_map('sanitize_key', array_keys($_POST[$opt]));
             } else {
                 $entry['length'] = is_string($_POST[$opt]) ? strlen($_POST[$opt]) : null;
             }
@@ -656,7 +662,7 @@ if (!function_exists('yuz_is_settings_api_submit')) {
         $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
         if ($action !== 'update') return false;
 
-        $option_page = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+        $option_page = isset($_POST['option_page']) ? sanitize_key(wp_unslash($_POST['option_page'])) : '';
         if ($option_page === '') return false;
 
         // Groupes connus (au cas où tu en as plusieurs)
@@ -723,7 +729,7 @@ if (!function_exists('yuz_should_allow_canonical_write')) {
         }
 
         $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
-        $group  = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+        $group  = isset($_POST['option_page']) ? sanitize_key(wp_unslash($_POST['option_page'])) : '';
 
         if ($action === 'update' && $group === 'yuz_tra_general_settings_group') {
             if (function_exists('error_log')) {
@@ -792,7 +798,9 @@ add_action('admin_init', function () {
                 $opt,
                 [
                     'type'              => 'array',
-                    'sanitize_callback' => null,
+                    'sanitize_callback' => static function ($value) use ($opt) {
+                        return yuz_settings_sanitize_section($opt, $value);
+                    },
                     'default'           => [],
                 ]
             );
@@ -805,7 +813,9 @@ add_action('admin_init', function () {
 
 add_action('admin_init', function () {
     foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $opt) {
-        $sanitize = null;
+        $sanitize = static function ($value) use ($opt) {
+            return yuz_settings_sanitize_section($opt, $value);
+        };
         if ($opt === 'yuz_tra_ws_settings' && method_exists('YUZ_General', 'sanitize_ws_settings')) {
             $sanitize = ['YUZ_General', 'sanitize_ws_settings'];
         }

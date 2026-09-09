@@ -392,7 +392,7 @@ class YUZ_Editor {
             'received_nonce' => $_POST['nonce'] ?? null,
             'expected_nonce' => wp_create_nonce('yuz_tra_nonce'),
             'headers'        => [
-                'ua'          => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'ua'          => sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? '')),
                 'xrw'         => $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '',
                 'cfipcountry' => $_SERVER['HTTP_CF_IPCOUNTRY'] ?? '',
             ],

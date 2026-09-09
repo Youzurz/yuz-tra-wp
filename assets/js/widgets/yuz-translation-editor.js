@@ -68,7 +68,7 @@
   if (!Y.general || !Array.isArray(Y.general.yuz_tra_translatable_languages) || !Y.general.yuz_tra_translatable_languages.length) {
     const N = (Y.nonces && (Y.nonces.yuz_tra_ws_get_languages || Y.nonces.yuz_tra_nonce)) || '';
     const params = new URLSearchParams({ action: 'yuz_tra_ws_get_languages', yuz_tra_nonce: N, nonce: N, security: N });
-    const ajax = Y.ajax_url || '/wp-admin/admin-ajax.php';
+    const ajax = Y.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
     fetch(ajax, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -353,7 +353,7 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
 
 // --- N19 hotfix: AJAX + nonce helper ----------------------------
 const __T__ = window.yuzTraSettings || {};
-const __AJAX__ = __T__.ajax_url || '/wp-admin/admin-ajax.php';
+const __AJAX__ = __T__.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
 const __NONCES__ = (__T__.nonces || {});
 const __NONCE_ROUTES__ = {
   yuz_get_pending_translations: ['int', 'yuz_int_nonce', 'yuz_get_pending_translations'],
@@ -823,7 +823,7 @@ const $ = window.jQuery;
       const forcedOn = /\byuzprobe=1\b/.test(search);
       const telemetryFlag = window.yuzTraSettings?.telemetry?.pipeline_probe;
       const enabled = !forcedOff && (forcedOn || telemetryFlag === true || window.YUZ_DEBUG === true);
-      const configuredEndpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || '/wp-admin/admin-ajax.php';
+      const configuredEndpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
       const endpoint = (() => {
         try {
           const parsed = new URL(configuredEndpoint, window.location.href);

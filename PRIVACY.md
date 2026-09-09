@@ -1,4 +1,4 @@
-# Confidentialité — YUZ-TRA 1.5.5
+# Confidentialité — YUZ-TRA 1.5.6
 
 Cette notice décrit le logiciel, pas une certification RGPD ni la politique juridique
 complète de votre site. L’exploitant détermine les finalités, la base légale, les durées
@@ -10,10 +10,19 @@ Sources, contextes/domaines, traductions, états de publication, mémoire approu
 glossaire, identifiant du validateur et dates sont stockés dans la base du site.
 Les réglages fournisseur peuvent contenir des clés API : limiter les droits administrateur
 et protéger les sauvegardes. Les clés enregistrées ne sont pas réaffichées dans les champs
-du navigateur et les diagnostics 1.5.5 ne sérialisent plus les réglages complets. Les tâches
+du navigateur et les diagnostics 1.5.6 ne sérialisent plus les réglages complets. Les tâches
 persistantes peuvent contenir du texte et leurs résultats. Des journaux historiques créés
 par une version antérieure peuvent encore contenir des textes ou réglages fournisseur :
 contrôler leur accès et leur rétention, puis les purger selon la politique du site.
+
+La sonde de diagnostic conserve au maximum 50 événements dans l’option privée
+`yuz_tra_debug_probe_records`. Elle n’écrit plus de fichier `wp-content/yuz-debug.log`
+et n’intercepte plus les appels réseau du navigateur. Cette modification ne supprime
+pas les anciens fichiers : leur contrôle et leur purge restent à organiser par le site.
+Le journal général utilise par défaut l’option privée `yuz_tra_private_log`, limitée
+à 200 lignes de 8 000 octets. Un fichier personnalisé n’est accepté que si son chemin
+résolu se trouve hors des racines web connues ; aucun fichier public de secours
+n’est créé en cas d’échec de configuration.
 
 Les tables, tâches historiques et options ne sont pas effacées à la désactivation ni à
 la suppression des fichiers. La désactivation retire les événements cron YUZ. Pas de

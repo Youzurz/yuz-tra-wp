@@ -868,7 +868,7 @@ assets/vendor/he.min.js
 assets/vendor/licenses/axios-1.11.0.txt
 assets/vendor/licenses/flag-icons.txt
 assets/vendor/licenses/he-1.2.0.txt
-assets/vendor/licenses/select2-4.0.13.txt
+assets/vendor/licenses/select2-4.1.0.txt
 assets/vendor/licenses/vue-2.7.16.txt
 assets/vendor/licenses/vue-router-3.5.3.txt
 assets/vendor/select2/css/select2.min.css
@@ -904,6 +904,7 @@ includes/class-yuz-environment.php
 includes/class-yuz-fallbacks.php
 includes/class-yuz-footer.php
 includes/class-yuz-front-buffer.php
+includes/front-template.php
 includes/class-yuz-front-renderer.php
 includes/class-yuz-frontend.php
 includes/class-yuz-general.php

@@ -1919,7 +1919,7 @@ public function enqueue_front(): void {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                 error_log('[YUZ_TRA][LOCALIZE] ' . wp_json_encode([
                     'handle'            => $engine_handle,
-                    'request_uri'       => $_SERVER['REQUEST_URI'] ?? '',
+                    'request_uri'       => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'has_settings'      => !empty($settings),
                     'keys'              => array_keys($settings ?? []),
                     'translations_keys' => array_keys($settings['translations'] ?? []),
@@ -2138,7 +2138,9 @@ public function enqueue_front(): void {
             return;
         }
         $this->string_editor_bundle_missing = false;
-        echo "<script>console.error('[YUZ] String Editor: no bundle found (UMD/ESM). Check assets/js/yuz-string-translation-editor.*');</script>";
+        wp_register_script('yuz-tra-missing-bundle', false, [], YUZ_TRA_VERSION, true);
+        wp_enqueue_script('yuz-tra-missing-bundle');
+        wp_add_inline_script('yuz-tra-missing-bundle', "console.error('[YUZ] String Editor bundle missing.');");
     }
 
     /** Module policy */
@@ -2345,7 +2347,7 @@ public function enqueue_front(): void {
         foreach ($targets as $h) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                 error_log('[YUZ_TRA][ENFORCE_T_MIN] ' . wp_json_encode([
-                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'handle'      => $h,
                 ]));
             }
@@ -2365,7 +2367,7 @@ public function enqueue_front(): void {
         $settings = $this->pay_transverse_min();
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
             error_log('[YUZ_TRA][ENSURE_T_MIN] ' . wp_json_encode([
-                'request_uri'  => $_SERVER['REQUEST_URI'] ?? '',
+                'request_uri'  => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'handle'       => $handle,
                 'has_ajax_url' => !empty($settings['ajax_url']),
                 'has_nonces'   => !empty($settings['nonces']),
@@ -2585,7 +2587,7 @@ public function enqueue_front(): void {
                     'nonces'   => array_keys($settings['nonces'] ?? []),
                     'user_id'  => get_current_user_id(),
                     'logged'   => is_user_logged_in(),
-                    'req'      => $_SERVER['REQUEST_URI'] ?? '',
+                    'req'      => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 ]));
             } catch (\Throwable $ignored) {}
         }
@@ -2598,7 +2600,7 @@ public function enqueue_front(): void {
                 return is_string($entry) ? $entry : '';
             }, $settings['languages'] ?? []), 'strlen'));
             error_log('[YUZ_TRA][PAY_TRANSVERSE_MIN] ' . wp_json_encode([
-                'url'              => $_SERVER['REQUEST_URI'] ?? '',
+                'url'              => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'lang_current'     => $settings['current_language'] ?? null,
                 'lang_default'     => $settings['default_language'] ?? null,
                 'lang_source'      => $settings['source_language'] ?? null,
@@ -2804,7 +2806,7 @@ public function enqueue_front(): void {
                     'nonces'   => $payload['nonces'],
                     'user_id'  => get_current_user_id(),
                     'logged'   => is_user_logged_in(),
-                    'req'      => $_SERVER['REQUEST_URI'] ?? '',
+                    'req'      => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 ]));
             } catch (\Throwable $ignored) {}
         }
@@ -3467,7 +3469,7 @@ JS;
             $candidates[] = (string) $_GET['lang'];
         }
         if (isset($_SERVER['HTTP_X_YUZ_LANG'])) {
-            $candidates[] = (string) $_SERVER['HTTP_X_YUZ_LANG'];
+            $candidates[] = sanitize_text_field(wp_unslash($_SERVER['HTTP_X_YUZ_LANG']));
         }
 
         foreach ($candidates as $candidate) {
@@ -3479,7 +3481,7 @@ JS;
 
         $path = '';
         if (isset($_SERVER['REQUEST_URI'])) {
-            $raw = (string) $_SERVER['REQUEST_URI'];
+            $raw = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI']));
             $parsed = wp_parse_url($raw, PHP_URL_PATH);
             $path = is_string($parsed) ? $parsed : '';
         }
@@ -3521,8 +3523,8 @@ JS;
             }
         } catch (\Throwable $ignored) {}
 
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '/';
+        $host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
         if ($host === '') {
             return home_url('/');
         }

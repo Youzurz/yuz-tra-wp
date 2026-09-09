@@ -121,7 +121,7 @@ if (!class_exists('YUZ_DB')) {
         public function log_action(string $action, string $message, array $details = [], int $success = 1): void {
             global $wpdb;
             // MODIF: Gate sur tables_ok pour éviter writes si tables KO (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping log_action', ['class' => __CLASS__]);
                 return;
             }
@@ -374,7 +374,7 @@ if (!class_exists('YUZ_DB')) {
                 ]);
             }
             // MODIF: Gate sur tables_ok (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping store_translation', ['class' => __CLASS__]);
                 if (function_exists('yuz_debug_probe_log')) {
                     yuz_debug_probe_log('db_store_translation_abort', ['reason' => 'tables_flag_false']);
@@ -578,7 +578,7 @@ if (!class_exists('YUZ_DB')) {
         public function ensure_tables(): bool {
             self::ensure_string_tables();
             global $wpdb;
-            if (get_option('tables_ok', false)) {
+            if (get_option('yuz_tra_tables_ok', false)) {
                 $lang = $wpdb->prefix . 'yuz_tra_languages';
                 $trans = $wpdb->prefix . 'yuz_tra_translations';
                 $lang_ok = (bool)$wpdb->get_var("SHOW TABLES LIKE '{$lang}'");
@@ -1269,7 +1269,7 @@ if (!class_exists('YUZ_DB')) {
                 return false;
             }
             update_option(self::DB_VERSION_OPTION, self::DB_VERSION);
-            update_option('tables_ok', true);
+            update_option('yuz_tra_tables_ok', true);
             $this->logger->log('success', "Table creation completed at " . current_time('mysql') . "\nDeployment Report:\n$final_report");
             $this->log_action('ensure_tables', 'Table creation completed', ['report' => $integrity_report], 1);
             return true;
@@ -1310,7 +1310,7 @@ if (!class_exists('YUZ_DB')) {
         public function query(string $sql, array $params = []): array {
             global $wpdb;
             // MODIF: Gate sur tables_ok pour reads aussi (Phase 4: cohérence globale)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping query', ['class' => __CLASS__]);
                 return [];
             }
@@ -1329,7 +1329,7 @@ if (!class_exists('YUZ_DB')) {
         public function execute(string $sql, array $params = []): void {
             global $wpdb;
             // MODIF: Gate sur tables_ok (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping execute', ['class' => __CLASS__]);
                 return;
             }
@@ -1362,7 +1362,7 @@ if (!class_exists('YUZ_DB')) {
         public function delete_translation(int $translation_id): bool {
             global $wpdb;
             // MODIF: Gate sur tables_ok (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping delete_translation', ['class' => __CLASS__]);
                 return false;
             }

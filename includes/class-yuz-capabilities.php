@@ -67,9 +67,6 @@ if (!class_exists('YUZ_Capabilities')) {
          * @param array|null $allowed_roles Optional allowed role slugs.
          */
         public static function sync_role_matrix(?array $allowed_roles = null): void {
-            if (!function_exists('get_role')) {
-                require_once ABSPATH . 'wp-admin/includes/user.php';
-            }
             if (!function_exists('wp_roles')) {
                 return;
             }

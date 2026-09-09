@@ -785,7 +785,7 @@ class YUZ_Rewrite implements RewriteInterface {
             return;
         }
 
-        $request_path = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $request_path = wp_parse_url(sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')), PHP_URL_PATH);
         $path_is_root = $request_path === null || $request_path === '' || $request_path === '/';
         if (!$path_is_root) {
             return;
@@ -818,7 +818,7 @@ class YUZ_Rewrite implements RewriteInterface {
     {
         $logger = new YUZ_Logger();
         $requested_lang = $query->get('lang');
-        $request_path   = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $request_path   = wp_parse_url(sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')), PHP_URL_PATH);
         $path_is_root   = $request_path === null || $request_path === '' || $request_path === '/';
 
         if (!($query instanceof \WP_Query)) {

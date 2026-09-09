@@ -6,7 +6,7 @@ defined('ABSPATH') || exit;
  */
 function yuz_rate_limit_or_die(string $action) : void {
     $uid = get_current_user_id() ?: 0;
-    $ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $ip  = sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'));
     $k   = 'yuz_rl_' . md5($action.'|'.$uid.'|'.$ip);
     $n   = (int) get_transient($k);
     if ($n >= 30) {

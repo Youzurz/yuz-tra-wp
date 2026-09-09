@@ -1,3 +1,14 @@
+# 1.5.6 — 2026-09-09 (candidate de revue)
+
+- Refus du code exécutable dans les traductions ; contrôle des anciennes valeurs à la lecture PHP et JavaScript.
+- Publication globale réservée aux administrateurs, consentement administrateur obligatoire pour les liens de crédit.
+- Route de santé privée, assainissement des entrées et des callbacks de réglages, suppression des journaux de sonde dans wp-content.
+- Scripts enregistrés via WordPress et remplacement du buffer global par un traitement encadré du template.
+- Correction des noms génériques NullEnvironment, NullCsvImporter et tables_ok.
+- Select2 4.1.0, documentation OpenAI et correction des liens de services externes.
+- Les endpoints AJAX utilisent la configuration WordPress, sans chemin racine supposé.
+- Candidat non soumis automatiquement : l’approbation WordPress.org n’est pas acquise.
+
 # 1.5.5 — 2026-09-05
 
 - Les clés fournisseur et les réglages complets ne sont plus sérialisés dans les journaux de diagnostic.

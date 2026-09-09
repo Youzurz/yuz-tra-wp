@@ -155,8 +155,8 @@ class YUZ_Rest_Monitoring
     private static function client_context(): array
     {
         $ip = self::detect_ip();
-        $ua = isset($_SERVER['HTTP_USER_AGENT']) ? self::truncate_string($_SERVER['HTTP_USER_AGENT']) : '';
-        $referer = isset($_SERVER['HTTP_REFERER']) ? self::truncate_string($_SERVER['HTTP_REFERER']) : '';
+        $ua = isset($_SERVER['HTTP_USER_AGENT']) ? self::truncate_string(sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT']))) : '';
+        $referer = isset($_SERVER['HTTP_REFERER']) ? self::truncate_string(esc_url_raw(wp_unslash($_SERVER['HTTP_REFERER']))) : '';
 
         return [
             'ip'      => $ip,
@@ -168,9 +168,10 @@ class YUZ_Rest_Monitoring
     private static function detect_ip(): string
     {
         $candidates = [];
-        foreach (['HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP', 'REMOTE_ADDR'] as $key) {
+        // Forwarded headers are client-controlled unless a trusted proxy validates them.
+        foreach (['REMOTE_ADDR'] as $key) {
             if (!empty($_SERVER[$key])) {
-                $candidates = array_merge($candidates, explode(',', (string) $_SERVER[$key]));
+                $candidates = array_merge($candidates, explode(',', sanitize_text_field(wp_unslash($_SERVER[$key]))));
             }
         }
         foreach ($candidates as $candidate) {
@@ -184,7 +185,7 @@ class YUZ_Rest_Monitoring
 
     private static function is_rate_limited(WP_REST_Request $request): bool
     {
-        $sig = self::detect_ip() . '|' . (isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 32) : '');
+        $sig = self::detect_ip();
         $key = 'yuz_rum_' . md5($sig);
         $state = get_transient($key);
         if (!is_array($state)) {

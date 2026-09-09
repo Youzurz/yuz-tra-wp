@@ -32,12 +32,12 @@ if (!function_exists('yuz_settings_sanitize_section')) {
         $defs  = yuz_settings_section_default($canonical);
 
         if (!function_exists('yuz_settings_registry')) {
-            return array_merge($defs, $value);
+            return array_merge($defs, map_deep($value, 'sanitize_text_field'));
         }
         $reg  = yuz_settings_registry();
         $conf = $reg[$canonical] ?? null;
         if (!$conf) {
-            return array_merge($defs, $value);
+            return array_merge($defs, map_deep($value, 'sanitize_text_field'));
         }
 
         if (($conf['type'] ?? '') === 'assoc' && !empty($conf['fields'])) {
@@ -100,10 +100,12 @@ if (!function_exists('yuz_settings_sanitize_section')) {
 
         if (($conf['type'] ?? '') === 'list') {
             $arr = is_array($value) ? $value : [];
-            return array_values($arr);
+            return array_values(array_map(static function ($item) {
+                return is_scalar($item) ? sanitize_text_field((string) $item) : '';
+            }, $arr));
         }
 
-        return array_merge($defs, $value);
+        return array_merge($defs, map_deep($value, 'sanitize_text_field'));
     }
 }
 

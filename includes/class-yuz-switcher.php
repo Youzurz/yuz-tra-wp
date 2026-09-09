@@ -258,7 +258,7 @@ class YUZ_Switcher implements SwitcherInterface {
         $position        = ($mode === 'floating')
             ? sanitize_text_field($settings['floating_position'] ?? 'bottom-right')
             : $position_attr;
-        $show_poweredby  = filter_var($atts['poweredby'], FILTER_VALIDATE_BOOLEAN) || !empty($settings['show_poweredby']);
+        $show_poweredby  = filter_var($atts['poweredby'], FILTER_VALIDATE_BOOLEAN) && !empty($settings['show_poweredby']);
         $current_lang    = method_exists($this->url_converter, 'get_active_locale')
             ? $this->url_converter->get_active_locale()
             : get_locale();

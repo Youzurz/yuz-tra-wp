@@ -155,7 +155,7 @@ if (!class_exists('YUZ_Ajax')) {
             $limit  = defined('YUZ_TRA_RATE_LIMIT_LIMIT') ? (int) YUZ_TRA_RATE_LIMIT_LIMIT : 100; // requests per window
             if ($window <= 0) { $window = 10; }
             if ($limit <= 0)  { $limit  = 100; }
-            $ip = isset($_SERVER['REMOTE_ADDR']) ? trim((string) $_SERVER['REMOTE_ADDR']) : 'unknown';
+            $ip = isset($_SERVER['REMOTE_ADDR']) ? trim(sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))) : 'unknown';
             if ($ip === '') $ip = 'unknown';
 
             $key = 'yuz_rate_' . md5($action . '|' . $ip);
@@ -584,7 +584,7 @@ if (!class_exists('YUZ_Ajax')) {
             // Enrich with basics
             $context['url']        = $context['url'] ?? (isset($_POST['page_url']) ? esc_url_raw((string) $_POST['page_url']) : '');
             $context['lang']       = $context['lang'] ?? (isset($_POST['lang']) ? sanitize_text_field((string) $_POST['lang']) : '');
-            $context['user_agent'] = $context['user_agent'] ?? (isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '');
+            $context['user_agent'] = $context['user_agent'] ?? (isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '');
 
             $line = sprintf(
                 "%s 🟪 DOMLOG %s %s\n",
@@ -649,8 +649,8 @@ if (!class_exists('YUZ_Ajax')) {
                 $marker = 'YUZ_TRACE_STATE';
             }
 
-            $decoded['remote_ip'] = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field((string) $_SERVER['REMOTE_ADDR']) : '';
-            $decoded['user_agent'] = isset($_SERVER['HTTP_USER_AGENT']) ? substr(sanitize_text_field((string) $_SERVER['HTTP_USER_AGENT']), 0, 255) : '';
+            $decoded['remote_ip'] = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))) : '';
+            $decoded['user_agent'] = isset($_SERVER['HTTP_USER_AGENT']) ? substr(sanitize_text_field(sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT']))), 0, 255) : '';
 
             try {
                 $this->emit_trace_marker($marker, $decoded);
@@ -854,8 +854,8 @@ if (!class_exists('YUZ_Ajax')) {
             // debug: log incoming POST/nonce for diagnosis (no sensitive data returned anyway)
             try {
                 $incoming = [
-                    'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? '',
-                    'post_keys'   => array_keys($_POST),
+                    'remote_addr' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
+                    'post_keys' => array_map('sanitize_key', array_keys($_POST)),
                     'user'        => $is_authenticated ? get_current_user_id() : 0,
                 ];
                 \YUZ\YUZ_Assets::get()->log_debug('ajax-incoming-yuz_tra_ws_get_languages', $incoming);
@@ -1076,6 +1076,7 @@ if (!class_exists('YUZ_Ajax')) {
                 self::ensure_req_id();
                 // Récup param nonce (multi noms acceptés)
                 $nonce_param = $_REQUEST['nonce'] ?? ($_REQUEST['_ajax_nonce'] ?? ($_REQUEST['security'] ?? ''));
+                $nonce_param = is_string($nonce_param) ? sanitize_text_field(wp_unslash($nonce_param)) : '';
                 $nonce_key   = self::normalize_nonce_key($nonce_key);
 
                 // Correlation id (si fourni par le client)
@@ -1086,11 +1087,11 @@ if (!class_exists('YUZ_Ajax')) {
                 if (class_exists('YUZ_Logger')) {
                     try {
                         (new YUZ_Logger())->log('info', '[AJAX][PRE] request incoming', [
-                            'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? '',
-                            'uri'         => $_SERVER['REQUEST_URI'] ?? '',
+                            'remote_addr' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
+                            'uri'         => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                             'action'      => $action,
                             'cid'         => $cid,
-                            'post_keys'   => array_keys($_POST ?? []),
+                            'post_keys'   => array_map('sanitize_key', array_keys($_POST ?? [])),
                             'has_nonce'   => (bool) $nonce_param,
                             'expected'    => $nonce_key,
                         ]);
@@ -1337,12 +1338,12 @@ public function yuz_tra_ws_get_languages() {
 
     // 2) Logs d’entrée (pas de valeur brute du nonce)
     $this->log_debug('ajax-incoming-yuz_tra_ws_get_languages:begin', [
-        'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? '',
-        'uri'         => $_SERVER['REQUEST_URI'] ?? '',
+        'remote_addr' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
+        'uri'         => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
         'origin'      => $_SERVER['HTTP_ORIGIN'] ?? '',
         'referer'     => $_SERVER['HTTP_REFERER'] ?? '',
         'user'        => ['id'=>get_current_user_id(), 'logged_in'=>is_user_logged_in()],
-        'post_keys'   => array_keys($_POST),
+        'post_keys' => array_map('sanitize_key', array_keys($_POST)),
         'nonce_keys'  => array_keys($received),
         'nonce_sig'   => $nonce ? substr(md5($nonce), 0, 8) : null,
     ]);
@@ -2314,7 +2315,6 @@ private function log_debug($tag, array $data) {
             if ($this->logger) {
                 $this->logger->log('info', '[AJAX][TS_UPD] incoming payload', [
                     'has_nonce'      => isset($_REQUEST['nonce']),
-                    'nonce_preview'  => isset($_REQUEST['nonce']) ? substr((string) $_REQUEST['nonce'], 0, 8) . '…' : null,
                     'can_translate'  => current_user_can('yuz_translate_content'),
                     'can_manage'     => current_user_can('manage_options'),
                     'raw_keys'       => array_keys((array) ($data['translate_site_settings'] ?? $data['site_settings'] ?? [])),
@@ -4603,6 +4603,7 @@ public function yuz_tra_ts_start_translation() {
                     wp_send_json_success($result);
                 }
                 if ($op === 'save') {
+                    if ((int) ($_POST['status'] ?? 1) === 4 && !current_user_can('manage_options')) wp_send_json_error(['message'=>'administrator_publication_required'],403);
                     $forms=json_decode(wp_unslash($_POST['forms'] ?? '[]'),true);
                     if (!is_array($forms) || count($forms)>6) throw new InvalidArgumentException('invalid_plural_forms');
                     YUZ_String_Catalog::save((int)($_POST['id'] ?? 0),$lang,array_values($forms),(int)($_POST['status'] ?? 1));
@@ -4709,11 +4710,11 @@ public function yuz_tra_ts_start_translation() {
 
         public function yuz_gt_save() {
             check_ajax_referer('yuz_int_nonce', 'nonce');
-            if (!current_user_can('edit_posts')) {
+            if (!current_user_can('manage_options')) {
                 wp_send_json_error(['message' => 'forbidden'], 403);
             }
 
-            $items = json_decode(stripslashes($_POST['items'] ?? '[]'), true);
+            $items = json_decode(wp_unslash($_POST['items'] ?? '[]'), true);
             if (!is_array($items)) { $items = []; }
             $saved = 0;
             foreach ($items as $item) {
@@ -4794,7 +4795,7 @@ public function yuz_tra_ts_start_translation() {
         wp_send_json_error(['message' => 'forbidden'], 403);
     }
 
-    $items = json_decode(stripslashes($_POST['items'] ?? '[]'), true);
+    $items = json_decode(wp_unslash($_POST['items'] ?? '[]'), true);
     if (!is_array($items)) { $items = []; }
 
     $updated = 0;
@@ -4877,7 +4878,7 @@ public function yuz_tra_ts_start_translation() {
                 wp_send_json_error(['message' => 'forbidden'], 403);
             }
 
-            $items = json_decode(stripslashes($_POST['items'] ?? '[]'), true);
+            $items = json_decode(wp_unslash($_POST['items'] ?? '[]'), true);
             if (!is_array($items)) { $items = []; }
 
             $saved = 0;
@@ -5203,7 +5204,7 @@ public function yuz_tra_ts_start_translation() {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                 $orig = isset($_POST['originals']) ? json_decode(stripslashes((string) $_POST['originals']), true) : []; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
                 error_log('[YUZ_AJAX][yuz_get_regular][IN] ' . wp_json_encode([
-                    'request_uri'       => $_SERVER['REQUEST_URI'] ?? '',
+                    'request_uri'       => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'language'          => $_POST['language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
                     'original_language' => $_POST['original_language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
                     'orig_count'        => is_array($orig) ? count($orig) : 0,
@@ -5945,7 +5946,7 @@ public function yuz_tra_ts_start_translation() {
                     $rows = $results;
                     if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                         error_log('[YUZ_AJAX][yuz_get_regular][OUT] ' . wp_json_encode([
-                            'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                            'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                             'language'    => $_POST['language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
                             'rows'        => is_array($rows ?? null) ? count($rows) : 0,
                             'success'     => !empty($rows),
@@ -6176,7 +6177,7 @@ public function yuz_tra_diag_chain() {
 
     $payload = [
         'server' => [
-            'uri'     => $_SERVER['REQUEST_URI'] ?? '',
+            'uri'     => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
             'origin'  => $_SERVER['HTTP_ORIGIN'] ?? '',
             'referer' => $_SERVER['HTTP_REFERER'] ?? '',
             'user'    => [
@@ -6238,6 +6239,7 @@ public function yuz_tra_diag_chain() {
     self::ensure_req_id();
     // Vérif nonce tolérante (nonce | _ajax_nonce | security), clé attendue 'yuz_hvy_nonce'
     $nonce_param = $_REQUEST['nonce'] ?? ($_REQUEST['_ajax_nonce'] ?? ($_REQUEST['security'] ?? ''));
+    $nonce_param = is_string($nonce_param) ? sanitize_text_field(wp_unslash($nonce_param)) : '';
     $ok          = $nonce_param && wp_verify_nonce($nonce_param, 'yuz_hvy_nonce');
 
     if (!$ok) {
@@ -6266,7 +6268,7 @@ public function yuz_tra_diag_chain() {
  */
 public function yuz_save_translation() {
     $actor_id = function_exists('get_current_user_id') ? (int) get_current_user_id() : 0;
-    $remote_fingerprint = isset($_SERVER['REMOTE_ADDR']) ? md5((string) $_SERVER['REMOTE_ADDR']) : (string) wp_rand();
+    $remote_fingerprint = isset($_SERVER['REMOTE_ADDR']) ? md5(sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))) : (string) wp_rand();
     $actor_suffix = $actor_id > 0 ? 'user_' . $actor_id : 'ip_' . substr($remote_fingerprint, 0, 12);
     $busy_key   = 'yuz_te_busy_' . $actor_suffix;
     $max_slots  = defined('YUZ_TRA_SAVE_MAX_PARALLEL') ? max(1, (int) YUZ_TRA_SAVE_MAX_PARALLEL) : 4;

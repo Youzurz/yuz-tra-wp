@@ -282,8 +282,8 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
     }
 }
 
-if ( ! class_exists( 'NullCsvImporter' ) ) {
-    class NullCsvImporter implements CsvImporterInterface {
+if ( ! class_exists( 'YUZTRA_NullCsvImporter' ) ) {
+    class YUZTRA_NullCsvImporter implements CsvImporterInterface {
         public function import_csv( string $file_path ): bool {
             ( new YUZ_Logger() )->log( 'warning', 'CSV importer unavailable' );
             return false;
@@ -292,6 +292,6 @@ if ( ! class_exists( 'NullCsvImporter' ) ) {
 }
 
 // Note: Remove the add_action('plugins_loaded', ...) here. Instead, in YUZ_Core::init(), after instantiating $settings, $db, $language_manager, $logger:
-// $csv_importer = class_exists('YUZ_CSV_Importer') ? new YUZ_CSV_Importer($language_manager, $logger) : new NullCsvImporter();
+// $csv_importer = class_exists('YUZ_CSV_Importer') ? new YUZ_CSV_Importer($language_manager, $logger) : new YUZTRA_NullCsvImporter();
 // add_action('admin_menu', [$csv_importer, 'add_import_page']);
 // add_action('admin_post_yuz_import_csv', [$csv_importer, 'handle_import']);

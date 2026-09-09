@@ -46,7 +46,7 @@ class YUZ_Translation_Manager {
             echo "<!-- /YUZ-TRA Editor Container -->\n";
             if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
                 $uid = get_current_user_id();
-                $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+                $uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
                 error_log('[YUZ_TM][CONTAINER] printed (user=' . $uid . ', uri=' . $uri . ')');
             }
         }
@@ -73,7 +73,7 @@ class YUZ_Translation_Manager {
 
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
             error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][IN] ' . wp_json_encode([
-                'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'lang'        => $lang,
                 'source'      => $source_lang,
                 'default'     => $default_lang,
@@ -102,7 +102,7 @@ class YUZ_Translation_Manager {
         if (!$lang) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                 error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
-                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'lang'        => $lang,
                     'dict_count'  => 0,
                     'all_langs'   => [],
@@ -116,7 +116,7 @@ class YUZ_Translation_Manager {
         if ($cached && is_array($cached)) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                 error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
-                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'lang'        => $lang,
                     'dict_count'  => $dictCount($cached, $lang),
                     'all_langs'   => array_keys($cached),
@@ -175,7 +175,7 @@ class YUZ_Translation_Manager {
         if (!$rows) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                 error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
-                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                    'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'lang'        => $lang,
                     'dict_count'  => 0,
                     'all_langs'   => [],
@@ -237,7 +237,7 @@ class YUZ_Translation_Manager {
 
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
             error_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
-                'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+                'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'lang'        => $lang,
                 'dict_count'  => $dictCount($result, $lang),
                 'all_langs'   => array_keys($result),
@@ -471,7 +471,7 @@ class YUZ_Translation_Manager {
         $current_post_id = is_singular() ? (int) get_queried_object_id() : 0;
         $current_url     = '';
         if (!empty($_SERVER['REQUEST_URI'])) {
-            $current_url = esc_url_raw(home_url(add_query_arg([], wp_unslash($_SERVER['REQUEST_URI']))));
+            $current_url = esc_url_raw(home_url(sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI']))));
         }
 
         // 7️⃣ Construction de l’objet final
@@ -503,7 +503,9 @@ class YUZ_Translation_Manager {
      */
     public static function inject_frontend_settings() {
         $settings = self::build_frontend_settings();
-        echo '<script id="yuz-translate-settings">window.yuzTraSettings = ' . wp_json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . ';</script>';
+        wp_register_script('yuz-tra-frontend-settings', false, [], YUZ_TRA_VERSION, true);
+        wp_enqueue_script('yuz-tra-frontend-settings');
+        wp_add_inline_script('yuz-tra-frontend-settings', 'window.yuzTraSettings = ' . wp_json_encode($settings, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';', 'before');
     }
 
     /**

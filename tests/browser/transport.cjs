@@ -25,7 +25,7 @@ const path = require('node:path');
       });
       await page.goto('https://private.example/cms/wp-admin/admin.php?page=yuz-string-translation-editor');
       await page.evaluate(endpoint=>{window.yuzStrings={nonce:'test-only',ajax_url:endpoint,defaultLang:'fr_FR',languages:[{code:'fr_FR',name:'French'}]};},test.endpoint||'/cms/wp-admin/admin-ajax.php');
-      await page.addScriptTag({path:path.resolve(__dirname,'../../release/yuz-tra/assets/js/yuz-strings-dock.js')});
+      await page.addScriptTag({path:path.resolve(__dirname,'../../assets/js/yuz-strings-dock.js')});
       await page.locator('[data-status]').filter({hasText:test.expect}).waitFor({timeout:5000});
       assert.equal(calls,test.endpoint?0:1); assert.deepEqual(errors,[]);
       console.log('PASS '+test.name); await page.close();

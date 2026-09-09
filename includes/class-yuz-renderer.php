@@ -705,8 +705,12 @@ public function render_licenses_tab(array $settings = []): void {
                     </td>
                 </tr>
             </table>
-            <script type="text/javascript">
-                (function($) {
+            <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                     function toggleCustomEndpoint() {
                         var model = $('#yuz_tra_ai_model').val();
                         $('#yuz_tra_custom_ai_endpoint_row').toggle(model === 'custom');
@@ -714,7 +718,10 @@ public function render_licenses_tab(array $settings = []): void {
                     $('#yuz_tra_ai_model').on('change', toggleCustomEndpoint);
                     toggleCustomEndpoint();
                 })(jQuery);
-            </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         </div>
         <?php
         // Maintenance tools (Advanced → Tools‑like section)
@@ -949,8 +956,12 @@ public function render_licenses_tab(array $settings = []): void {
                 <?php esc_html_e('This option is disabled in Manual mode, as translations are performed via the editor.', 'yuz-tra'); ?>
             </p>
         </div>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleAutoTranslationField() {
                     var mode = $('#yuz_tra_translation_mode').val();
                     if (mode === 'manual') {
@@ -964,7 +975,10 @@ public function render_licenses_tab(array $settings = []): void {
                 $('#yuz_tra_translation_mode').on('change', toggleAutoTranslationField);
                 toggleAutoTranslationField();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'Enable auto translation field rendered successfully');
         $this->logger->log('success', 'Enable auto translation field rendered successfully');
@@ -1035,8 +1049,12 @@ public function render_licenses_tab(array $settings = []): void {
             </select>
             <p class="yuz-tra-description"><?php esc_html_e('Choose how translations are performed: manually via an editor, page-by-page, silently in the background, or all modes combined.', 'yuz-tra'); ?></p>
         </div>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleCronField() {
                     var mode = $('#yuz_tra_translation_mode').val();
                     if (mode === 'silent' || mode === 'all') {
@@ -1048,7 +1066,10 @@ public function render_licenses_tab(array $settings = []): void {
                 $('#yuz_tra_translation_mode').on('change', toggleCronField);
                 toggleCronField();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'Translation mode field rendered successfully');
         $this->logger->log('success', 'Translation mode field rendered successfully');
@@ -1127,8 +1148,12 @@ public function render_licenses_tab(array $settings = []): void {
         <?php foreach (['available_balance_usd'=>'Solde fournisseur disponible','minimum_balance_usd'=>'Réserve minimale à protéger','input_cost_usd_per_million'=>'Coût entrant / million de tokens','output_cost_usd_per_million'=>'Coût sortant / million de tokens','sale_price_usd_per_million'=>'Prix de vente / million de tokens','fixed_monthly_cost_usd'=>'Coûts fixes mensuels','pricing_source'=>'Source/version des tarifs'] as $key=>$label): ?>
         <tr class="yuz-cost-accounting"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ''); ?>" inputmode="decimal"></td></tr>
         <?php endforeach; ?>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleProviderFields() {
                     var provider = $('#yuz_tra_api_provider').val();
                     $('.yuz-tra-api-provider-field').hide();
@@ -1137,7 +1162,10 @@ public function render_licenses_tab(array $settings = []): void {
                 $('#yuz_tra_api_provider').on('change', toggleProviderFields);
                 toggleProviderFields();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'API provider field rendered successfully');
         $this->logger->log('success', 'API provider field rendered successfully');

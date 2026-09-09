@@ -467,10 +467,10 @@ class NullDB implements DBInterface {
 }
 
 /** ---------------------------
- *  NullEnvironment
+ *  YUZTRA_NullEnvironment
  *  --------------------------- */
-if (!class_exists('NullEnvironment')) {
-class NullEnvironment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_NullEnvironment')) {
+class YUZTRA_NullEnvironment implements EnvironmentInterface {
     public static function init(LanguagesInterface $lang_manager = null): void { /* no-op */ }
     public static function detect_user_environment(): void { /* no-op */ }
     public function getEnv(string $key): mixed {
@@ -750,5 +750,5 @@ class YUZ_Google_Translate_Adapter extends NullTranslateAdapter {}
  *  Alias YUZ_Environment to fallback
  *  --------------------------- */
 if (!class_exists('YUZ_Environment')) {
-class YUZ_Environment extends NullEnvironment {}
+class YUZ_Environment extends YUZTRA_NullEnvironment {}
 }

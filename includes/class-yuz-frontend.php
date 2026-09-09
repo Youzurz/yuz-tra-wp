@@ -91,7 +91,9 @@ if (!class_exists('YUZ_Frontend')) {
                 'callback' => function() {
                     return rest_ensure_response($this->health_payload());
                 },
-                'permission_callback' => '__return_true',
+                'permission_callback' => static function() {
+                    return current_user_can('manage_options');
+                },
             ]);
 
             register_rest_route('yuz/v1', '/js-error', [
@@ -103,7 +105,7 @@ if (!class_exists('YUZ_Frontend')) {
                         'source'  => esc_url_raw((string) $req->get_param('source')),
                         'line'    => (int) ($req->get_param('line') ?? 0),
                         'col'     => (int) ($req->get_param('col') ?? 0),
-                        'ua'      => isset($_SERVER['HTTP_USER_AGENT']) ? substr(sanitize_text_field(wp_unslash((string) $_SERVER['HTTP_USER_AGENT'])), 0, 255) : '',
+                        'ua'      => isset($_SERVER['HTTP_USER_AGENT']) ? substr(sanitize_text_field(wp_unslash(sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])))), 0, 255) : '',
                     ];
                     $this->log('error', 'js_error', $payload);
                     return rest_ensure_response(['ok' => true]);
@@ -268,7 +270,7 @@ if (!class_exists('YUZ_Frontend')) {
                 'len_out' => strlen($translated),
                 'changed' => $translated !== $title,
             ]);
-            return $translated;
+            return wp_kses_post($translated);
         }
 
         /** Title from single_post_title(). */

@@ -105,15 +105,22 @@ if (!class_exists('YUZ_Logger')) {
             // Rien d'agressif ici: on laisse le ctor créer le fichier à la volée.
         }
         public function __construct(?string $file = null) {
-            // 1) Fichier de log (constante > option > défaut uploads/)
+            // 1) Private database log by default. A custom file must be outside web roots.
             $uploads = function_exists('wp_upload_dir') ? wp_upload_dir() : ['basedir' => WP_CONTENT_DIR . '/uploads'];
-            $defaultPath = rtrim($uploads['basedir'] ?? (WP_CONTENT_DIR . '/uploads'), '/').'/yuz-log.log';
             $selectedFile = defined('YUZ_TRA_LOG_FILE') && is_string(YUZ_TRA_LOG_FILE) && YUZ_TRA_LOG_FILE
                 ? YUZ_TRA_LOG_FILE
-                : ($file ?: $defaultPath);
-            $fallbackPath = rtrim($uploads['basedir'] ?? (WP_CONTENT_DIR . '/uploads'), '/') . '/yuz-logs/yuz-log.log';
-            $tempPath = rtrim(sys_get_temp_dir(), '/') . '/yuz-tra.log';
-            $this->file = $this->resolveWritableLogFile([$selectedFile, $fallbackPath, $tempPath]);
+                : ($file ?: '');
+            $this->file = '';
+            $parent = $selectedFile !== '' ? realpath(dirname($selectedFile)) : false;
+            if ($parent !== false) {
+                $resolved = realpath($selectedFile) ?: $parent . '/' . basename($selectedFile);
+                $private = true;
+                foreach ([ABSPATH, WP_CONTENT_DIR, $uploads['basedir'] ?? '', $_SERVER['DOCUMENT_ROOT'] ?? ''] as $web_root) {
+                    $root = $web_root !== '' ? realpath($web_root) : false;
+                    if ($root !== false && ($resolved === $root || strpos($resolved, rtrim($root, '/') . '/') === 0)) $private = false;
+                }
+                if ($private) $this->file = $this->resolveWritableLogFile([$resolved]);
+            }
             // 2) Niveau (constante > option > défaut)
             $optLevel = function_exists('get_option') ? (string) get_option('yuz_tra_log_level', self::DEFAULT_LEVEL) : self::DEFAULT_LEVEL;
             $this->setLevel(defined('YUZ_TRA_LOG_LEVEL') ? (string) YUZ_TRA_LOG_LEVEL : $optLevel);
@@ -179,7 +186,7 @@ if (!class_exists('YUZ_Logger')) {
         }
         private function write(string $level, string $message, array $context): void {
             // Rotation (hard cap taille)
-            $this->rotateIfNeeded();
+            if ($this->file !== '') $this->rotateIfNeeded();
             // Cap du contexte (taille + nombre de clés, pour éviter 1 ligne avec 5 Mo)
             if (!empty($context)) {
                 if (count($context) > $this->ctxMaxKeys) {
@@ -206,6 +213,12 @@ if (!class_exists('YUZ_Logger')) {
                 $message,
                 empty($context) ? '' : (' ' . json_encode($context, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))
             );
+            if ($this->file === '') {
+                $records = (array) get_option('yuz_tra_private_log', []);
+                $records[] = substr($line, 0, 8000);
+                update_option('yuz_tra_private_log', array_slice($records, -200), false);
+                return;
+            }
             // Écriture avec verrou pour éviter la corruption.
             if (@file_put_contents($this->file, $line, FILE_APPEND | LOCK_EX) === false) {
                 error_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
@@ -262,7 +275,7 @@ if (!class_exists('YUZ_Logger')) {
                 }
             }
 
-            return (string) reset($candidates);
+            return '';
         }
 
         private function prepareLogFile(string $path): bool {

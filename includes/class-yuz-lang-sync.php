@@ -208,7 +208,7 @@ if (!class_exists('YUZ_Lang_Sync')) {
             }
             self::$running = true;
             try {
-                if (!get_option('tables_ok')) {
+                if (!get_option('yuz_tra_tables_ok')) {
                     return;
                 }
 

@@ -4,7 +4,7 @@ Tags: translation, multilingual, localization, gettext, woocommerce
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.5
+Stable tag: 1.5.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,8 +47,11 @@ site's privacy obligations. See PRIVACY.md for retention and local storage detai
 * LibreTranslate: administrator-selected endpoint; receives text and languages when
   translating. A language-discovery or connection test also contacts that endpoint.
   Self-hosting: https://github.com/LibreTranslate/LibreTranslate
-  Hosted example terms: https://libretranslate.com/terms ; privacy:
-  https://libretranslate.com/privacy . Your chosen operator may have different terms.
+  Self-hosted software license: https://github.com/LibreTranslate/LibreTranslate/blob/main/LICENSE
+  No hosted operator is selected or contracted by this plugin. Before configuring a
+  hosted endpoint, obtain that operator's service terms and privacy policy; the
+  software license is not a hosted-service agreement. LibreTranslate's API portal
+  privacy notice: https://portal.libretranslate.com/privacy.html
 * Ollama: administrator-selected server and installed model. Receives text, languages,
   up to three approved examples and twelve relevant glossary entries for generation.
   Connection tests request the installed model list. No model is downloaded by YUZ.
@@ -56,9 +59,19 @@ site's privacy obligations. See PRIVACY.md for retention and local storage detai
   choose such a service: https://ollama.com/terms and https://ollama.com/privacy .
   A local Ollama deployment is not a request to Ollama Cloud.
 * Google Cloud Translation: optional configured connector, not live-certified in this
-  release. https://cloud.google.com/translate/terms ; https://cloud.google.com/terms/cloud-privacy-notice
+  release. https://cloud.google.com/terms/service-terms ; https://cloud.google.com/terms/cloud-privacy-notice
 * DeepL API: optional configured connector, not live-certified in this release.
   https://www.deepl.com/pro-license ; https://www.deepl.com/privacy
+* OpenAI API: optional translation provider. After administrator configuration,
+  explicit translations or enabled background jobs send source text, language
+  instructions, selected model and API authentication to the configured endpoint.
+  Connection tests and model discovery send authentication to the models endpoint;
+  no translation text is sent for model discovery. Responses include translations
+  and token usage, recorded locally for budget accounting. No provider request is
+  needed to install or activate the plugin. Terms: https://openai.com/policies/services-agreement/
+  Privacy: https://openai.com/policies/privacy-policy/
+  An administrator-selected compatible API belongs to its own operator, whose
+  terms and privacy policy must be checked before configuring credentials.
 
 JavaScript dependencies are bundled locally. Opening support links visits GitHub;
 no bug report or translation content is automatically transmitted to the maintainer.
@@ -66,7 +79,7 @@ no bug report or translation content is automatically transmitted to the maintai
 == Installation ==
 
 1. Back up the database and previous plugin. Try staging first.
-2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.5.zip and activate it.
+2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.6.zip and activate it.
 3. Configure source and target languages in YUZ-TRA.
 4. Open Strings, scan installed code and filter by domain/language.
 5. Edit and publish, or select up to five strings for provider translation and review.
@@ -97,6 +110,14 @@ site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Changelog ==
 
+= 1.5.6 =
+* Reject executable translations on save and when loading legacy PHP/JavaScript catalogs.
+* Require administrator permission for global publication and administrator consent for credit links.
+* Protect health diagnostics, sanitize settings and stop writing the debug-probe log into wp-content.
+* Enqueue scripts through WordPress and scope template output buffering.
+* Update Select2 to 4.1.0 and document OpenAI requests and external-service policies.
+* Remove assumed root AJAX URLs and generic fallback names.
+
 = 1.5.5 =
 * Prevent provider credentials and complete automatic-translation settings from reaching diagnostic logs.
 * Validate CSV uploads with WordPress file inspection and safe local redirects.
@@ -126,5 +147,5 @@ site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Upgrade Notice ==
 
-= 1.5.5 =
+= 1.5.6 =
 Back up first. Test on staging. Review provider settings and privacy policy before enabling automatic translation.

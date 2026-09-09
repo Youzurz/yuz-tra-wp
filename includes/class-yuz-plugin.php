@@ -571,7 +571,7 @@ if (!class_exists('YUZ_Plugin')) {
             $like   = str_replace(['_', '%'], ['\\_', '\\%'], $lang_table);
             $exists = (bool) $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $like));
 
-            $need = !get_option('tables_ok') || !$exists;
+            $need = !get_option('yuz_tra_tables_ok') || !$exists;
             if ($need) {
                 self::ensure_tables_once();
             }
@@ -671,14 +671,14 @@ if (!class_exists('YUZ_Plugin')) {
                     if (defined('YUZ_DB::DB_VERSION_OPTION')) {
                         update_option(YUZ_DB::DB_VERSION_OPTION, YUZ_DB::DB_VERSION);
                     }
-                    update_option('tables_ok', true);
+                    update_option('yuz_tra_tables_ok', true);
                     return true;
                 }
 
-                delete_option('tables_ok');
+                delete_option('yuz_tra_tables_ok');
             } catch (\Throwable $e) {
                 error_log('🟥 [CRITICAL] YUZ-TRA DB ensure error: ' . $e->getMessage());
-                delete_option('tables_ok');
+                delete_option('yuz_tra_tables_ok');
             }
 
             return false;
@@ -690,10 +690,6 @@ if (!class_exists('YUZ_Plugin')) {
          * @return string[]
          */
         public static function default_allowed_roles(): array {
-            if (!function_exists('get_role')) {
-                require_once ABSPATH . 'wp-admin/includes/user.php';
-            }
-
             $defaults = [];
             foreach (['administrator', 'editor', 'translator'] as $slug) {
                 if (get_role($slug)) {
@@ -714,10 +710,6 @@ if (!class_exists('YUZ_Plugin')) {
         public static function sync_caps_from_option(): void {
             if (!self::can_run_runtime_maintenance()) {
                 return;
-            }
-
-            if (!function_exists('get_editable_roles')) {
-                require_once ABSPATH . 'wp-admin/includes/user.php';
             }
 
             $allowed = (array) get_option('yuz_tra_allowed_roles', []);

@@ -32,7 +32,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
             const forcedOn = /\byuzprobe=1\b/.test(search);
             const telemetryFlag = window.yuzTraSettings?.telemetry?.pipeline_probe;
             const enabled = !forcedOff && (forcedOn || telemetryFlag === true || window.YUZ_DEBUG === true);
-            const configuredEndpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || '/wp-admin/admin-ajax.php';
+            const configuredEndpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
             const endpoint = (() => {
                 try {
                     const parsed = new URL(configuredEndpoint, window.location.href);

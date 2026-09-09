@@ -33,7 +33,7 @@
   function buildFromGlobalFallback() {
     try {
       const G = window.yuzTraSettings || window.yuzAS || {};
-      const ajax_url = G.ajax_url || (G.settings && G.settings.ajax_url) || (window.ajaxurl || '/wp-admin/admin-ajax.php');
+      const ajax_url = G.ajax_url || (G.settings && G.settings.ajax_url) || (window.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })());
       const nonces   = (G.nonces && typeof G.nonces === 'object') ? G.nonces : {};
       // Require at least the two TS nonces
       if (!nonces['yuz_tra_ts_get_settings'] && !nonces['yuz_tra_ts_upd_settings']) return null;

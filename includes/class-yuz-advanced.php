@@ -251,7 +251,7 @@ class YUZ_Advanced implements AdvancedInterface {
     private function render_troubleshooting(): void
     {
         // POST d’abord pour refléter l’état
-        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'],'yuz_con_nonce') ) {
+        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])),'yuz_con_nonce') ) {
             $fix  = isset($_POST['yuz_fix_dynamic']) ? 1 : 0;
             $stop = isset($_POST['yuz_disable_dynamic']) ? 1 : 0;
 
@@ -321,7 +321,7 @@ class YUZ_Advanced implements AdvancedInterface {
     private function render_debug(): void
     {
         // POST d’abord
-        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'],'yuz_con_nonce') ) {
+        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])),'yuz_con_nonce') ) {
             update_option('yuz_debug_mode', isset($_POST['debug_mode']) ? 1 : 0);
             // Log level select
             $level = isset($_POST['yuz_tra_log_level']) ? sanitize_text_field(wp_unslash($_POST['yuz_tra_log_level'])) : '';

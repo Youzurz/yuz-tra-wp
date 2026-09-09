@@ -458,7 +458,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
     // URL front courante, sinon Home depuis /wp-admin
     $scheme      = is_ssl() ? 'https' : 'http';
     $host        = $_SERVER['HTTP_HOST'] ?? wp_parse_url( home_url(), PHP_URL_HOST );
-    $uri         = $_SERVER['REQUEST_URI'] ?? '/';
+    $uri         = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
     $current_url = $scheme . '://' . $host . $uri;
 
     $target = is_admin() ? home_url( '/' ) : $current_url;
