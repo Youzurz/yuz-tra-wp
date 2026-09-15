@@ -102,12 +102,12 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
     // public function translate(string $text, string $source_lang, string $target_lang, array $settings) {
     public function translate($text, $source_lang, $target_lang, $settings): ?string {
         // DO: Perform translation using DeepL API
-        error_log('YUZ-TRA: [DO] Translating using DeepL API at ' . current_time('mysql'));
+        yuz_tra_debug_log('YUZ-TRA: [DO] Translating using DeepL API at ' . current_time('mysql'));
 
         // Validate API key (fallback to injected if not in settings)
         $api_key = !empty($settings['api_key']) ? $settings['api_key'] : $this->apiKey;
         if (empty($api_key)) {
-            error_log('YUZ-TRA: [ERROR] DeepL API key not provided');
+            yuz_tra_debug_log('YUZ-TRA: [ERROR] DeepL API key not provided');
             return null;
         }
 
@@ -158,7 +158,7 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
         }
 
         if (is_wp_error($response)) {
-            error_log('YUZ-TRA: [ERROR] DeepL API request failed: ' . $response->get_error_message());
+            yuz_tra_debug_log('YUZ-TRA: [ERROR] DeepL API request failed: ' . $response->get_error_message());
             return null;
         }
 
@@ -167,18 +167,18 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
 
         // Check for errors in the response
         if (isset($data['message'])) {
-            error_log('YUZ-TRA: [ERROR] DeepL API error: ' . $data['message']);
+            yuz_tra_debug_log('YUZ-TRA: [ERROR] DeepL API error: ' . $data['message']);
             return null;
         }
 
         // Extract the translated text
         if (!isset($data['translations'][0]['text'])) {
-            error_log('YUZ-TRA: [ERROR] DeepL API response invalid: ' . print_r($response_body, true));
+            yuz_tra_debug_log('YUZ-TRA: [ERROR] DeepL API response invalid: ' . print_r($response_body, true));
             return null;
         }
 
-        error_log("YUZ-TRA: [CHECK] DeepL translation succeeded: " . $data['translations'][0]['text'] . ' at ' . current_time('mysql', true));
-        error_log("YUZ-TRA: [ACT] DeepL translation completed successfully at " . current_time('mysql', true));
+        yuz_tra_debug_log("YUZ-TRA: [CHECK] DeepL translation succeeded: " . $data['translations'][0]['text'] . ' at ' . current_time('mysql', true));
+        yuz_tra_debug_log("YUZ-TRA: [ACT] DeepL translation completed successfully at " . current_time('mysql', true));
         return $data['translations'][0]['text'];
     }
 
@@ -189,13 +189,13 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
      * @return array Connection test result.
      */
     public function test_api_conn(array $settings): bool{
-    error_log('YUZ-TRA: [DO] Testing DeepL connection at ' . current_time('mysql'));
+    yuz_tra_debug_log('YUZ-TRA: [DO] Testing DeepL connection at ' . current_time('mysql'));
 
         // Validate API key (fallback to injected if not in settings)
           // Récupère la clé API depuis $settings ou injectée
     $api_key = $settings['api_key'] ?? $this->apiKey;
     if (empty($api_key)) {
-        error_log('YUZ-TRA: [ERROR] DeepL API key not provided');
+        yuz_tra_debug_log('YUZ-TRA: [ERROR] DeepL API key not provided');
         return false;
     }
 
@@ -218,17 +218,17 @@ class YUZ_DeepL_Translate_Adapter implements TranslateAdapterInterface {
         : wp_remote_get($url, $args);
 
     if (is_wp_error($response)) {
-        error_log('YUZ-TRA: [ERROR] DeepL connection test failed: ' . $response->get_error_message());
+        yuz_tra_debug_log('YUZ-TRA: [ERROR] DeepL connection test failed: ' . $response->get_error_message());
         return false;
     }
 
     $code = wp_remote_retrieve_response_code($response);
     if ($code >= 200 && $code < 300) {
-        error_log('YUZ-TRA: [ACT] DeepL connection test succeeded');
+        yuz_tra_debug_log('YUZ-TRA: [ACT] DeepL connection test succeeded');
         return true;
     }
 
-    error_log("YUZ-TRA: [ERROR] DeepL connection test HTTP {$code}");
+    yuz_tra_debug_log("YUZ-TRA: [ERROR] DeepL connection test HTTP {$code}");
     return false;
 }
 }

@@ -79,6 +79,7 @@ $theme = isset($theme) ? esc_attr($theme) : (
 );
 $position = isset($position) ? esc_attr($position) : '';
 $show_poweredby = isset($show_poweredby) ? (bool)$show_poweredby : (!empty($settings['show_poweredby']) || !empty($settings['yuz_show_poweredby']));
+$show_poweredby = $show_poweredby && !empty(get_option('yuz_tra_sw_settings', [])['show_poweredby']);
 $current_lang = isset($current_lang) ? esc_attr($current_lang) : get_locale();
 $mode = isset($mode) ? esc_attr($mode) : 'shortcode';
 $use_native_name = isset($use_native_name) ? (bool)$use_native_name : !empty(get_option('yuz_tra_settings', [])['native_language_name']);
@@ -92,8 +93,10 @@ $translated_strings = isset($translated_strings) ? $translated_strings : [
     'powered_by_yuzurz'  => esc_html__('YoUZurz', 'yuz-tra'),
 ];
 $current_url_for_switcher = isset($current_url_for_switcher) ? (string) $current_url_for_switcher : '';
-if ($current_url_for_switcher === '' && isset($this) && isset($this->url_converter) && method_exists($this->url_converter, 'cur_page_url')) {
-    $current_url_for_switcher = (string) $this->url_converter->cur_page_url();
+$switcher_url_converter = isset($this) && isset($this->url_converter)
+    ? $this->url_converter : new YUZ_Url_Converter(YUZ_Services::settings());
+if ($current_url_for_switcher === '' && method_exists($switcher_url_converter, 'cur_page_url')) {
+    $current_url_for_switcher = (string) $switcher_url_converter->cur_page_url();
 }
 
 if ($current_url_for_switcher !== '') {
@@ -279,9 +282,9 @@ $resolve_display_label = static function ($lang, bool $force_native, string $act
                 'position'      => $position,
                 'format'        => $format,
             ];
-            $target_url_raw = $this->url_converter->get_url_for_language($target_lang_code, $current_url_for_switcher, $url_context);
+            $target_url_raw = $switcher_url_converter->get_url_for_language($target_lang_code, $current_url_for_switcher, $url_context);
             $target_url     = remove_query_arg(['yuz-edit-translation', 'yuz-edit-translation-url'], $target_url_raw);
-            $this->log('debug', 'Switcher link generated', [
+            if (isset($this)) $this->log('debug', 'Switcher link generated', [
                 'mode'          => $mode,
                 'current_lang'  => $current_lang,
                 'target_lang'   => $target_lang_code,
@@ -317,7 +320,7 @@ $resolve_display_label = static function ($lang, bool $force_native, string $act
     <?php if ($show_poweredby): ?>
       <li class="yuz-powered-by">
         <?php echo esc_html($translated_strings['powered_by']); ?>
-        <a href="https://yuzurz.com" target="_blank" rel="nofollow noopener noreferrer"><?php echo esc_html($translated_strings['powered_by_yuzurz']); ?></a>
+        <a href="https://youzurz.com" target="_blank" rel="nofollow noopener noreferrer"><?php echo esc_html($translated_strings['powered_by_yuzurz']); ?></a>
       </li>
     <?php endif; ?>
   </ul>

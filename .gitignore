@@ -1,5 +1,12 @@
 dist/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+crash.log
 node_modules/
+__pycache__/
 release/
 *.log
 *.har

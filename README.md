@@ -1,4 +1,4 @@
-# YUZ-TRA 1.5.4
+# YUZ-TRA 1.5.6
 
 [Télécharger le ZIP](https://github.com/Youzurz/yuz-tra-wp/releases) · [Guide de démarrage](GETTING-STARTED.md) · [Support](https://github.com/Youzurz/yuz-tra-wp/issues/new/choose) · [Confidentialité](PRIVACY.md) · [Coûts](PRICING.md) · [Limites connues](KNOWN-LIMITS.md)
 
@@ -24,7 +24,7 @@ Extension WordPress : éditeur visuel et catalogue des chaînes Gettext du cœur
 
 ## Installation
 
-1. Sauvegarder la base et l’ancienne extension. Dans WordPress : Extensions → Ajouter → Téléverser, sélectionner `yuz-tra-1.5.4.zip`, installer puis activer. Pour une mise à jour, confirmer le remplacement de YUZ-TRA uniquement.
+1. Sauvegarder la base et l’ancienne extension. Dans WordPress : Extensions → Ajouter → Téléverser, sélectionner `yuz-tra-1.5.6.zip`, installer puis activer. Pour une mise à jour, confirmer le remplacement de YUZ-TRA uniquement.
 2. Configurer les langues dans YUZ-TRA. Pour l’administration, la langue affichée suit celle du profil utilisateur WordPress ; pour les pages WordPress, elle suit la langue active du routeur YUZ.
 3. Ouvrir YUZ-TRA → onglet Strings/Chaînes, ou `/wp-admin/admin.php?page=yuz-string-translation-editor`.
 4. Lancer « Scanner WordPress, plugins et thèmes ». Le scan fonctionne par étapes et déduplique les chaînes. Relancer après une mise à jour d’extension. Les appels PHP rencontrés lors des visites sont aussi collectés, sans traduction distante pendant le rendu.

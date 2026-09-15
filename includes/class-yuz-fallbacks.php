@@ -351,7 +351,7 @@ class NullLogger implements LoggerInterface {
         if (!$enabled) {
             return;
         }
-        error_log(sprintf('[%s] %s: %s', $level, __CLASS__, $message));
+        yuz_tra_debug_log(sprintf('[%s] %s: %s', $level, __CLASS__, $message));
     }
     public function setLevel(string $level): void {
         // no-op
@@ -394,7 +394,7 @@ class FallbackTranslateProvider {
 
         if (!$is_canonical($source) || !$is_canonical($target)) {
             $msg = sprintf('[YUZ][FALLBACK] non-canonical req=%s src=%s tgt=%s', $req_id, $source, $target);
-            error_log($msg);
+            yuz_tra_debug_log($msg);
             return new \WP_Error('yuz_non_canonical', $msg);
         }
 
@@ -416,7 +416,7 @@ class FallbackTranslateProvider {
         }
 
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log(sprintf('[YUZ][FALLBACK] req=%s src=%s tgt=%s count=%d RAW=%s',
+            yuz_tra_debug_log(sprintf('[YUZ][FALLBACK] req=%s src=%s tgt=%s count=%d RAW=%s',
                 $req_id,
                 $source,
                 $target,
@@ -467,10 +467,10 @@ class NullDB implements DBInterface {
 }
 
 /** ---------------------------
- *  NullEnvironment
+ *  YUZTRA_NullEnvironment
  *  --------------------------- */
-if (!class_exists('NullEnvironment')) {
-class NullEnvironment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_NullEnvironment')) {
+class YUZTRA_NullEnvironment implements EnvironmentInterface {
     public static function init(LanguagesInterface $lang_manager = null): void { /* no-op */ }
     public static function detect_user_environment(): void { /* no-op */ }
     public function getEnv(string $key): mixed {
@@ -750,5 +750,5 @@ class YUZ_Google_Translate_Adapter extends NullTranslateAdapter {}
  *  Alias YUZ_Environment to fallback
  *  --------------------------- */
 if (!class_exists('YUZ_Environment')) {
-class YUZ_Environment extends NullEnvironment {}
+class YUZ_Environment extends YUZTRA_NullEnvironment {}
 }

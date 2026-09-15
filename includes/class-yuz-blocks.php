@@ -48,12 +48,14 @@ class YUZ_Blocks {
         // Map block attrs to partial vars
         $format         = isset($attributes['format']) ? (string)$attributes['format'] : 'flags-full-names';
         $theme          = isset($attributes['theme']) ? (string)$attributes['theme'] : 'light';
-        $show_poweredby = !empty($attributes['showPoweredBy']);
+        $switcher_settings = (array) get_option('yuz_tra_sw_settings', []);
+        $show_poweredby = !empty($attributes['showPoweredBy']) && !empty($switcher_settings['show_poweredby']);
 
         // Ask assets factory to include CSS/JS when flushing
         if (class_exists('YUZ_Assets')) { YUZ_Assets::require('switcher'); }
 
         // Use the same renderer as shortcode mode
+        $buffer_level = ob_get_level();
         try {
             // Build variables expected by partial
             $languages = class_exists('YUZ_Services') && method_exists('YUZ_Services','languages')
@@ -76,6 +78,7 @@ class YUZ_Blocks {
             include plugin_dir_path(YUZ_TRA_PLUGIN_FILE) . 'partials/yuz-language-switcher.php';
             return (string) ob_get_clean();
         } catch (\Throwable $e) {
+            while (ob_get_level() > $buffer_level) ob_end_clean();
             if (class_exists('YUZ_Logger')) {
                 (new \YUZ_Logger())->log('warning', 'Language Switcher block render failed: '.$e->getMessage());
             }

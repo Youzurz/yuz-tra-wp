@@ -1,0 +1,41 @@
+# Repository protections — imported into GitLab state
+
+On 2026-09-15 the existing main ruleset `23463834`, tag ruleset `23463836`
+and `release` environment were imported, not recreated. Remote state is
+`yuz-tra-github` in private GitLab project 20, separate from TFM project 24.
+The post-import plan returned `No changes` (exit 0). A real concurrent-lock
+test refused the second lock and released the test lock successfully.
+
+`ops/terraform-github.sh` obtains credentials privately and refuses apply/destroy.
+Use `YUZ_TERRAFORM_BIN` to select the installed Terraform executable.
+The project-scoped bootstrap credential expires on 2026-09-22; replace it with
+an approved maintained identity before that date. It is not a permanent CI secret.
+Neither that credential nor GitHub authentication is stored in this directory.
+
+Recheck with `bash ops/terraform-github.sh plan -input=false -detailed-exitcode`
+and `python3 ops/test-terraform-lock.py` from the repository root. Do not run
+the lock test alongside a real import/apply. No Terraform apply was necessary.
+
+This module manages only YUZ-TRA repository rules and its release approval environment.
+It does not create/recreate the repository, deploy WordPress, or change DNS/VPN.
+
+1. Authenticate through a GitHub account authorised to administer `Youzurz/yuz-tra-wp`.
+   Do not commit tokens, state, saved plans or credentials. Use a protected, encrypted,
+   locked state backend approved by infrastructure operations before any apply.
+2. Inspect existing rulesets and environments. Import matching existing resources into
+   state rather than duplicating or replacing them. Import environment ID:
+   `yuz-tra-wp:release`; ruleset IDs: `yuz-tra-wp:<observed-id>`.
+3. Run `terraform init`, `terraform validate`, then
+   `terraform plan -var='release_reviewer=<actual-login>' -out=<protected-plan-path>`.
+4. Review the plan, identity and access impact. Apply only this reviewed plan with
+   explicit production-configuration authority. No unattended apply is provided.
+5. Test a PR with a failing required check, a tag rewrite refusal, and a manual
+   release stopped at approval before declaring protection operational.
+
+Single-maintainer default: PR + strict checks + explicit release approval, not a
+claim of independent review. Set `independent_reviews=1` once a second reviewer
+exists. The release script independently refuses an unprotected environment.
+
+GitHub is currently the public source; the existing GitLab mirror remains
+fast-forward-only. An internal feature branch does not change that direction.
+Generalise this module only after each plugin's repository and checks are inventoried.

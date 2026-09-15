@@ -1,4 +1,4 @@
-# Confidentialité — YUZ-TRA 1.5.1
+# Confidentialité — YUZ-TRA 1.5.6
 
 Cette notice décrit le logiciel, pas une certification RGPD ni la politique juridique
 complète de votre site. L’exploitant détermine les finalités, la base légale, les durées
@@ -9,9 +9,26 @@ de conservation, les destinataires et les modalités d’exercice des droits sel
 Sources, contextes/domaines, traductions, états de publication, mémoire approuvée,
 glossaire, identifiant du validateur et dates sont stockés dans la base du site.
 Les réglages fournisseur peuvent contenir des clés API : limiter les droits administrateur
-et protéger les sauvegardes. Les tâches persistantes peuvent contenir du texte et leurs
-résultats. Les journaux historiques peuvent contenir des textes ou erreurs fournisseur :
-désactiver le debug en production et contrôler leur accès et leur rétention.
+et protéger les sauvegardes. Les clés enregistrées ne sont pas réaffichées dans les champs
+du navigateur et les diagnostics 1.5.6 ne sérialisent plus les réglages complets. Les tâches
+persistantes peuvent contenir du texte et leurs résultats. Des journaux historiques créés
+par une version antérieure peuvent encore contenir des textes ou réglages fournisseur :
+contrôler leur accès et leur rétention, puis les purger selon la politique du site.
+
+La sonde de diagnostic conserve au maximum 50 événements dans l’option privée
+`yuz_tra_debug_probe_records`. Elle n’écrit plus de fichier `wp-content/yuz-debug.log`
+et n’intercepte plus les appels réseau du navigateur. Cette modification ne supprime
+pas les anciens fichiers : leur contrôle et leur purge restent à organiser par le site.
+Le journal général utilise par défaut l’option privée `yuz_tra_private_log`, limitée
+à 200 lignes de 8 000 octets. Un fichier personnalisé n’est accepté que si son chemin
+résolu se trouve hors des racines web connues ; aucun fichier public de secours
+n’est créé en cas d’échec de configuration.
+Les diagnostics historiques sont désactivés hors mode `WP_DEBUG`, `YUZ_TRA_DEBUG`
+ou `YUZ_TRA_TRACE_AUTO`. Les anciennes traces DOM, AJAX et frontend n’écrivent
+plus de fichiers publics ; les fichiers provenant d’anciennes versions restent à purger.
+Lorsqu’ils sont activés, l’option privée `yuz_tra_legacy_diagnostics` conserve au plus
+100 messages de 4 000 octets. Les valeurs reconnues comme identifiants secrets sont
+masquées ; ce masquage ne remplace pas une politique de minimisation des données.
 
 Les tables, tâches historiques et options ne sont pas effacées à la désactivation ni à
 la suppression des fichiers. La désactivation retire les événements cron YUZ. Pas de
@@ -37,6 +54,10 @@ Le catalogue ne contacte pas un fournisseur à son ouverture. Le plugin ne trans
 automatiquement les signalements à GitHub. Les liens de documentation et de support
 sont ouverts seulement à l’initiative de l’utilisateur, et GitHub applique sa propre
 [politique de confidentialité](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
+
+Les probes front et la télémétrie RUM sont désactivés par défaut. RUM ne peut être
+enregistré côté serveur qu’après activation explicite de la constante `YUZ_TRA_RUM` ;
+il appartient alors à l’exploitant de fournir l’information et le consentement requis.
 
 ## Dans le navigateur
 

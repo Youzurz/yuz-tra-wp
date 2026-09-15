@@ -36,10 +36,6 @@ if (!class_exists('YUZ_Debug_Probe')) {
                 return;
             }
 
-            if (!defined('YUZ_DEBUG_PROBE_LOG')) {
-                define('YUZ_DEBUG_PROBE_LOG', WP_CONTENT_DIR . '/yuz-debug.log');
-            }
-
             add_action('wp_ajax_yuz_save_translation', [__CLASS__, 'capture_ajax'], 0);
             add_action('wp_ajax_yuz_tra_tm_get_translations', [__CLASS__, 'capture_ajax'], 0);
             add_action('wp_print_footer_scripts', [__CLASS__, 'inject_client_hooks']);
@@ -63,8 +59,7 @@ if (!class_exists('YUZ_Debug_Probe')) {
                 'event'   => $event,
                 'time'    => current_time('mysql'),
                 'request' => [
-                    'method' => $_SERVER['REQUEST_METHOD'] ?? '',
-                    'uri'    => $_SERVER['REQUEST_URI'] ?? '',
+                    'method' => sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')),
                 ],
                 'user'    => is_user_logged_in() ? get_current_user_id() : 0,
                 'context' => $context,
@@ -75,17 +70,26 @@ if (!class_exists('YUZ_Debug_Probe')) {
                 $json = '{"event":"' . $event . '","error":"json_encode_failed"}';
             }
 
-            file_put_contents(YUZ_DEBUG_PROBE_LOG, $json . "\n", FILE_APPEND);
+            // Bounded private diagnostics: never write publicly accessible log files.
+            $records = (array) get_option('yuz_tra_debug_probe_records', []);
+            $records[] = $record;
+            update_option('yuz_tra_debug_probe_records', array_slice($records, -50), false);
         }
 
         /**
          * AJAX capture hook for diagnostics.
          */
         public static function capture_ajax(): void {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                return;
+            }
             $payload = [
-                'post'   => array_map('wp_unslash', $_POST), // phpcs:ignore WordPress.Security.NonceVerification.Missing
-                'get'    => array_map('wp_unslash', $_GET),  // phpcs:ignore WordPress.Security.NonceVerification.Missing
-                'action' => $_POST['action'] ?? $_GET['action'] ?? '', // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Probe records keys only before the real handler validates its nonce.
+                'post_keys' => array_map('sanitize_key', array_keys($_POST)),
+                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Probe records keys only.
+                'get_keys'  => array_map('sanitize_key', array_keys($_GET)),
+                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Routing metadata only.
+                'action'    => isset($_POST['action']) ? sanitize_key(wp_unslash((string) $_POST['action'])) : '',
             ];
             self::log('ajax_capture', $payload);
         }
@@ -121,83 +125,19 @@ if (!class_exists('YUZ_Debug_Probe')) {
          * Injects a lightweight client logger when the inline editor is active.
          */
         public static function inject_client_hooks(): void {
-            if (is_admin()) {
-                return;
-            }
-            if (!isset($_GET['yuz-edit-translation'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-                return;
-            }
-            ?>
-            <script>
-            (function(w){
-                if (!w || w.__YUZ_DEBUG_PROBE__) { return; }
-                w.__YUZ_DEBUG_PROBE__ = true;
-                var logEndpoint = function(kind, data){
-                    if (!w.fetch) { return; }
-                    try {
-                        var fd = new FormData();
-                        fd.append('action', 'yuz_probe_client_log');
-                        fd.append('kind', kind);
-                        fd.append('payload', JSON.stringify(data));
-                        w.fetch('<?php echo esc_url(admin_url('admin-ajax.php', 'relative')); ?>', {
-                            method: 'POST',
-                            credentials: 'same-origin',
-                            body: fd
-                        }).catch(function(){});
-                    } catch(e) {
-                        console.warn('yuz-probe failed', e);
-                    }
-                };
-                if (w.fetch) {
-                    var originalFetch = w.fetch;
-                    w.fetch = function(){
-                        var args = Array.prototype.slice.call(arguments);
-                        var url = args[0];
-                        if (typeof url === 'string' && url.indexOf('yuz') !== -1) {
-                            logEndpoint('fetch', { url: url });
-                        }
-                        return originalFetch.apply(this, args).then(function(response){
-                            if (typeof url === 'string' && url.indexOf('yuz') !== -1) {
-                                logEndpoint('fetch-response', { url: url, status: response.status });
-                            }
-                            return response;
-                        });
-                    };
-                }
-                if (w.jQuery && w.jQuery.ajax) {
-                    var $ = w.jQuery;
-                    var originalAjax = $.ajax;
-                    $.ajax = function(options){
-                        var opts = options || {};
-                        if (opts && opts.data && typeof opts.data === 'object' && opts.data.action) {
-                            logEndpoint('jquery-ajax', { action: opts.data.action, url: opts.url || '(admin-ajax)' });
-                        }
-                        var xhr = originalAjax.apply(this, arguments);
-                        if (xhr && xhr.then) {
-                            xhr.then(function(resp){
-                                if (opts && opts.data && opts.data.action) {
-                                    logEndpoint('jquery-ajax-done', { action: opts.data.action, success: !!(resp && resp.success) });
-                                }
-                            }).catch(function(){
-                                if (opts && opts.data && opts.data.action) {
-                                    logEndpoint('jquery-ajax-fail', { action: opts.data.action });
-                                }
-                            });
-                        }
-                        return xhr;
-                    };
-                }
-            })(window);
-            </script>
-            <?php
+            // Server-side, opt-in diagnostics are available without intercepting browser APIs.
         }
 
         /**
          * Receives client logs via admin-ajax.
          */
         public static function handle_client_log(): void {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['error' => 'forbidden'], 403);
+            }
+            check_ajax_referer('yuz_log_nonce', 'nonce');
             $kind    = isset($_POST['kind']) ? sanitize_text_field(wp_unslash($_POST['kind'])) : 'client';
-            $payload = isset($_POST['payload']) ? wp_unslash($_POST['payload']) : '';
+            $payload = isset($_POST['payload']) ? sanitize_textarea_field(wp_unslash($_POST['payload'])) : '';
             self::log('client_trace', [
                 'kind'    => $kind,
                 'payload' => $payload,

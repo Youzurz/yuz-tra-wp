@@ -140,7 +140,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         ];
         $prefix = $prefixes[$lvl] ?? $prefixes['info'];
         $suffix = $ctx ? ' | Context: ' . wp_json_encode($ctx) : '';
-        error_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
+        yuz_tra_debug_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
     }
 
     /* ---------------------------- SETTINGS HELPERS --------------------------- */
@@ -522,20 +522,20 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
                 $scheme = 'http';
                 if (
                     (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+                    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower(sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_PROTO']))) === 'https')
                 ) {
                     $scheme = 'https';
                 }
 
-                $host = $_SERVER['HTTP_HOST'] ?? '';
+                $host = sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'] ?? ''));
                 if ($host === '' && isset($_SERVER['SERVER_NAME'])) {
-                    $host = (string) $_SERVER['SERVER_NAME'];
+                    $host = sanitize_text_field(wp_unslash($_SERVER['SERVER_NAME']));
                 }
 
                 if ($host !== '') {
                     $port = '';
-                    if (!empty($_SERVER['SERVER_PORT']) && !in_array((string) $_SERVER['SERVER_PORT'], ['80', '443'], true) && strpos($host, ':') === false) {
-                        $port = ':' . (string) $_SERVER['SERVER_PORT'];
+                    if (!empty($_SERVER['SERVER_PORT']) && !in_array((string) absint($_SERVER['SERVER_PORT']), ['80', '443'], true) && strpos($host, ':') === false) {
+                        $port = ':' . (string) absint($_SERVER['SERVER_PORT']);
                     }
                     $home = $scheme . '://' . $host . $port;
                 }
@@ -579,7 +579,7 @@ public function cur_page_url(): string
     }
 
     try {
-        $request_uri = $_SERVER['REQUEST_URI'] ?? '/';
+        $request_uri = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
 
         // Détecter le scheme/host réels de la requête
         $scheme = 'http';
@@ -591,8 +591,8 @@ public function cur_page_url(): string
         }
         $reqHost = $_SERVER['HTTP_HOST'] ?? wp_parse_url($this->get_cached_home_url(), PHP_URL_HOST) ?? '';
         $port    = '';
-        if (!empty($_SERVER['SERVER_PORT']) && !in_array((string)$_SERVER['SERVER_PORT'], ['80','443'], true)) {
-            $port = ':' . (string) $_SERVER['SERVER_PORT'];
+        if (!empty($_SERVER['SERVER_PORT']) && !in_array((string) absint($_SERVER['SERVER_PORT']), ['80','443'], true)) {
+            $port = ':' . (string) absint($_SERVER['SERVER_PORT']);
         }
 
         // Reconstruire l'absolue depuis le contexte (et pas home_url)
@@ -1226,7 +1226,7 @@ public function normalize(string $url): string
             return $final_url;
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
+                yuz_tra_debug_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
             }
             return $base;
         }

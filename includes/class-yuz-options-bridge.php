@@ -80,7 +80,38 @@ if (!function_exists('yuz_tra_diag_log')) {
         if (!yuz_tra_diag_enabled()) {
             return;
         }
-        error_log($message);
+        yuz_tra_debug_log($message);
+    }
+}
+
+if (!function_exists('yuz_tra_diag_shape')) {
+    /**
+     * Return structural diagnostics without ever serializing setting values.
+     * API credentials and customer configuration must not reach debug logs.
+     */
+    function yuz_tra_diag_shape($value): array {
+        if (!is_array($value)) {
+            return ['type' => gettype($value)];
+        }
+
+        return [
+            'type'  => 'array',
+            'count' => count($value),
+            'keys'  => array_map('sanitize_key', array_keys($value)),
+        ];
+    }
+}
+
+if (!function_exists('yuz_tra_request_text')) {
+    /**
+     * Read a scalar request field as normalized text.
+     */
+    function yuz_tra_request_text(string $key): string {
+        // Request data is only used for routing here; authorization is performed
+        // by options.php or by the registered authenticated action handler.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        $value = $_POST[$key] ?? '';
+        return is_string($value) ? sanitize_text_field(wp_unslash($value)) : '';
     }
 }
 
@@ -168,10 +199,14 @@ add_filter('whitelist_options', function (array $allowed) {
 
 foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $opt) {
     add_filter("pre_update_option_{$opt}", function ($new, $old) use ($opt) {
-        $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
-        $group  = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+        $action = yuz_tra_request_text('action');
+        $group  = yuz_tra_request_text('option_page');
 
         if ($action === 'update' && $group === 'yuz_tra_general_settings_group') {
+            $nonce = isset($_POST['_wpnonce']) && is_string($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
+            if (!current_user_can('manage_options') || !wp_verify_nonce($nonce, 'yuz_tra_general_settings_group-options')) {
+                return $old;
+            }
             $raw = isset($_POST[$opt]) && is_array($_POST[$opt]) ? wp_unslash($_POST[$opt]) : [];
             if (empty($raw)) {
                 if (function_exists('error_log')) {
@@ -202,6 +237,8 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
             if (function_exists('error_log')) {
                 yuz_tra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $opt . '] overriding with POST payload keys=' . implode(',', array_keys($merged)));
             }
+
+            $merged = yuz_settings_sanitize_section($opt, $merged);
 
             // Synchronize legacy containers used by canonical migration logic.
             if ($opt === 'yuz_tra_ws_settings') {
@@ -274,11 +311,11 @@ add_action('admin_init', function () {
     if ($logged) {
         return;
     }
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         return;
     }
-    $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
-    $group  = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+    $action = yuz_tra_request_text('action');
+    $group  = yuz_tra_request_text('option_page');
     if ($action !== 'update' || $group !== 'yuz_tra_general_settings_group') {
         return;
     }
@@ -286,7 +323,7 @@ add_action('admin_init', function () {
     $snapshot = [
         'action' => $action,
         'option_page' => $group,
-        'root_keys' => array_keys($_POST),
+        'root_keys' => array_map('sanitize_key', array_keys($_POST)),
         'payload' => [],
     ];
 
@@ -297,12 +334,9 @@ add_action('admin_init', function () {
         ];
         if (isset($_POST[$opt])) {
             if (is_array($_POST[$opt])) {
-                $entry['keys'] = array_keys($_POST[$opt]);
-            } elseif (is_string($_POST[$opt])) {
-                $entry['length']  = strlen($_POST[$opt]);
-                $entry['preview'] = substr($_POST[$opt], 0, 200);
+                $entry['keys'] = array_map('sanitize_key', array_keys($_POST[$opt]));
             } else {
-                $entry['repr'] = maybe_serialize($_POST[$opt]);
+                $entry['length'] = is_string($_POST[$opt]) ? strlen($_POST[$opt]) : null;
             }
         }
         $snapshot['payload'][$opt] = $entry;
@@ -324,16 +358,8 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
                 'filters'       => [],
                 'stack'         => [],
             ];
-            if (is_array($value)) {
-                $log['value_keys'] = array_keys($value);
-            } elseif (is_string($value)) {
-                $log['value_preview'] = substr($value, 0, 200);
-            }
-            if (is_array($original)) {
-                $log['original_keys'] = array_keys($original);
-            } elseif (is_string($original)) {
-                $log['original_preview'] = substr($original, 0, 200);
-            }
+            $log['value_shape']    = yuz_tra_diag_shape($value);
+            $log['original_shape'] = yuz_tra_diag_shape($original);
             $filters = $GLOBALS['wp_filter']["sanitize_option_{$opt}"] ?? null;
             if ($filters instanceof WP_Hook && !empty($filters->callbacks)) {
                 foreach ($filters->callbacks as $priority => $callbacks) {
@@ -636,7 +662,7 @@ if (!function_exists('yuz_is_settings_api_submit')) {
         $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
         if ($action !== 'update') return false;
 
-        $option_page = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+        $option_page = isset($_POST['option_page']) ? sanitize_key(wp_unslash($_POST['option_page'])) : '';
         if ($option_page === '') return false;
 
         // Groupes connus (au cas où tu en as plusieurs)
@@ -703,7 +729,7 @@ if (!function_exists('yuz_should_allow_canonical_write')) {
         }
 
         $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
-        $group  = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+        $group  = isset($_POST['option_page']) ? sanitize_key(wp_unslash($_POST['option_page'])) : '';
 
         if ($action === 'update' && $group === 'yuz_tra_general_settings_group') {
             if (function_exists('error_log')) {
@@ -772,7 +798,9 @@ add_action('admin_init', function () {
                 $opt,
                 [
                     'type'              => 'array',
-                    'sanitize_callback' => null,
+                    'sanitize_callback' => static function ($value) use ($opt) {
+                        return yuz_settings_sanitize_section($opt, $value);
+                    },
                     'default'           => [],
                 ]
             );
@@ -785,7 +813,9 @@ add_action('admin_init', function () {
 
 add_action('admin_init', function () {
     foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $opt) {
-        $sanitize = null;
+        $sanitize = static function ($value) use ($opt) {
+            return yuz_settings_sanitize_section($opt, $value);
+        };
         if ($opt === 'yuz_tra_ws_settings' && method_exists('YUZ_General', 'sanitize_ws_settings')) {
             $sanitize = ['YUZ_General', 'sanitize_ws_settings'];
         }
@@ -895,7 +925,7 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
     $value = array_merge($defaults, $base, $value);
 
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] final=' . wp_json_encode($value));
+        yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] final_shape=' . wp_json_encode(yuz_tra_diag_shape($value)));
     }
     return $value;
 }, 9999, 3);
@@ -1080,9 +1110,9 @@ if (!function_exists('yuz_settings_get_all')) {
 
                     if ($canonical === 'yuz_tra_at_settings') {
                         if (function_exists('error_log')) {
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_KEYS=' . json_encode(array_keys($_POST['yuz_tra_at_settings'] ?? [])));
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_RAW='  . json_encode($_POST['yuz_tra_at_settings'] ?? []));
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] ACTION='    . ($_POST['action'] ?? ''));
+                            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Structural diagnostics only; no values are read or logged.
+                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_SHAPE=' . wp_json_encode(yuz_tra_diag_shape($_POST['yuz_tra_at_settings'] ?? [])));
+                            yuz_tra_diag_log('[YUZ-DIAG][AT] ACTION=' . yuz_tra_request_text('action'));
                         }
                     }
 
@@ -1157,13 +1187,13 @@ if (!function_exists('yuz_settings_update_all')) {
                     }
                     if ($canonical === 'yuz_tra_at_settings') {
                         if (function_exists('error_log')) {
-                            $posted = isset($_POST['yuz_tra_at_settings']) ? $_POST['yuz_tra_at_settings'] : [];
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_KEYS=' . json_encode(array_keys((array) $posted)));
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_RAW=' . json_encode($posted));
+                            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Structural diagnostics only; no values are logged.
+                            $posted = $_POST['yuz_tra_at_settings'] ?? [];
+                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_SHAPE=' . wp_json_encode(yuz_tra_diag_shape($posted)));
                         }
                         $old_at = get_option('yuz_tra_at_settings', []);
                         if (function_exists('error_log')) {
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] OLD=' . json_encode($old_at));
+                            yuz_tra_diag_log('[YUZ-DIAG][AT] OLD_SHAPE=' . wp_json_encode(yuz_tra_diag_shape($old_at)));
                             if (function_exists('has_filter')) {
                                 yuz_tra_diag_log('[YUZ-DIAG][AT] HAS_SANITIZE=' . (int) has_filter('sanitize_option_yuz_tra_at_settings'));
                             }
@@ -1171,7 +1201,7 @@ if (!function_exists('yuz_settings_update_all')) {
                         if (function_exists('sanitize_option')) {
                             $value = sanitize_option('yuz_tra_at_settings', $value);
                             if (function_exists('error_log')) {
-                                yuz_tra_diag_log('[YUZ-DIAG][AT] AFTER_SAN=' . json_encode($value));
+                                yuz_tra_diag_log('[YUZ-DIAG][AT] AFTER_SAN_SHAPE=' . wp_json_encode(yuz_tra_diag_shape($value)));
                             }
                         }
                         if (empty($value['api_provider']) && !empty($value['api_adapter'])) {
@@ -1246,9 +1276,9 @@ if (!function_exists('yuz_settings_update')) {
 add_filter('sanitize_option_yuz_tra_at_settings', function ($value) {
     $value = is_array($value) ? $value : [];
     $old   = get_option('yuz_tra_at_settings', []);
-    $context = isset($_POST['action']) ? (string) $_POST['action'] : 'none';
+    $context = yuz_tra_request_text('action');
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] context=' . $context . ' payload=' . wp_json_encode($value));
+        yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] context=' . ($context !== '' ? $context : 'none') . ' payload_shape=' . wp_json_encode(yuz_tra_diag_shape($value)));
     }
 
     foreach (['url_to_load', 'libre_url', 'custom_url'] as $key) {
@@ -1298,7 +1328,7 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value) {
 
 add_filter('option_yuz_tra_at_settings', function ($opt) {
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][READ] ' . wp_json_encode($opt));
+        yuz_tra_diag_log('[YUZ-DIAG][READ] ' . wp_json_encode(yuz_tra_diag_shape($opt)));
     }
     $defaults = [
         'source_language_id'    => 0,

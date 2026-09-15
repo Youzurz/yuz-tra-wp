@@ -261,7 +261,7 @@ public function ajax_activate_addon(): void {
 check_ajax_referer('yuz_con_nonce', 'nonce');
 if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Activating addon via AJAX');
-$addon_slug = sanitize_text_field($_POST['addon'] ?? '');
+$addon_slug = sanitize_text_field(wp_unslash($_POST['addon'] ?? ''));
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 // Charge l’addon si possible
 $loaded = $this->loadAddon($addon_slug);
@@ -279,7 +279,7 @@ public function ajax_deactivate_addon(): void {
 check_ajax_referer('yuz_con_nonce', 'nonce');
 if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Deactivating addon via AJAX');
-$addon_slug = sanitize_text_field($_POST['addon'] ?? '');
+$addon_slug = sanitize_text_field(wp_unslash($_POST['addon'] ?? ''));
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 update_option("yuz_addon_{$addon_slug}", 0);
 if ((int)get_option("yuz_addon_{$addon_slug}") !== 0) wp_send_json_error(['message'=>'addon_save_failed'],500);

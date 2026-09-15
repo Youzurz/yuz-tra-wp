@@ -515,14 +515,16 @@ class YUZ_Settings implements SettingsInterface {
     }
 
     public function ajax_router() {
-        error_log('[YUZ][AJAX] handling ' . ($_POST['action'] ?? '(none)') . ' with data=' . wp_json_encode($_POST));
-        $action = sanitize_text_field($_POST['action'] ?? '');
-        $nonce  = $_POST['nonce'] ?? '';
+        $action = isset($_POST['action']) ? sanitize_key(wp_unslash((string) $_POST['action'])) : '';
+        $nonce  = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash((string) $_POST['nonce'])) : '';
 
         $nonce_ok = wp_verify_nonce($nonce, 'yuz_tra_nonce') || wp_verify_nonce($nonce, 'yuz_con_nonce');
         if (!$nonce_ok) {
-            error_log('[YUZ][AJAX] invalid nonce for ' . $action);
             wp_send_json_error(['error' => 'Invalid nonce']);
+        }
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            yuz_tra_debug_log('[YUZ][AJAX] handling authenticated action=' . $action);
         }
 
         switch ($action) {
@@ -547,7 +549,7 @@ class YUZ_Settings implements SettingsInterface {
                 break;
 
             default:
-                error_log('[YUZ][AJAX] unknown action ' . $action);
+                yuz_tra_debug_log('[YUZ][AJAX] unknown action ' . $action);
                 wp_send_json_error(['error' => 'Unknown action']);
         }
     }
@@ -566,7 +568,7 @@ class YUZ_Settings implements SettingsInterface {
             : $merged;
 
         update_option($option_name, $sanitized);
-        error_log('[YUZ][UPDATE] ' . $option_name . '=' . wp_json_encode($sanitized));
+        yuz_tra_debug_log('[YUZ][UPDATE] ' . $option_name . '=' . wp_json_encode($sanitized));
 
         wp_send_json_success([
             'updated' => $sanitized,
@@ -1339,7 +1341,7 @@ class YUZ_Settings implements SettingsInterface {
         if (!isset($tabs[$current]))   { $current = 'general'; }
 
         // Slug de page (doit matcher add_menu_page)
-        $page = isset($_GET['page']) ? sanitize_key($_GET['page']) : 'yuz-translation-settings';
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : 'yuz-translation-settings';
 
         echo '<div class="wrap yuz-admin-shell" id="yuz-settings">';
         require_once __DIR__ . '/class-yuz-release.php';
@@ -1439,7 +1441,7 @@ class YUZ_Settings implements SettingsInterface {
             if (empty($current)) {
                 add_option($option_name, $defaults);
                 if (function_exists('error_log')) {
-                    error_log('🟩 YUZ_Settings: création de yuz_tra_settings (defaults).');
+                    yuz_tra_debug_log('🟩 YUZ_Settings: création de yuz_tra_settings (defaults).');
                 }
                 return;
             }
@@ -1448,7 +1450,7 @@ class YUZ_Settings implements SettingsInterface {
             if ($updated !== $current) {
                 update_option($option_name, $updated, false);
                 if (function_exists('error_log')) {
-                    error_log('🟨 YUZ_Settings: ajout de clés manquantes dans yuz_tra_settings.');
+                    yuz_tra_debug_log('🟨 YUZ_Settings: ajout de clés manquantes dans yuz_tra_settings.');
                 }
             }
         }

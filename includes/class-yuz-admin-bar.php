@@ -110,7 +110,7 @@ if (!class_exists('YUZ_Admin_Bar')) {
                     }
                 }
             } catch (\Throwable $e) {
-                error_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
+                yuz_tra_debug_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
             }
 
             // Flag optionnel : par défaut on laisse l’admin-bar activée
@@ -152,7 +152,7 @@ public function add_admin_items($wp_admin_bar): void
     // URL de contexte fiable (front = URL courante ; admin = home)
     $scheme      = is_ssl() ? 'https' : 'http';
     $host        = $_SERVER['HTTP_HOST']  ?? wp_parse_url( home_url(), PHP_URL_HOST );
-    $uri         = $_SERVER['REQUEST_URI'] ?? '/';
+    $uri         = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
     $current_url = $scheme . '://' . $host . $uri;
 
     $target = is_admin() ? home_url('/') : $current_url;

@@ -51,7 +51,7 @@
           page_url,
           target_langs,
           text,
-          endpoint: AB.ajax_url || (window.yuzTraSettings && window.yuzTraSettings.ajax_url) || '/wp-admin/admin-ajax.php'
+          endpoint: AB.ajax_url || (window.yuzTraSettings && window.yuzTraSettings.ajax_url) || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })()
         });
       };
       serviceLoaded = true;
@@ -92,7 +92,7 @@
             page_url,
             target_langs,
             text,
-            endpoint: AB.ajax_url || (window.yuzTraSettings && window.yuzTraSettings.ajax_url) || '/wp-admin/admin-ajax.php'
+            endpoint: AB.ajax_url || (window.yuzTraSettings && window.yuzTraSettings.ajax_url) || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })()
           });
         };
         serviceLoaded = true;
@@ -225,4 +225,3 @@
   });
 
 })(window, document);
-

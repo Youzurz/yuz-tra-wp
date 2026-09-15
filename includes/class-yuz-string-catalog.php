@@ -79,7 +79,7 @@ final class YUZ_String_Catalog {
             }
             $forms = self::$published[$bucket][$key] ?? [];
             $index = $plural === '' ? 0 : self::plural_index($lang, (int) $number);
-            return isset($forms[$index]) && $forms[$index] !== '' ? $forms[$index] : $fallback;
+            return isset($forms[$index]) && is_string($forms[$index]) && $forms[$index] !== '' && self::safe_form($forms[$index]) ? $forms[$index] : $fallback;
         } finally { self::$busy = false; }
     }
 
@@ -150,6 +150,12 @@ final class YUZ_String_Catalog {
         $tokens = $m[0]; sort($tokens); return $tokens;
     }
 
+    /** Reject executable markup rather than silently changing translator input. */
+    public static function safe_form(string $text): bool {
+        return !preg_match('/<\?(?:php|=)?|<\/?(?:script|style|iframe|object|embed)\b/i', $text)
+            && wp_kses_post($text) === $text;
+    }
+
     public static function save(int $id, string $lang, array $forms, int $status, string $origin = 'manual', $expected = false): void {
         global $wpdb;
         if (!self::valid_language($lang) || !in_array($status, [1,2,3,4,5], true)) throw new InvalidArgumentException('invalid_language_or_status');
@@ -160,6 +166,7 @@ final class YUZ_String_Catalog {
         $singular_index = $s['plural_original'] === '' ? 0 : self::plural_index($lang, 1);
         foreach ($forms as $i => $text) {
             if (!is_string($text) || strlen($text) > 40000) throw new InvalidArgumentException('invalid_translation');
+            if (!self::safe_form($text)) throw new InvalidArgumentException('unsafe_translation_markup');
             $original = $i === $singular_index ? $s['original'] : $s['plural_original'];
             if ($status >= 2 && $status <= 4 && (trim($text) === '' || self::tokens($text) !== self::tokens($original))) throw new InvalidArgumentException('placeholders_or_empty_translation');
         }
@@ -280,8 +287,13 @@ final class YUZ_String_Catalog {
         $data['locale_data'][$key]['']=['domain'=>$domain,'lang'=>$lang,'plural-forms'=>"nplurals=$count; plural=$expression;"];
         foreach ($rows as $row) {
             $original=$row['context']!==''?$row['context']."\x04".$row['original']:$row['original'];
-            $data['locale_data'][$key][$original]=json_decode($row['forms'],true);
+            $forms=json_decode($row['forms'],true);
+            if (!is_array($forms) || !$forms) continue;
+            foreach ($forms as $form) {
+                if (!is_string($form) || !self::safe_form($form)) continue 2;
+            }
+            $data['locale_data'][$key][$original]=array_values($forms);
         }
-        return wp_json_encode($data);
+        return wp_json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 }

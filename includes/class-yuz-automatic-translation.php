@@ -132,7 +132,7 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
 
         // Gardes minimales
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Automatic_Translation::init');
+            yuz_tra_debug_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Automatic_Translation::init');
             wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-tra'));
         }
 
@@ -277,7 +277,7 @@ class YUZ_Automatic_Translation implements AutomaticTranslationInterface {
         }
 
         // Classic POST fallback for form submits (prevents raw JSON echo)
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'yuz_con_nonce')) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'yuz_con_nonce')) {
             if (!current_user_can('manage_options')) wp_die(esc_html__('Unauthorized','yuz-tra'));
             $this->logger->log('info', 'Processing POST submit in YUZ_Automatic_Translation::render_tab');
             $input = isset($_POST['yuz_tra_at_settings']) && is_array($_POST['yuz_tra_at_settings'])

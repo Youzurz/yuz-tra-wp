@@ -18,12 +18,12 @@ function yuz_trace_log($stage, $data = []){
         't'      => gmdate('c'),
         'stage'  => $stage,
         'method' => $_SERVER['REQUEST_METHOD'] ?? 'GET',
-        'uri'    => $_SERVER['REQUEST_URI'] ?? '',
-        'host'   => $_SERVER['HTTP_HOST'] ?? '',
-        'ip'     => $_SERVER['REMOTE_ADDR'] ?? '',
+        'uri'    => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
+        'host'   => sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'] ?? '')),
+        'ip'     => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
     ];
     if (!empty($data)) { $row['data'] = $data; }
-    error_log('[YUZ request trace] '.wp_json_encode($row, JSON_UNESCAPED_SLASHES));
+    yuz_tra_debug_log('[YUZ request trace] '.wp_json_encode($row, JSON_UNESCAPED_SLASHES));
 }
 
 add_action('parse_request', function($wp){

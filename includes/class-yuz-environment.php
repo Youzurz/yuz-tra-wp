@@ -165,15 +165,15 @@ return false;
     }
 }
 // Fallback si l'interface manque
-if (!class_exists('NullEnvironment')) {
-class NullEnvironment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_NullEnvironment')) {
+class YUZTRA_NullEnvironment implements EnvironmentInterface {
 public static function init(LanguagesInterface $lang_manager = null): void {}
 public static function detect_user_environment(): void {
 wp_send_json_success([
 'language' => get_locale(),
 'browser_lang' => [],
 'country' => '',
-'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+'ip' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
             ]);
         }
 public function getEnv(string $key): mixed { return null; }

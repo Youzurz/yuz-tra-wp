@@ -136,9 +136,9 @@ if (class_exists('YUZ_DB')) {
 $db = new YUZ_DB($logger, $health);
 if (method_exists($db, 'ensure_tables')) {
 // MODIF: Gate sur tables_ok pour éviter DDL runtime (Phase 4)
-if (!get_option('tables_ok', false) && self::can_run_runtime_maintenance()) {
+if (!get_option('yuz_tra_tables_ok', false) && self::can_run_runtime_maintenance()) {
 $db->ensure_tables();
-update_option('tables_ok', true); // Flag après succès
+update_option('yuz_tra_tables_ok', true); // Flag après succès
                     }
                 }
             }
@@ -498,7 +498,7 @@ self::log_colored('critical', $msg);
         if (!empty($context)) {
             $log_message .= ' | Context: ' . (is_string($context) ? $context : print_r($context, true));
         }
-        error_log($log_message);
+        yuz_tra_debug_log($log_message);
     }
 /** N’écrase pas les valeurs déjà présentes */
     public static function ensure_default_settings(): void {

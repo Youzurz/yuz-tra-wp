@@ -15,7 +15,7 @@ const S = g.yuzTraSettings || g.yuzTE || g.yuzTS || {};
 
 // URL AJAX (fallback sur ajaxurl de WP)
 export const API_CONFIG = {
-  ajaxUrl: S.ajax_url || g.ajaxurl || '/wp-admin/admin-ajax.php',
+  ajaxUrl: S.ajax_url || g.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })(),
 };
 
 // Pool de nonces connus (avec fallback générique)

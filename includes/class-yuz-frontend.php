@@ -34,7 +34,7 @@ if (!class_exists('YUZ_Frontend')) {
         /** Probe results collected during setup(). */
         private array $probe_results = [];
         /** Enable/disable heavy probes; overridable via option or query param. */
-        private bool $probes_enabled = true;
+        private bool $probes_enabled = false;
 
         public function __construct() {
             $this->trace_id = substr(wp_hash(microtime(true) . random_int(PHP_INT_MIN, PHP_INT_MAX)), 0, 12);
@@ -79,7 +79,6 @@ if (!class_exists('YUZ_Frontend')) {
 
             // AJAX minimal probe (used by self-check if enabled).
             add_action('wp_ajax_yuz_probe', [$instance, 'ajax_probe']);
-            add_action('wp_ajax_nopriv_yuz_probe', [$instance, 'ajax_probe']);
         }
 
         /** Register REST endpoints for health and client error intake. */
@@ -92,24 +91,29 @@ if (!class_exists('YUZ_Frontend')) {
                 'callback' => function() {
                     return rest_ensure_response($this->health_payload());
                 },
-                'permission_callback' => '__return_true',
+                'permission_callback' => static function() {
+                    return current_user_can('manage_options');
+                },
             ]);
 
             register_rest_route('yuz/v1', '/js-error', [
                 'methods'  => 'POST',
                 'callback' => function(WP_REST_Request $req) {
                     $payload = [
-                        'message' => (string) $req->get_param('message'),
-                        'stack'   => (string) $req->get_param('stack'),
-                        'source'  => (string) $req->get_param('source'),
+                        'message' => substr(sanitize_text_field((string) $req->get_param('message')), 0, 500),
+                        'stack'   => substr(sanitize_textarea_field((string) $req->get_param('stack')), 0, 4000),
+                        'source'  => esc_url_raw((string) $req->get_param('source')),
                         'line'    => (int) ($req->get_param('line') ?? 0),
                         'col'     => (int) ($req->get_param('col') ?? 0),
-                        'ua'      => isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '',
+                        'ua'      => isset($_SERVER['HTTP_USER_AGENT']) ? substr(sanitize_text_field(wp_unslash(sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])))), 0, 255) : '',
                     ];
                     $this->log('error', 'js_error', $payload);
                     return rest_ensure_response(['ok' => true]);
                 },
-                'permission_callback' => '__return_true',
+                'permission_callback' => function() {
+                    return is_user_logged_in()
+                        && (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
+                },
             ]);
         }
 
@@ -120,8 +124,7 @@ if (!class_exists('YUZ_Frontend')) {
             }
 
             // Probes can be toggled runtime.
-            $option = (bool) get_option('yuz_probes_enabled', true);
-            $this->probes_enabled = isset($_GET['yuz_probe']) ? (bool) $_GET['yuz_probe'] : $option;
+            $this->probes_enabled = (bool) get_option('yuz_probes_enabled', false);
 
             $active  = YUZ_Front_Renderer::get_active_language();
             $default = YUZ_Front_Renderer::get_default_language();
@@ -267,7 +270,7 @@ if (!class_exists('YUZ_Frontend')) {
                 'len_out' => strlen($translated),
                 'changed' => $translated !== $title,
             ]);
-            return $translated;
+            return wp_kses_post($translated);
         }
 
         /** Title from single_post_title(). */
@@ -446,9 +449,6 @@ if (!class_exists('YUZ_Frontend')) {
             $active  = YUZ_Front_Renderer::get_active_language();
             $default = YUZ_Front_Renderer::get_default_language();
 
-            $preview_src = function_exists('mb_substr') ? mb_substr($src, 0, 120) : substr($src, 0, 120);
-            $preview_dst = function_exists('mb_substr') ? mb_substr($dst, 0, 120) : substr($dst, 0, 120);
-
             return [
                 'trace'            => $this->trace_id,
                 'context'          => $context,
@@ -472,8 +472,6 @@ if (!class_exists('YUZ_Frontend')) {
                 'html_balance_ok'  => $html_ok,
                 'active_language'  => $active,
                 'default_language' => $default,
-                'preview_src'      => $preview_src,
-                'preview_dst'      => $preview_dst,
             ];
         }
 
@@ -491,8 +489,9 @@ if (!class_exists('YUZ_Frontend')) {
         /** One-line beacon in the page head while WP_DEBUG & ?yuz_debug=1. */
         public function emit_debug_beacon(): void {
             $debug_on = defined('WP_DEBUG') && WP_DEBUG;
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display toggle for authenticated diagnostics.
             $q = isset($_GET['yuz_debug']) ? (int) $_GET['yuz_debug'] : 0;
-            if (!$debug_on || $q !== 1) { return; }
+            if (!$debug_on || $q !== 1 || !is_user_logged_in() || (!current_user_can('manage_options') && !current_user_can('yuz_translate_content'))) { return; }
             $data = esc_attr(wp_json_encode([
                 'trace'    => $this->trace_id,
                 'counters' => $this->counters,
@@ -503,6 +502,10 @@ if (!class_exists('YUZ_Frontend')) {
 
         /** HTTP self-probe via admin-ajax.php (only on-demand). */
         public function ajax_probe(): void {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['error' => 'forbidden'], 403);
+            }
+            check_ajax_referer('yuz_log_nonce', 'nonce');
             wp_send_json_success(['trace' => $this->trace_id, 'time' => time()]);
         }
 
@@ -611,32 +614,7 @@ if (!class_exists('YUZ_Frontend')) {
             }
             // Fallback: error_log.
             $line = sprintf('[YUZ][%s][%s] %s %s', strtoupper($level), $this->trace_id, $message, wp_json_encode($payload));
-            error_log($line);
-            // Best-effort file log.
-            $this->write_file_log($line . "\n");
-        }
-
-        /** Append to uploads/yuz-logs/yuz-frontend.log with tiny rotation. */
-        private function write_file_log(string $line): void {
-            $uploads = wp_upload_dir();
-            if (!empty($uploads['error'])) { return; }
-            $dir = trailingslashit($uploads['basedir']) . 'yuz-logs/';
-            if (!wp_mkdir_p($dir)) { return; }
-            $file = $dir . 'yuz-frontend.log';
-            // naive rotation at ~5MB.
-            if (file_exists($file) && filesize($file) > 5 * 1024 * 1024) {
-                global $wp_filesystem;
-                if (!function_exists('WP_Filesystem')) {
-                    require_once ABSPATH . 'wp-admin/includes/file.php';
-                }
-                if (!is_object($wp_filesystem)) {
-                    WP_Filesystem();
-                }
-                if (is_object($wp_filesystem)) {
-                    $wp_filesystem->move($file, $file . '.' . gmdate('Ymd_His'), true);
-                }
-            }
-            @file_put_contents($file, $line, FILE_APPEND);
+            yuz_tra_debug_log($line);
         }
 
         /** Interface requirement; rendering is done via hooks. */

@@ -43,7 +43,32 @@ if (!class_exists('YUZ_Front_Buffer')) {
             }
 
             self::$started = true;
-            ob_start([__CLASS__, 'buffer_callback']);
+            if (function_exists('wp_should_output_buffer_template_for_enhancement')) {
+                add_filter('wp_template_enhancement_output_buffer', [__CLASS__, 'buffer_callback'], 20);
+            } else {
+                // Older WordPress versions render through a scoped template wrapper.
+                add_filter('template_include', [__CLASS__, 'wrap_template'], PHP_INT_MAX);
+            }
+        }
+
+        private static string $template = '';
+
+        public static function wrap_template(string $template): string {
+            self::$template = $template;
+            return __DIR__ . '/front-template.php';
+        }
+
+        public static function render_template(): void {
+            if (self::$template === '' || !is_file(self::$template)) return;
+            ob_start();
+            try {
+                load_template(self::$template, false);
+            } finally {
+                $output = ob_get_clean();
+            }
+            // Whole document already rendered by WordPress; escaping would destroy markup.
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo self::buffer_callback($output);
         }
 
         /**
@@ -60,7 +85,7 @@ if (!class_exists('YUZ_Front_Buffer')) {
                 return YUZ_Front_Renderer::translate_page($output);
             } catch (\Throwable $e) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('[YUZ-TRA] front buffer failed: ' . $e->getMessage());
+                    yuz_tra_debug_log('[YUZ-TRA] front buffer failed: ' . $e->getMessage());
                 }
                 return $output;
             }

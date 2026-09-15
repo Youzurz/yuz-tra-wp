@@ -137,7 +137,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
 
         // Gardes minimales
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Translate_Site::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
+            yuz_tra_debug_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Translate_Site::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
             wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-tra'));
         }
 
@@ -299,7 +299,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         }
 
         // Server-side POST fallback (in addition to AJAX) for persistence when JS is disabled
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'yuz_con_nonce')) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'yuz_con_nonce')) {
             $this->log('info', 'Processing POST submit for Translate Site settings');
 
             $input = isset($_POST['yuz_tra_ts_settings']) && is_array($_POST['yuz_tra_ts_settings'])
@@ -458,7 +458,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
     // URL front courante, sinon Home depuis /wp-admin
     $scheme      = is_ssl() ? 'https' : 'http';
     $host        = $_SERVER['HTTP_HOST'] ?? wp_parse_url( home_url(), PHP_URL_HOST );
-    $uri         = $_SERVER['REQUEST_URI'] ?? '/';
+    $uri         = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
     $current_url = $scheme . '://' . $host . $uri;
 
     $target = is_admin() ? home_url( '/' ) : $current_url;

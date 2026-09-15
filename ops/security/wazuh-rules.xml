@@ -1,0 +1,17 @@
+<group name="yuz_release,">
+  <rule id="110860" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^yuz-release$</field>
+    <description>YUZ release integrity observation: $(plugin), $(version), $(result)</description>
+  </rule>
+  <rule id="110861" level="12">
+    <if_sid>110860</if_sid>
+    <field name="result">^mismatch$</field>
+    <description>YUZ artifact integrity mismatch: $(plugin), $(version), commit $(commit)</description>
+  </rule>
+  <rule id="110862" level="10">
+    <if_sid>110860</if_sid>
+    <field name="result">^unverified$</field>
+    <description>YUZ release without sufficient CI evidence: $(plugin), $(version)</description>
+  </rule>
+</group>

@@ -13,7 +13,7 @@ to minified files. Package sources/build instructions and original license notic
 - Vue Router 3.5.3 (MIT): https://github.com/vuejs/vue-router/tree/v3.5.3
 - Axios 1.11.0 (MIT): https://github.com/axios/axios/tree/v1.11.0
 - he 1.2.0 (MIT): https://github.com/mathiasbynens/he/tree/v1.2.0
-- Select2 4.0.13 (MIT): https://github.com/select2/select2/tree/4.0.13
+- Select2 4.1.0 (MIT): https://github.com/select2/select2/tree/4.1.0
 - SVG flags identified as flag-icons (MIT, Panayiotis Lipiridis): https://github.com/lipis/flag-icons
 
 Notices are in assets/vendor/licenses. Vue 2 is a legacy dependency; bundling it

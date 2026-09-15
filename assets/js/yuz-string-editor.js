@@ -96,7 +96,7 @@
       p.set('action', action);
       p.set('nonce', nonceFor(action));
       Object.keys(payload || {}).forEach(function (k) { p.set(k, payload[k]); });
-      xhr.open('POST', CFG.ajax_url || '/wp-admin/admin-ajax.php');
+      xhr.open('POST', CFG.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })());
       xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
       xhr.onload = function () {
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -180,4 +180,3 @@
     }
   }
 })();
-
