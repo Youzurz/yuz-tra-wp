@@ -1,69 +1,204 @@
 name: Verify and package
 on:
+  schedule:
+    - cron: '17 6 * * 1'
   push:
-    branches: [main]
+    branches: [main, 'devsecops/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the exact verified artifact after approval
+        type: boolean
+        default: false
+      expected_sha256:
+        description: SHA-256 explicitly approved for publication
+        type: string
+        required: false
+  workflow_call:
 permissions:
   contents: read
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+defaults:
+  run:
+    shell: bash
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         php: ['8.1', '8.3']
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '20'
-      - name: Build installable archive and lint
-        run: bash tools/build-release.sh
-      - name: Regression tests
+          node-version: '22'
+      - name: Build and preserve reviewed release bytes
         run: |
-          mkdir -p release
-          ln -s .. release/yuz-tra
-          node --test tests/editor-late-response.cjs
-          node --test tests/release-integrity.cjs
+          bash tools/build-release.sh
+          node tools/select-reviewed-artifact.cjs
+      - name: Security and negative regression gates
+        run: |
+          node --test tests/*.cjs
+          php tests/plugin-report-gate.php
+      - name: Browser acceptance
+        run: |
           npm ci --prefix tests/browser
           cd tests/browser
           npx playwright install --with-deps chromium
           export CHROMIUM_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")
-          node workspace.cjs
-          node workspace-delayed.cjs
-          node overlay.cjs
-          node transport.cjs
-      - uses: actions/upload-artifact@v4
+          for spec in workspace workspace-delayed overlay transport; do node "$spec.cjs"; done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: yuz-tra-php-${{ matrix.php }}
+          if-no-files-found: error
+          retention-days: 90
           path: |
-            dist/yuz-tra-*.zip
-            dist/yuz-tra-*.sha256
-            dist/yuz-tra-*.manifest.json
-  publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+            dist/*.zip
+            dist/*.sha256
+            dist/*.manifest.json
+            dist/release-trace.json
+  wordpress:
     needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.3']
+        wordpress: ['6.5', '7.1']
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: wpcheck
+          MARIADB_USER: wpcheck
+          MARIADB_PASSWORD: ci-disposable-only
+          MARIADB_ROOT_PASSWORD: ci-root-disposable-only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45
+        with:
+          php-version: ${{ matrix.php }}
+          tools: wp-cli:2.12.0
+          extensions: mysqli, mbstring, dom, intl
+          coverage: none
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: yuz-tra-php-${{ matrix.php }}
+          path: dist
+      - name: Real WordPress runtime, HTTP and Plugin Check
+        env:
+          WORDPRESS_VERSION: ${{ matrix.wordpress }}
+          WPORG_DB_HOST: 127.0.0.1:3306
+          WPORG_DB_NAME: wpcheck
+          WPORG_DB_USER: wpcheck
+          WPORG_DB_PASSWORD: ci-disposable-only
+        run: bash tools/ci-wordpress.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: wp-evidence-${{ matrix.php }}-${{ matrix.wordpress }}
+          path: dist/wordpress/
+          if-no-files-found: error
+          retention-days: 90
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Audit test dependencies and inventory bundled libraries
+        run: |
+          npm ci --prefix tests/browser
+          npm audit --prefix tests/browser --audit-level=high
+          node tools/generate-sbom.cjs
+      - name: Scan history for secrets (free CLI, no organisation licence)
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            zricethezav/gitleaks@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055 \
+            git /repo --redact --no-banner --gitleaks-ignore-path /repo/.gitleaksignore --report-format json --report-path /repo/dist/gitleaks.json
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        if: always()
+        with:
+          scan-type: sbom
+          scan-ref: dist/bundled.cdx.json
+          format: json
+          output: dist/dependency-findings.json
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: false
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: security-evidence
+          path: dist/*.json
+          retention-days: 90
+  release-gate:
+    name: Release gate
+    if: always()
+    needs: [verify, wordpress, security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required controls must succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: node -e 'const n=JSON.parse(process.env.RESULTS);if(Object.values(n).some(j=>j.result!=="success"))process.exit(1)'
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish
+    needs: [release-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
     permissions:
       contents: write
+      actions: read
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: yuz-tra-php-8.3
           path: dist
-      - name: Publish immutable release
+      - name: Verify explicit release authorization
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(sed -n 's/^ \* Version: //p' yuz-tra.php)
-          if gh release view "v$version" >/dev/null 2>&1; then
-            echo 'Release already exists; its files are never overwritten.'
-            exit 0
-          fi
-          node -e 'const fs=require("fs"),m=JSON.parse(fs.readFileSync(process.argv[1]));if(m.source_commit!==process.env.GITHUB_SHA||m.build_mode!=="github-actions")process.exit(1)' "dist/yuz-tra-$version.manifest.json"
-          gh release create "v$version" dist/*.zip dist/*.sha256 dist/*.manifest.json --target "$GITHUB_SHA" --title "YUZ-TRA $version" --notes-file RELEASE-NOTES.md
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+        run: node tools/publish-release.cjs --check
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: security-evidence
+          path: dist
+      - uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: dist/*.zip
+      - name: Publish without overwriting existing history
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+        run: node tools/publish-release.cjs

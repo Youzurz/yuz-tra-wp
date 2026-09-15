@@ -1,0 +1,17 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {observe}=require('../tools/release-observation.cjs');
+const {protectedRelease}=require('../tools/publish-release.cjs');
+const bytes=Buffer.from('unit-test fixture, not deployment');
+const trace={version:'1.5.6',source_commit:'a'.repeat(40),artifact_sha256:crypto.createHash('sha256').update(bytes).digest('hex'),verified_ci:true,run_id:'123'};
+test('observation measures artifact hash',()=>assert.equal(observe(trace,bytes).result,'verified'));
+test('changed artifact cannot be verified',()=>assert.equal(observe(trace,Buffer.from('changed')).result,'mismatch'));
+test('local observation does not invent CI proof',()=>assert.equal(observe({...trace,verified_ci:false},bytes).result,'unverified'));
+test('malformed trace is rejected',()=>assert.throws(()=>observe({...trace,source_commit:'main'},bytes)));
+const env={deployment_branch_policy:{protected_branches:true},protection_rules:[{type:'required_reviewers',reviewers:[{id:1}]}]};
+const rules=['pull_request','deletion','non_fast_forward'].map(type=>({type})).concat([{type:'required_status_checks',parameters:{strict_required_status_checks_policy:true,required_status_checks:[{context:'Release gate',integration_id:15368}]}}]);
+test('protected environment and required checks are accepted',()=>protectedRelease(env,rules));
+test('auto-created empty environment is refused',()=>assert.throws(()=>protectedRelease({},rules)));
+test('environment without reviewer is refused',()=>assert.throws(()=>protectedRelease({...env,protection_rules:[]},rules)));
+test('missing strict release check is refused',()=>assert.throws(()=>protectedRelease(env,rules.slice(0,3))));
+test('a check from another app cannot impersonate the gate',()=>{const forged=JSON.parse(JSON.stringify(rules));forged[3].parameters.required_status_checks[0].integration_id=1;assert.throws(()=>protectedRelease(env,forged));});

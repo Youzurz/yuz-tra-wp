@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "policy": "A plugin is integrated only after a real passing remote run and protected publication are evidenced.",
+  "extensions": [
+    {
+      "slug": "yuz-tra",
+      "public_repository": "https://github.com/Youzurz/yuz-tra-wp",
+      "internal_repository": "ssh://git@ssh.git.youzurz.com:2222/YUZ/yuz-tra-wp.git",
+      "mirror_direction": "github-to-gitlab-fast-forward-only",
+      "required_check": "Release gate",
+      "status": "hardening-prepared-not-activated"
+    }
+  ],
+  "onboarding_requirements": [
+    "Observed repository and owner, no inferred URL",
+    "Version/header/readme agreement and GPL-compatible dependency inventory",
+    "Lint, security regressions, actual WordPress runtime and Plugin Check",
+    "Secret and bundled dependency scans",
+    "Exact artifact checksum, commit and CI run provenance",
+    "Protected PR/main/tags and explicit release approval",
+    "Validated mirror, rollback rehearsal and alert receipt"
+  ]
+}

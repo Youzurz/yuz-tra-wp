@@ -1,0 +1,2 @@
+# False positive: Axios variable assignment allOwnKeys = _ref3.allOwnKeys, no credential.
+85bf1b3f99e9897d73e6b0dd218bd90a0b456244:assets/vendor/axios.js:generic-api-key:1058

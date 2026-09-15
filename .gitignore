@@ -1,4 +1,10 @@
 dist/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+crash.log
 node_modules/
 release/
 *.log

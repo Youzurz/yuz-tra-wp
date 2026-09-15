@@ -1,0 +1,7 @@
+<!-- Merge through the central configuration owner; do not overwrite agent.conf. -->
+<agent_config>
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/log/yuz-release/events.jsonl</location>
+  </localfile>
+</agent_config>

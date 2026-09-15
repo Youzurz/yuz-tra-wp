@@ -1,0 +1,29 @@
+# Secondary internal verification. GitHub Release gate remains the publisher authority.
+stages: [verify]
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+default:
+  interruptible: true
+  timeout: 20m
+node-regressions:
+  stage: verify
+  image: node:22-bookworm
+  script:
+    - node --test tests/*.cjs
+    - node tools/generate-sbom.cjs
+    - npm ci --prefix tests/browser
+    - npm audit --prefix tests/browser --audit-level=high
+  artifacts:
+    when: always
+    expire_in: 90 days
+    paths:
+      - dist/bundled.cdx.json
+php-syntax:
+  stage: verify
+  image: php:8.3-cli
+  script:
+    - php tests/plugin-report-gate.php
+    - find . -name '*.php' -not -path './node_modules/*' -not -path './tests/browser/node_modules/*' -print0 | xargs -0 -n1 php -l
