@@ -6,6 +6,7 @@ workflow:
     - if: '$CI_COMMIT_BRANCH'
     - if: '$CI_COMMIT_TAG'
 default:
+  tags: [yuz-tra-ci]
   interruptible: true
   timeout: 20m
 node-regressions:
