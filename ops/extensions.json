@@ -8,7 +8,23 @@
       "internal_repository": "ssh://git@ssh.git.youzurz.com:2222/YUZ/yuz-tra-wp.git",
       "mirror_direction": "github-to-gitlab-fast-forward-only",
       "required_check": "Release gate",
-      "status": "hardening-prepared-not-activated"
+      "status": "ci-active-release-blocked",
+      "evidence": {
+        "commit": "573afe0f23cf841b5c62c66363ad50213493d677",
+        "github_run": "https://github.com/Youzurz/yuz-tra-wp/actions/runs/34989682675",
+        "pull_request": "https://github.com/Youzurz/yuz-tra-wp/pull/2",
+        "functional_jobs_passed": 6,
+        "security": "failure",
+        "release_gate": "failure",
+        "publication": "skipped"
+      },
+      "remaining_gates": [
+        "historical-secret-remediation",
+        "bundled-dependency-remediation",
+        "wordpress-org-admission-and-svn-access",
+        "terraform-protected-state-and-import",
+        "wazuh-end-to-end-alert-receipt"
+      ]
     }
   ],
   "onboarding_requirements": [
