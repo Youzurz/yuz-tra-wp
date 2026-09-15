@@ -19,3 +19,10 @@ events during a deployment. No automatic delete, quarantine, restart, rollback o
 Terraform apply is configured. A human investigates using commit, run and hash.
 XML/source tests are NOT proof that the manager received an alert. Connection is
 not considered operational until the end-to-end test is evidenced.
+
+`bash tools/test-wazuh-rules.sh` tests the three expected rule IDs/levels in a
+network-disabled, resource-limited disposable Wazuh 4.14.4 container pinned by digest.
+It uses the legacy standalone parser, not the active manager or alert pipeline.
+The image emits unrelated missing-list warnings in this minimal fixture; these
+remain in the raw log. The `-U` assertion must succeed for each expected rule.
+`test-ossec.conf` is exclusively this test fixture, never a replacement manager config.
