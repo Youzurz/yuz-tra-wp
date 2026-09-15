@@ -1,4 +1,20 @@
-# Repository protections — prepared, not applied
+# Repository protections — imported into GitLab state
+
+On 2026-09-15 the existing main ruleset `23463834`, tag ruleset `23463836`
+and `release` environment were imported, not recreated. Remote state is
+`yuz-tra-github` in private GitLab project 20, separate from TFM project 24.
+The post-import plan returned `No changes` (exit 0). A real concurrent-lock
+test refused the second lock and released the test lock successfully.
+
+`ops/terraform-github.sh` obtains credentials privately and refuses apply/destroy.
+Use `YUZ_TERRAFORM_BIN` to select the installed Terraform executable.
+The project-scoped bootstrap credential expires on 2026-09-22; replace it with
+an approved maintained identity before that date. It is not a permanent CI secret.
+Neither that credential nor GitHub authentication is stored in this directory.
+
+Recheck with `bash ops/terraform-github.sh plan -input=false -detailed-exitcode`
+and `python3 ops/test-terraform-lock.py` from the repository root. Do not run
+the lock test alongside a real import/apply. No Terraform apply was necessary.
 
 This module manages only YUZ-TRA repository rules and its release approval environment.
 It does not create/recreate the repository, deploy WordPress, or change DNS/VPN.
