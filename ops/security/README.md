@@ -1,5 +1,30 @@
 # Detection integration — no active response
 
+## Live acceptance on 2026-09-15
+
+After explicit owner approval, `wam_master` was restarted using wazuh-control.
+Rule configuration passed `wazuh-analysisd -t`; dedicated group configuration
+passed `verify-agent-conf`. Agent 011 retains `wordpress-origin-host` and
+`linux-core`, with additive group `yuz-release`. The agent reconnected.
+The cluster copied `yuz-release.xml` to the worker; no worker restart is claimed.
+
+An explicitly labelled negative test measured empty bytes against the reviewed
+ZIP digest. Test ID `80874fd9-d136-4c06-a5fb-57f4a884baf7` was received by
+`wam-master` at `2026-09-15T16:25:58.509+0000`, rule `110861`, level 12,
+agent `011`, location `/var/log/yuz-release/events.jsonl`.
+This proves collector-to-manager alert delivery, not email receipt or a real
+corrupted installation. Existing quarantine rules target only 100510/100511;
+no active response was added. No WordPress deployment was performed.
+
+The log is root-owned, group wazuh, mode 0640, directory 0750; dedicated
+logrotate configuration is installed and passed debug validation.
+`emit-labelled-test.cjs` is a manual acceptance tool, not an automatic job.
+Automatic production release observation is not asserted by this test.
+
+Rollback: remove only group `yuz-release` from agent 011 (preserve its other
+groups), remove only the added `yuz-release.xml`, validate, then restart the
+manager during an approved window. Preserve test logs as evidence.
+
 `tools/release-observation.cjs TRACE ZIP` emits a real SHA-256 comparison as JSON.
 It records an artifact verification, NOT a deployment. It exits nonzero on mismatch
 or missing CI verification. It never sends secrets or modifies the artifact.
