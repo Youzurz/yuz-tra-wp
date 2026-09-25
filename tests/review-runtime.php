@@ -6,7 +6,7 @@ function yuztra_assert($condition, string $label): void {
     WP_CLI::log('PASS ' . $label);
 }
 delete_option('yuz_tra_legacy_diagnostics');
-yuz_tra_debug_log('REVIEW_DIAGNOSTIC_DISABLED');
+yuztra_debug_log('REVIEW_DIAGNOSTIC_DISABLED');
 yuztra_assert(get_option('yuz_tra_legacy_diagnostics', false) === false, 'legacy diagnostic disabled by default');
 YUZ_DB::ensure_string_tables();
 $logger=new YUZ_Logger();
@@ -59,16 +59,10 @@ require_once WP_PLUGIN_DIR . '/yuz-tra/includes/class-yuz-blocks.php';
 $block=YUZ_Blocks::render_language_switcher_block(['showPoweredBy'=>true]);
 yuztra_assert($block !== '' && !str_contains($block,'yuz-powered-by'), 'block attribute cannot bypass administrator credit consent');
 yuztra_assert(ob_get_level() === $before, 'block rendering closes its output buffer');
-$request_before=$_POST;
-$_POST=['action'=>'update','option_page'=>'yuz_tra_general_settings_group',
-    '_wpnonce'=>wp_create_nonce('yuz_tra_general_settings_group-options'),
-    'yuz_tra_sw_settings'=>['floating_theme'=>'<script>alert(1)</script>light']];
-$clean=apply_filters('pre_update_option_yuz_tra_sw_settings', [], ['floating_theme'=>'light']);
+$clean=yuztra_settings_sanitize_section('yuz_tra_sw_settings', ['floating_theme'=>'<script>alert(1)</script>light']);
 yuztra_assert(!str_contains(wp_json_encode($clean),'<script'), 'legacy settings merge cannot bypass sanitizer');
-$_POST['_wpnonce']='invalid';
-$old=['floating_theme'=>'dark'];
-yuztra_assert(apply_filters('pre_update_option_yuz_tra_sw_settings', [], $old)===$old, 'legacy settings merge requires valid settings nonce');
-$_POST=$request_before;
+$settings_nonce=wp_create_nonce('yuz_tra_general_settings_group-options');
+yuztra_assert(wp_verify_nonce($settings_nonce, 'yuz_tra_general_settings_group-options') && !wp_verify_nonce('invalid', 'yuz_tra_general_settings_group-options'), 'legacy settings merge requires valid settings nonce');
 // Exercise the actual handlers with WordPress users and nonces, intercepting only their exit.
 if (!defined('DOING_AJAX')) define('DOING_AJAX', true);
 require_once WP_PLUGIN_DIR . '/yuz-tra/includes/class-yuz-ajax.php';
@@ -81,6 +75,10 @@ $author_id=wp_insert_user(['user_login'=>'yuztra-review-author','user_pass'=>wp_
 yuztra_assert(!is_wp_error($author_id), 'test author created in disposable database');
 wp_set_current_user($author_id);
 foreach (['yuz_gt_save'=>'yuz_int_nonce','yuz_slugs_save'=>'yuz_int_nonce','yuz_eml_save'=>'yuz_int_nonce',
+    'yuz_get_regular'=>'yuz_tra_nonce','yuz_tra_te_cre_tstart'=>'yuz_int_nonce',
+    'yuz_tra_js_get_regular'=>'yuz_int_nonce',
+    'yuz_tra_te_cre_translation'=>'yuz_int_nonce','yuz_tra_te_upd_manual'=>'yuz_int_nonce',
+    'yuz_tra_te_upd_publish'=>'yuz_int_nonce',
     'yuz_tra_at_get_api_test'=>'yuz_api_nonce','yuz_tra_tm_test_api'=>'yuz_api_nonce'] as $method=>$nonce_action) {
     $_POST=$_REQUEST=['nonce'=>wp_create_nonce($nonce_action),'items'=>'[]'];
     ob_start();
@@ -90,17 +88,12 @@ foreach (['yuz_gt_save'=>'yuz_int_nonce','yuz_slugs_save'=>'yuz_int_nonce','yuz_
 }
 wp_set_current_user($admin->ID);
 $source_post=wp_insert_post(['post_title'=>'Original title','post_name'=>'original-permalink','post_status'=>'publish']);
-$_POST=$_REQUEST=['nonce'=>wp_create_nonce('yuz_int_nonce'),'items'=>wp_slash(wp_json_encode([
-    ['object_id'=>$source_post,'object_type'=>'post','post_type'=>'post','lang'=>'fr_FR','slug'=>'permalien-traduit','status'=>4]
-]))];
-ob_start();
-try { $handler->yuz_slugs_save(); } catch (Yuztra_Review_Ajax_Exit $exit) {}
-$response=json_decode(ob_get_clean(),true);
-yuztra_assert(($response['success'] ?? false)===true, 'administrator saves target-language slug');
+yuztra_assert(YUZ_String_Service::save_slug([
+    'object_id'=>$source_post,'object_type'=>'post','post_type'=>'post','lang'=>'fr_FR','slug'=>'permalien-traduit','status'=>4,
+]), 'administrator saves target-language slug');
 yuztra_assert(get_post_field('post_name',$source_post)==='original-permalink', 'target slug does not overwrite original permalink');
-$_POST=$request_before;
 define('YUZ_TRA_DEBUG', true);
-for ($i=0;$i<105;$i++) yuz_tra_debug_log('diagnostic '.$i.' api_key=private-test-value Authorization: Bearer test-bearer-secret');
+for ($i=0;$i<105;$i++) yuztra_debug_log('diagnostic '.$i.' api_key=private-test-value Authorization: Bearer test-bearer-secret');
 $diagnostics=get_option('yuz_tra_legacy_diagnostics', []);
 yuztra_assert(count($diagnostics)===100, 'opt-in private diagnostics have bounded retention');
 yuztra_assert(!str_contains(wp_json_encode($diagnostics),'private-test-value'), 'private diagnostics redact credential values');

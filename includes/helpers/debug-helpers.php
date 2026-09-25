@@ -2,8 +2,10 @@
 defined('ABSPATH') || exit;
 
 /** Private, opt-in sink for legacy diagnostic messages. Never writes into a web directory. */
-function yuz_tra_debug_log($message, $message_type = 0, $destination = null, $additional_headers = null): bool {
-    if (!((defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG) || (defined('YUZ_TRA_TRACE_AUTO') && YUZ_TRA_TRACE_AUTO))) return false;
+function yuztra_debug_log($message, $message_type = 0, $destination = null, $additional_headers = null): bool {
+    // Opt-in strictement propre au plugin : WP_DEBUG est un drapeau global de WordPress
+    // et ne doit pas, a lui seul, faire persister des diagnostics dans la table des options.
+    if (!((defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('YUZ_TRA_TRACE_AUTO') && YUZ_TRA_TRACE_AUTO))) return false;
     static $busy = false;
     if ($busy || !function_exists('update_option')) return false;
     $busy = true;
@@ -18,4 +20,15 @@ function yuz_tra_debug_log($message, $message_type = 0, $destination = null, $ad
         update_option('yuz_tra_legacy_diagnostics', $records, false);
         return get_option('yuz_tra_legacy_diagnostics', []) === $records;
     } finally { $busy = false; }
+}
+
+/**
+ * Narrow compatibility shim for the historical internal logger name.
+ * Kept only because the AJAX module is an independently gated legacy surface.
+ */
+if (!function_exists('yuz_tra_debug_log')) {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- public legacy compatibility shim
+    function yuz_tra_debug_log($message, $message_type = 0, $destination = null, $additional_headers = null): bool {
+        return yuztra_debug_log($message, $message_type, $destination, $additional_headers);
+    }
 }

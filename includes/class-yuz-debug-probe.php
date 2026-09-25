@@ -83,6 +83,17 @@ if (!class_exists('YUZ_Debug_Probe')) {
             if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
                 return;
             }
+            // Rien n'est persiste pour une requete sans nonce valide : pas d'ecriture declenchable en CSRF.
+            $verified = false;
+            foreach (['nonce', '_ajax_nonce', 'security', 'yuz_tra_nonce'] as $nonce_field) {
+                if (check_ajax_referer('yuz_tra_nonce', $nonce_field, false)) {
+                    $verified = true;
+                    break;
+                }
+            }
+            if (!$verified) {
+                return;
+            }
             $payload = [
                 // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Probe records keys only before the real handler validates its nonce.
                 'post_keys' => array_map('sanitize_key', array_keys($_POST)),
@@ -166,7 +177,7 @@ if (!class_exists('YUZ_Debug_Probe')) {
                 \YUZ_Languages::TRANSIENT_SOURCE_LANGUAGE,
             ];
             foreach ($suffixes as $suffix) {
-                $keys[] = yuz_settings_transient_key($suffix);
+                $keys[] = yuztra_settings_transient_key($suffix);
             }
             return $keys;
         }
@@ -177,6 +188,7 @@ if (!class_exists('YUZ_Debug_Probe')) {
 
 // Backwards compatibility helpers (legacy global functions).
 if (!function_exists('yuz_debug_probe_log')) {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- public legacy compatibility shim
     function yuz_debug_probe_log(string $event, array $context = []): void {
         YUZ_Debug_Probe::log($event, $context);
     }

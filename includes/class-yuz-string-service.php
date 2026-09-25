@@ -35,7 +35,8 @@ class YUZ_String_Service {
         ];
 
         $existing = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$table} WHERE domain=%s AND context=%s AND original_md5=%s AND lang=%s",
+            'SELECT id FROM %i WHERE domain=%s AND context=%s AND original_md5=%s AND lang=%s',
+            $table,
             $record['domain'],
             $record['context'],
             $record['original_md5'],

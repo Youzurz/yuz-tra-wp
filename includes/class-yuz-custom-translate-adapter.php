@@ -71,12 +71,13 @@ require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 use YUZTRA\Interfaces\TranslateAdapterInterface;
 
 if (!function_exists('yuz_tra_adapter_log')) {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- public legacy compatibility shim
     function yuz_tra_adapter_log(...$args) {
         $enabled = (defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
         if (!$enabled) {
             return;
         }
-        yuz_tra_debug_log(...$args);
+        yuztra_debug_log(...$args);
     }
 }
 

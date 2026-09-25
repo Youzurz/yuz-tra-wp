@@ -2,7 +2,9 @@
 /** Local release metadata; no remote requests or automatic updater. */
 defined('ABSPATH') || exit;
 
-final class YUZ_Release {
+final
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
+class YUZ_Release {
     public static function render(): void {
         $file = defined('YUZ_TRA_PLUGIN_FILE') ? YUZ_TRA_PLUGIN_FILE : dirname(__DIR__) . '/yuz-tra.php';
         $header = get_file_data($file, ['version' => 'Version', 'description' => 'Description'], 'plugin');

@@ -4,20 +4,20 @@ defined('ABSPATH') || exit;
 /* =========================
  *  (1) NORMALISATION INTERNE
  * ========================= */
-if (!function_exists('yuz_norm_locale')) {
-    function yuz_norm_locale(string $code): string {
+if (!function_exists('yuztra_norm_locale')) {
+    function yuztra_norm_locale(string $code): string {
         $s = strtolower(trim($code));
         return strtr($s, ['_' => '-', ' ' => '']);
     }
 }
 
-if (!function_exists('yuz_normalize_language_code')) {
+if (!function_exists('yuztra_normalize_language_code')) {
     /**
      * Normalize arbitrary inputs into the canonical xx_XX format.
      * - Accepts xx, xx-yy, xx_yy, and trims/cleans unknown separators.
      * - Returns an empty string for invalid/auto values.
      */
-    function yuz_normalize_language_code($code): string {
+    function yuztra_normalize_language_code($code): string {
         $raw = is_string($code) ? trim($code) : '';
         if ($raw === '' || strtolower($raw) === 'auto') {
             return '';
@@ -45,9 +45,9 @@ if (!function_exists('yuz_normalize_language_code')) {
     }
 }
 
-if (!function_exists('yuz_root')) {
-    function yuz_root(string $code): string {
-        $s = yuz_norm_locale($code);
+if (!function_exists('yuztra_root')) {
+    function yuztra_root(string $code): string {
+        $s = yuztra_norm_locale($code);
         if ($s === '' || $s === 'auto') {
             return $s;
         }
@@ -64,12 +64,12 @@ if (!function_exists('yuz_root')) {
     }
 }
 
-if (!function_exists('yuz_canon_lang')) {
+if (!function_exists('yuztra_canon_lang')) {
     /**
      * Canonical provider code mapper: xx_XX / xx / auto → xx
      * Centralises aliases so every layer shares the same mapping.
      */
-    function yuz_canon_lang($code): string {
+    function yuztra_canon_lang($code): string {
         if ($code === null) {
             return 'auto';
         }
@@ -113,13 +113,13 @@ if (!function_exists('yuz_canon_lang')) {
     }
 }
 
-if (!function_exists('yuz_allowed_locales')) {
-    function yuz_allowed_locales(): array {
+if (!function_exists('yuztra_allowed_locales')) {
+    function yuztra_allowed_locales(): array {
         $cfg = get_option('yuz_tra_general', []);
         $list = (array) ($cfg['yuz_tra_translatable_languages'] ?? []);
         $out  = [];
         foreach ($list as $item) {
-            $n = yuz_norm_locale($item);
+            $n = yuztra_norm_locale($item);
             if ($n !== '') {
                 $out[] = $n;
             }
@@ -131,15 +131,15 @@ if (!function_exists('yuz_allowed_locales')) {
 /* ====================================
  *  (2) MAPPING WORDPRESS -> LibreTranslate
  * ==================================== */
-if (!function_exists('yuz_map_to_lt')) {
-    function yuz_map_to_lt(string $code, string $fallback = 'auto'): string {
-        $canon = yuz_canon_lang($code);
+if (!function_exists('yuztra_map_to_lt')) {
+    function yuztra_map_to_lt(string $code, string $fallback = 'auto'): string {
+        $canon = yuztra_canon_lang($code);
         if ($canon === 'auto') {
             if ($fallback === 'auto') {
                 return 'auto';
             }
 
-            return yuz_canon_lang($fallback);
+            return yuztra_canon_lang($fallback);
         }
 
         return $canon;
@@ -149,8 +149,8 @@ if (!function_exists('yuz_map_to_lt')) {
 /* ====================================
  *  (3) MAPPING LibreTranslate -> WordPress
  * ==================================== */
-if (!function_exists('yuz_default_locales')) {
-    function yuz_default_locales(): array {
+if (!function_exists('yuztra_default_locales')) {
+    function yuztra_default_locales(): array {
         return [
             'ar' => 'ar_SA', 'az' => 'az_AZ', 'eu' => 'eu_ES', 'bn' => 'bn_BD', 'bg' => 'bg_BG',
             'ca' => 'ca_ES', 'zh' => 'zh_CN', 'zh_tw' => 'zh_TW', 'cs' => 'cs_CZ', 'da' => 'da_DK',
@@ -165,8 +165,8 @@ if (!function_exists('yuz_default_locales')) {
     }
 }
 
-if (!function_exists('yuz_map_from_lt')) {
-    function yuz_map_from_lt(string $lt, array $allowed = []): string {
+if (!function_exists('yuztra_map_from_lt')) {
+    function yuztra_map_from_lt(string $lt, array $allowed = []): string {
         $l = strtolower(trim($lt));
         if ($l === '' || $l === 'auto') {
             return '';
@@ -185,14 +185,14 @@ if (!function_exists('yuz_map_from_lt')) {
         if ($allowed) {
             $matchRoot = ($root === 'pt_br' || $root === 'zh_tw') ? substr($root, 0, 2) : $root;
             foreach ($allowed as $loc) {
-                if (yuz_root($loc) === $matchRoot) {
-                    $parts = explode('-', yuz_norm_locale($loc));
+                if (yuztra_root($loc) === $matchRoot) {
+                    $parts = explode('-', yuztra_norm_locale($loc));
                     return strtolower($parts[0]) . '_' . strtoupper($parts[1] ?? $parts[0]);
                 }
             }
         }
 
-        $defaults = yuz_default_locales();
+        $defaults = yuztra_default_locales();
         if (isset($defaults[$l])) {
             return $defaults[$l];
         }
@@ -208,36 +208,36 @@ if (!function_exists('yuz_map_from_lt')) {
 /* ====================================
  *  (Bonus) Résolution côté WP (utilise allowed)
  * ==================================== */
-if (!function_exists('yuz_resolve_target_locale')) {
-    function yuz_resolve_target_locale(string $target): string {
-        $t = yuz_norm_locale($target);
+if (!function_exists('yuztra_resolve_target_locale')) {
+    function yuztra_resolve_target_locale(string $target): string {
+        $t = yuztra_norm_locale($target);
         if ($t === '' || $t === 'auto') {
             return '';
         }
 
-        $allowed = yuz_allowed_locales();
+        $allowed = yuztra_allowed_locales();
 
         if ($allowed && in_array($t, $allowed, true)) {
             return $t;
         }
 
         if ($allowed) {
-            $r = yuz_root($t);
+            $r = yuztra_root($t);
             foreach ($allowed as $loc) {
-                if (yuz_root($loc) === $r) {
+                if (yuztra_root($loc) === $r) {
                     return $loc;
                 }
             }
         }
 
-        $lt = yuz_map_to_lt($t);
-        $wp = yuz_map_from_lt($lt, $allowed);
-        return $wp ? yuz_norm_locale($wp) : '';
+        $lt = yuztra_map_to_lt($t);
+        $wp = yuztra_map_from_lt($lt, $allowed);
+        return $wp ? yuztra_norm_locale($wp) : '';
     }
 }
 
-if (!function_exists('yuz_strip_css_js_noise')) {
-    function yuz_strip_css_js_noise(string $text): string {
+if (!function_exists('yuztra_strip_css_js_noise')) {
+    function yuztra_strip_css_js_noise(string $text): string {
         if ($text === '') {
             return '';
         }
@@ -308,8 +308,8 @@ if (!function_exists('yuz_strip_css_js_noise')) {
     }
 }
 
-if (!function_exists('yuz_human_label_from_locale')) {
-    function yuz_human_label_from_locale(string $locale): string {
+if (!function_exists('yuztra_human_label_from_locale')) {
+    function yuztra_human_label_from_locale(string $locale): string {
         $norm = str_replace('-', '_', trim($locale));
         if ($norm === '') {
             return '';
@@ -355,11 +355,29 @@ if (!function_exists('yuz_human_label_from_locale')) {
     }
 }
 
-if (!function_exists('yuz_generate_block_id')) {
-    function yuz_generate_block_id(int $post_id, string $context, string $original): string {
+if (!function_exists('yuztra_generate_block_id')) {
+    function yuztra_generate_block_id(int $post_id, string $context, string $original): string {
         $context_norm = strtolower(trim($context));
         $text = preg_replace('/\s+/u', ' ', trim($original));
         $seed = $post_id . '|' . $context_norm . '|' . $text;
         return 'auto:' . substr(sha1($seed), 0, 40);
     }
 }
+
+/*
+ * Backward-compatible API aliases. New code must call the yuztra_* helpers.
+ * These wrappers deliberately preserve existing integrations without changing
+ * persisted yuz_tra_* option or table names.
+ */
+if (!function_exists('yuz_norm_locale')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_norm_locale(string $code): string { return yuztra_norm_locale($code); } }
+if (!function_exists('yuz_normalize_language_code')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_normalize_language_code($code): string { return yuztra_normalize_language_code($code); } }
+if (!function_exists('yuz_root')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_root(string $code): string { return yuztra_root($code); } }
+if (!function_exists('yuz_canon_lang')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_canon_lang($code): string { return yuztra_canon_lang($code); } }
+if (!function_exists('yuz_allowed_locales')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_allowed_locales(): array { return yuztra_allowed_locales(); } }
+if (!function_exists('yuz_map_to_lt')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_map_to_lt(string $code, string $fallback = 'auto'): string { return yuztra_map_to_lt($code, $fallback); } }
+if (!function_exists('yuz_default_locales')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_default_locales(): array { return yuztra_default_locales(); } }
+if (!function_exists('yuz_map_from_lt')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_map_from_lt(string $lt, array $allowed = []): string { return yuztra_map_from_lt($lt, $allowed); } }
+if (!function_exists('yuz_resolve_target_locale')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_resolve_target_locale(string $target): string { return yuztra_resolve_target_locale($target); } }
+if (!function_exists('yuz_strip_css_js_noise')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_strip_css_js_noise(string $text): string { return yuztra_strip_css_js_noise($text); } }
+if (!function_exists('yuz_human_label_from_locale')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_human_label_from_locale(string $locale): string { return yuztra_human_label_from_locale($locale); } }
+if (!function_exists('yuz_generate_block_id')) { /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- legacy public compatibility shim */ function yuz_generate_block_id(int $post_id, string $context, string $original): string { return yuztra_generate_block_id($post_id, $context, $original); } }

@@ -76,6 +76,7 @@ require_once YUZ_TRA_INCLUDES . 'class-yuz-db.php';
 
 use YUZTRA\Interfaces\DBInterface;
 
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
 class YUZ_Data_Repository {
     public static function store_translation($translation_data) {
         if (function_exists('yuz_debug_probe_log')) {
@@ -224,6 +225,7 @@ class YUZ_Data_Repository {
             ]);
         }
         if ($result) {
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility action
             do_action('yuz_translation_stored', $translation_data);
         }
         return $result;

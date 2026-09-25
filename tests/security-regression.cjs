@@ -30,7 +30,7 @@ test('automatic-translation credentials are never serialized to diagnostic logs'
   for (const pattern of forbidden) {
     assert.doesNotMatch(optionsBridge, pattern, `sensitive diagnostic pattern remains: ${pattern}`);
   }
-  assert.match(optionsBridge, /function yuz_tra_diag_shape\(/);
+  assert.match(optionsBridge, /function yuztra_diag_shape\(/);
 });
 
 test('CSV import validates the real upload and uses local safe redirects', () => {
@@ -74,7 +74,7 @@ test('settings and debug probes never log complete request payloads', () => {
 });
 
 test('anonymous AJAX exposure is an explicit read-only allowlist', () => {
-  assert.match(ajax, /private const PUBLIC_AJAX_ACTIONS = \[[\s\S]*?'yuz_get_regular'[\s\S]*?'yuz_tra_js_get_regular'[\s\S]*?\];/);
+  assert.match(ajax, /private const PUBLIC_AJAX_ACTIONS = \[\s*'yuz_tra_public_lookup',\s*\];/);
   assert.match(ajax, /if \(in_array\(\$action, self::PUBLIC_AJAX_ACTIONS, true\)\) \{[\s\S]*?wp_ajax_nopriv_/);
   assert.doesNotMatch(frontend, /wp_ajax_nopriv_yuz_probe/);
   assert.match(frontend, /function ajax_probe\(\): void \{[\s\S]*?check_ajax_referer\('yuz_log_nonce', 'nonce'\)/);
@@ -94,4 +94,42 @@ test('legacy AJAX and frontend diagnostics cannot recreate public log files', ()
     assert.doesNotMatch(source, /\berror_log\s*\(/);
   }
   assert.match(ajax, /diagnostics_disabled_or_write_failed/);
+});
+
+test('WordPress proofs bind an optional triage manifest to recorded evidence', () => {
+  const proof=fs.readFileSync(path.join(root,'tools/proof-wordpress.sh'),'utf8');
+  const ci=fs.readFileSync(path.join(root,'tools/ci-wordpress.sh'),'utf8');
+  for(const script of [proof,ci]){
+    assert.match(script,/YUZ_PLUGIN_CHECK_TRIAGE/);
+    assert.match(script,/realpath/);
+    assert.match(script,/plugin-check-triage\.sha256/);
+    assert.match(script,/check-plugin-report\.php.*gate_args/);
+  }
+});
+
+test('sensitive translation routes enforce least privilege before effects', () => {
+  assert.match(ajax,/function yuz_tra_at_get_api_settings\(\)[\s\S]*?current_user_can\('manage_options'\)[\s\S]*?api_key_configured/);
+  assert.match(ajax,/function yuz_publish_translations\(\)[\s\S]*?current_user_can\('yuz_publish_translations'\)/);
+  assert.match(ajax,/function yuz_tra_tm_cre_page\(\)[\s\S]*?current_user_can\('yuz_translate_content'\)/);
+  assert.match(ajax,/function yuz_save_translation\(\) \{\s*check_ajax_referer[\s\S]*?current_user_can[\s\S]*?set_transient/);
+  // Une seule action de nonce est acceptee : plus de condition alternative contournable.
+  assert.match(ajax,/function yuz_tra_diag_chain\(\)[\s\S]*?check_ajax_referer\('yuz_tra_nonce', \$nonce_field, false\)[\s\S]*?if \(!\$verified\)/);
+  assert.doesNotMatch(ajax,/\$verify_ws_get/);
+});
+
+test('maintenance resolves only the canonical table, never backup wildcards', () => {
+  assert.match(ajax,/function resolve_translations_table[\s\S]*?SHOW TABLES LIKE %s[\s\S]*?hash_equals\(\$canonical, \$found\)/);
+  assert.doesNotMatch(ajax,/SHOW TABLES LIKE ['"]?\{?\$like\}?%/);
+});
+
+test('server-rendered forms unslash and sanitize nonces before verification', () => {
+  for (const file of [
+    'includes/class-yuz-translate-site.php',
+    'includes/class-yuz-automatic-translation.php',
+    'includes/class-yuz-advanced.php',
+  ]) {
+    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    assert.doesNotMatch(source, /wp_verify_nonce\s*\(\s*\$_POST\s*\[/, file);
+    assert.match(source, /wp_verify_nonce\s*\(\s*sanitize_text_field\s*\(\s*wp_unslash\s*\(/, file);
+  }
 });

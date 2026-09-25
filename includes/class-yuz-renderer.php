@@ -242,7 +242,7 @@ public function render_licenses_tab(array $settings = []): void {
         // Health check for table existence
         if (class_exists('YUZ_Health_Check')) {
             YUZ_Health_Check::ensure(
-                $wpdb->get_var("SHOW TABLES LIKE '$table_name'") !== null,
+                $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))) !== null,
                 'Languages table missing',
                 __METHOD__
             );
@@ -1140,8 +1140,11 @@ YUZTRA_JS
             <td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ['provider_timeout'=>45,'num_ctx'=>2048,'num_predict'=>512,'num_thread'=>2,'daily_token_limit'=>100000][$key] ?? ''); ?>"></td>
         </tr>
         <?php endforeach; ?>
-        <?php foreach (['openai_url'=>'URL OpenAI (endpoint compatible)','openai_model'=>'Modèle OpenAI exact'] as $key=>$label): ?>
-        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ($key==='openai_url' ? 'https://api.openai.com/v1/chat/completions' : '')); ?>"></td></tr>
+        <?php // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- This admin-only field renders configuration for the explicitly selected OpenAI-compatible provider; rendering performs no network request.
+        foreach (['openai_url'=>'URL OpenAI (endpoint compatible)','openai_model'=>'Modèle OpenAI exact'] as $key=>$label): ?>
+        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php
+            // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-only provider configuration display; no provider call occurs here.
+            echo esc_attr($options_settings[$key] ?? ($key==='openai_url' ? 'https://api.openai.com/v1/chat/completions' : '')); ?>"></td></tr>
         <?php endforeach; ?>
         <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_openai_key">Clé API OpenAI</label></th><td><input type="password" id="yuz_tra_openai_key" name="yuz_tra_at_settings[openai_key]" value="" autocomplete="new-password" placeholder="Conservée si laissée vide"></td></tr>
         <tr class="yuz-cost-accounting"><th colspan="2"><h3>Comptabilité de rentabilité (USD, estimation administrateur)</h3><p class="description">Ces champs ne lisent pas la facturation OpenAI. Saisissez les tarifs réellement applicables ; aucun appel ne sera lancé par cette saisie.</p></th></tr>
@@ -1638,7 +1641,9 @@ public function render_product_catalog_card(): void {
  *  - 'yuz/licenses/card_args' → ex: ['plans' => ['title' => 'Pro Plans']]
  */
 public function render_licenses_content(array $context = []): void {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $sections   = apply_filters('yuz/licenses/sections', ['account','ai','plans'], $context);
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $cards_args = (array) apply_filters('yuz/licenses/card_args', [], $context);
 
     if (isset($this->logger)) {
@@ -1704,7 +1709,9 @@ public function render_upgrade_link(array $args = []): void {
  *  - 'yuz/support/toolbar_args'     → ex: ['upgrade' => ['label' => 'Go Pro']]
  */
 public function render_support_toolbar(array $context = []): void {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $sections = apply_filters('yuz/support/toolbar_sections', ['support','docs','upgrade'], $context);
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $args     = (array) apply_filters('yuz/support/toolbar_args', [], $context);
 
     if (isset($this->logger)) {

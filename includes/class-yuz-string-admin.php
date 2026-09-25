@@ -9,7 +9,8 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 if (!class_exists('YUZ_String_Admin')) {
-    class YUZ_String_Admin {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
+class YUZ_String_Admin {
         public static function init(): void {
             add_action('yuz-tra_page_yuz-translation-strings', [__CLASS__, 'render_tab']);
             // Keep direct links valid even when the optional submenu is hidden.
@@ -18,6 +19,7 @@ if (!class_exists('YUZ_String_Admin')) {
 
         public static function register_menu(): void {
             // Parent slug must match top‑level menu created in YUZ_Settings::add_admin_page
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
             $parent = apply_filters('yuz_tra_show_translate_admin_submenu', false)
                 ? 'yuz-translation-settings' : '';
             add_submenu_page(

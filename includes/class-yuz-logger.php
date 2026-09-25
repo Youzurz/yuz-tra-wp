@@ -115,7 +115,9 @@ if (!class_exists('YUZ_Logger')) {
             if ($parent !== false) {
                 $resolved = realpath($selectedFile) ?: $parent . '/' . basename($selectedFile);
                 $private = true;
-                foreach ([ABSPATH, WP_CONTENT_DIR, $uploads['basedir'] ?? '', $_SERVER['DOCUMENT_ROOT'] ?? ''] as $web_root) {
+                $document_root = is_string($_SERVER['DOCUMENT_ROOT'] ?? null)
+                    ? sanitize_text_field(wp_unslash($_SERVER['DOCUMENT_ROOT'])) : '';
+                foreach ([ABSPATH, WP_CONTENT_DIR, $uploads['basedir'] ?? '', $document_root] as $web_root) {
                     $root = $web_root !== '' ? realpath($web_root) : false;
                     if ($root !== false && ($resolved === $root || strpos($resolved, rtrim($root, '/') . '/') === 0)) $private = false;
                 }
@@ -221,7 +223,7 @@ if (!class_exists('YUZ_Logger')) {
             }
             // Écriture avec verrou pour éviter la corruption.
             if (@file_put_contents($this->file, $line, FILE_APPEND | LOCK_EX) === false) {
-                yuz_tra_debug_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
+                yuztra_debug_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
                 return;
             }
         }

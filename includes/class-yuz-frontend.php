@@ -189,7 +189,7 @@ if (!class_exists('YUZ_Frontend')) {
          * Decide if native browser translation should be blocked.
          */
         private function should_block_browser_translation(): bool {
-            $settings = function_exists('yuz_settings_get_all') ? (array) yuz_settings_get_all() : [];
+            $settings = function_exists('yuztra_settings_get_all') ? (array) yuztra_settings_get_all() : [];
             $ts = $settings['yuz_tra_ts_settings'] ?? null;
             if (!is_array($ts)) {
                 $ts = get_option('yuz_tra_ts_settings', []);
@@ -224,6 +224,9 @@ if (!class_exists('YUZ_Frontend')) {
             if ($translated === '') {
                 $this->counters['empty_hits']++;
             }
+            if ($translated !== $content) {
+                $translated = wp_kses_post($translated);
+            }
             $translated = $this->verify_integrity('content', $content, $translated, $post_id);
             $this->counters['content_subst'] += (int) ($translated !== $content);
 
@@ -245,6 +248,9 @@ if (!class_exists('YUZ_Frontend')) {
             $translated = YUZ_Front_Renderer::translate_post_field($excerpt, $post_id, 'excerpt');
             if ($translated === '') {
                 $this->counters['empty_hits']++;
+            }
+            if ($translated !== $excerpt) {
+                $translated = wp_kses_post($translated);
             }
             $translated = $this->verify_integrity('excerpt', $excerpt, $translated, $post_id);
             $this->counters['excerpt_subst'] += (int) ($translated !== $excerpt);
@@ -333,6 +339,7 @@ if (!class_exists('YUZ_Frontend')) {
             if ($status === 'suspect') {
                 $default_suspect = (bool) get_option('yuz_force_fallback_on_integrity_fail', false);
                 $should_fallback = apply_filters(
+                    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- established public filter
                     'yuz_tra_integrity_should_fallback_on_suspect',
                     $default_suspect,
                     $metrics,
@@ -342,6 +349,7 @@ if (!class_exists('YUZ_Frontend')) {
             }
 
             $should_fallback = apply_filters(
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- established public filter
                 'yuz_tra_integrity_should_fallback',
                 $should_fallback,
                 $metrics,
@@ -614,7 +622,7 @@ if (!class_exists('YUZ_Frontend')) {
             }
             // Fallback: error_log.
             $line = sprintf('[YUZ][%s][%s] %s %s', strtoupper($level), $this->trace_id, $message, wp_json_encode($payload));
-            yuz_tra_debug_log($line);
+            yuztra_debug_log($line);
         }
 
         /** Interface requirement; rendering is done via hooks. */

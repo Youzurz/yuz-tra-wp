@@ -95,6 +95,9 @@ use YUZTRA\Fallbacks\NullLanguageManager;
  */
 class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
 
+    private const LANGUAGES_TABLE_SUFFIX    = 'yuz_tra_languages';
+    private const TRANSLATIONS_TABLE_SUFFIX = 'yuz_tra_translations';
+
     const DB_VERSION = '1.0.2'; // Aligned with class-yuz-db.php
 
     /** @var SettingsInterface */
@@ -274,7 +277,15 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         if (!isset($wpdb) || !($wpdb instanceof \wpdb)) {
             return '';
         }
-        return $wpdb->prefix . 'yuz_tra_languages';
+        return $wpdb->prefix . self::LANGUAGES_TABLE_SUFFIX;
+    }
+
+    private static function translations_table(): string {
+        global $wpdb;
+        if (!isset($wpdb) || !($wpdb instanceof \wpdb)) {
+            return '';
+        }
+        return $wpdb->prefix . self::TRANSLATIONS_TABLE_SUFFIX;
     }
 
     private static function table_exists(): bool {
@@ -292,9 +303,10 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         if (!self::table_exists()) {
             return null;
         }
-        $flag = $flagColumn === 'is_source' ? 'is_source' : 'is_default';
         $table = self::languages_table();
-        $code  = $wpdb->get_var("SELECT language_code FROM {$table} WHERE {$flag} = 1 LIMIT 1");
+        $code = $flagColumn === 'is_source'
+            ? $wpdb->get_var($wpdb->prepare('SELECT language_code FROM %i WHERE is_source = 1 LIMIT 1', $table))
+            : $wpdb->get_var($wpdb->prepare('SELECT language_code FROM %i WHERE is_default = 1 LIMIT 1', $table));
         return is_string($code) && $code !== '' ? $code : null;
     }
 
@@ -304,7 +316,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             return null;
         }
         $table = self::languages_table();
-        $code  = $wpdb->get_var("SELECT language_code FROM {$table} ORDER BY is_default DESC, is_source DESC, language_weight DESC, id ASC LIMIT 1");
+        $code  = $wpdb->get_var($wpdb->prepare('SELECT language_code FROM %i ORDER BY is_default DESC, is_source DESC, language_weight DESC, id ASC LIMIT 1', $table));
         return is_string($code) && $code !== '' ? $code : null;
     }
 
@@ -314,7 +326,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             return false;
         }
         $table = self::languages_table();
-        return (bool) $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$table} WHERE language_code = %s LIMIT 1", $code));
+        return (bool) $wpdb->get_var($wpdb->prepare('SELECT 1 FROM %i WHERE language_code = %s LIMIT 1', $table, $code));
     }
 
     public static function language_id(string $code): ?int {
@@ -334,7 +346,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         global $wpdb;
         $table = self::languages_table();
         $id = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$table} WHERE language_code = %s LIMIT 1",
+            'SELECT id FROM %i WHERE language_code = %s LIMIT 1',
+            $table,
             $normalized
         ));
         self::$languageIdCache[$key] = $id;
@@ -364,6 +377,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         set_transient($lock_key, 1, MINUTE_IN_SECONDS);
 
         try {
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- legacy language tuning hook
             self::process_bias_batch($source, $default, max(1, (int) apply_filters('yuz/lang/bias_batch', $limit)));
         } finally {
             delete_transient($lock_key);
@@ -378,6 +392,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         }
 
         $meta_key = self::bias_meta_key($source, $default);
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- legacy language tuning hook
         $post_types = apply_filters('yuz/lang/bias_post_types', array_keys(get_post_types(['public' => true])));
 
         $query = new \WP_Query([
@@ -666,9 +681,10 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             return;
         }
         global $wpdb;
-        $translations = str_replace('yuz_tra_languages', 'yuz_tra_translations', self::languages_table());
+        $translations = self::translations_table();
         $existing_id = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$translations} WHERE post_id = %d AND context = %s AND source_lang_id = %d AND target_lang_id = %d AND block_id = '' LIMIT 1",
+            "SELECT id FROM %i WHERE post_id = %d AND context = %s AND source_lang_id = %d AND target_lang_id = %d AND block_id = '' LIMIT 1",
+            $translations,
             $post_id,
             $context,
             $source_lang_id,
@@ -757,25 +773,29 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
 
         if ($default) {
             $wpdb->query($wpdb->prepare(
-                "UPDATE {$table} SET is_default = CASE WHEN language_code = %s THEN 1 ELSE 0 END",
+                'UPDATE %i SET is_default = CASE WHEN language_code = %s THEN 1 ELSE 0 END',
+                $table,
                 $default
             ));
         }
 
         if ($source) {
             $wpdb->query($wpdb->prepare(
-                "UPDATE {$table} SET is_source = CASE WHEN language_code = %s THEN 1 ELSE 0 END",
+                'UPDATE %i SET is_source = CASE WHEN language_code = %s THEN 1 ELSE 0 END',
+                $table,
                 $source
             ));
         }
 
         $codes = array_values(array_unique(array_filter([$default, $source])));
         if (!empty($codes)) {
-            $placeholders = implode(',', array_fill(0, count($codes), '%s'));
-            $wpdb->query($wpdb->prepare(
-                "UPDATE {$table} SET is_translatable = CASE WHEN language_code IN ({$placeholders}) THEN 1 ELSE is_translatable END",
-                ...$codes
-            ));
+            foreach ($codes as $code) {
+                $wpdb->query($wpdb->prepare(
+                    'UPDATE %i SET is_translatable = 1 WHERE language_code = %s',
+                    $table,
+                    $code
+                ));
+            }
         }
     }
 
@@ -846,8 +866,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
 
         $this->db->ensure_tables();
         global $wpdb;
-        $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '{$table_name}'")) {
+        $table_name = self::languages_table();
+        if (!self::table_exists()) {
             (new YUZ_Logger())->log('critical', "Table $table_name missing after recreation attempt");
             delete_transient($lock_key);
             return;
@@ -942,7 +962,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
      public static function display_languages() {
         global $wpdb;
 
-        $languages = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}yuz_tra_languages ORDER BY is_default DESC");
+        $table = self::languages_table();
+        $languages = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i ORDER BY is_default DESC', $table));
 
         if ($languages) {
             echo '<h3>Languages List</h3>';
@@ -1057,20 +1078,21 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
      */
     public function get_translatable_languages(): array {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '{$table_name}'")) {
+        $table_name = self::languages_table();
+        if (!self::table_exists()) {
             (new YUZ_Logger())->log('critical', "Table $table_name missing");
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
             return apply_filters('yuz_tra_translatable_languages', []);
         }
 
         $suffix        = self::TRANSIENT_TRANSLATABLE;
         $transient_key = class_exists('YUZ_Settings_Service')
             ? YUZ_Settings_Service::transient_key($suffix)
-            : (function_exists('yuz_settings_transient_key') ? yuz_settings_transient_key($suffix) : 'yuz_tra_translatable_languages');
+            : (function_exists('yuztra_settings_transient_key') ? yuztra_settings_transient_key($suffix) : 'yuz_tra_translatable_languages');
 
         $languages = false;
-        if (function_exists('yuz_settings_cache_get')) {
-            $languages = yuz_settings_cache_get($suffix);
+        if (function_exists('yuztra_settings_cache_get')) {
+            $languages = yuztra_settings_cache_get($suffix);
         }
         if ($languages === false) {
             $languages = get_transient($transient_key);
@@ -1080,10 +1102,10 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             $attempts = 3; $results = null;
             while ($attempts > 0) {
                 $results = $wpdb->get_results(
-                    "SELECT language_code, language_name, native_name, language_weight, is_translatable, is_source, is_default
-                     FROM {$table_name}
+                    $wpdb->prepare("SELECT language_code, language_name, native_name, language_weight, is_translatable, is_source, is_default
+                     FROM %i
                      WHERE is_translatable = 1
-                     ORDER BY language_weight ASC",
+                     ORDER BY language_weight ASC", $table_name),
                     ARRAY_A
                 );
                 if ($results !== null) break;
@@ -1093,6 +1115,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             }
             if ($results === null) {
                 (new YUZ_Logger())->log('error', "Failed to fetch translatable languages: " . $wpdb->last_error);
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
                 return apply_filters('yuz_tra_translatable_languages', []);
             }
 
@@ -1112,8 +1135,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             } else {
                 (new YUZ_Logger())->log('info', "Retrieved " . count($languages) . " translatable languages");
             }
-            if (function_exists('yuz_settings_cache_set')) {
-                yuz_settings_cache_set($suffix, $languages, 'yuz-tra', self::TRANSIENT_TTL);
+            if (function_exists('yuztra_settings_cache_set')) {
+                yuztra_settings_cache_set($suffix, $languages, 'yuz-tra', self::TRANSIENT_TTL);
             }
             set_transient($transient_key, $languages, self::TRANSIENT_TTL);
         }
@@ -1126,7 +1149,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
                 $fallback = [];
                 foreach ($codes as $code) {
                     // On construit un objet minimal YUZ_Language (code + label)
-                    $label = function_exists('yuz_lang_label') ? yuz_lang_label($code) : strtoupper(str_replace('_','-',$code));
+                    $label = function_exists('yuztra_lang_label') ? yuztra_lang_label($code) : strtoupper(str_replace('_','-',$code));
                     $fallback[] = new YUZ_Language([
                         'language_code'   => $code,
                         'language_name'   => $label,
@@ -1140,6 +1163,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
                 $languages = $fallback;
             }
         }
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
         return apply_filters('yuz_tra_translatable_languages', $languages);
     }
 
@@ -1150,20 +1174,21 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
      */
     public function get_all_languages(): array {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '{$table_name}'")) {
+        $table_name = self::languages_table();
+        if (!self::table_exists()) {
             (new YUZ_Logger())->log('critical', "Table $table_name missing");
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
             return apply_filters('yuz_tra_all_languages', []);
         }
 
         $suffix        = self::TRANSIENT_ALL;
         $transient_key = class_exists('YUZ_Settings_Service')
             ? YUZ_Settings_Service::transient_key($suffix)
-            : (function_exists('yuz_settings_transient_key') ? yuz_settings_transient_key($suffix) : 'yuz_tra_all_languages');
+            : (function_exists('yuztra_settings_transient_key') ? yuztra_settings_transient_key($suffix) : 'yuz_tra_all_languages');
 
         $languages = false;
-        if (function_exists('yuz_settings_cache_get')) {
-            $languages = yuz_settings_cache_get($suffix);
+        if (function_exists('yuztra_settings_cache_get')) {
+            $languages = yuztra_settings_cache_get($suffix);
         }
         if ($languages === false) {
             $languages = get_transient($transient_key);
@@ -1172,7 +1197,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         if ($languages === false) {
             $attempts = 3; $results = null;
             while ($attempts > 0) {
-                $results = $wpdb->get_results("SELECT * FROM {$table_name}", ARRAY_A);
+                $results = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i', $table_name), ARRAY_A);
                 if ($results !== null) break;
                 $attempts--;
                 (new YUZ_Logger())->log('warning', "Retry attempt for retrieving all languages, attempts left: {$attempts}");
@@ -1180,6 +1205,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             }
             if ($results === null) {
                 (new YUZ_Logger())->log('error', "Failed to fetch all languages: " . $wpdb->last_error);
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
                 return apply_filters('yuz_tra_all_languages', []);
             }
 
@@ -1194,13 +1220,14 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
                 $languages[]               = $language_obj;
             }
 
-            if (function_exists('yuz_settings_cache_set')) {
-                yuz_settings_cache_set($suffix, $languages, 'yuz-tra', self::TRANSIENT_TTL);
+            if (function_exists('yuztra_settings_cache_set')) {
+                yuztra_settings_cache_set($suffix, $languages, 'yuz-tra', self::TRANSIENT_TTL);
             }
             set_transient($transient_key, $languages, self::TRANSIENT_TTL);
             (new YUZ_Logger())->log('info', "Retrieved all languages: " . count($languages) . " entries");
         }
 
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
         return apply_filters('yuz_tra_all_languages', $languages);
     }
 
@@ -1212,22 +1239,24 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
      */
     public function get_by_code(string $code): ?Language {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '{$table_name}'")) {
+        $table_name = self::languages_table();
+        if (!self::table_exists()) {
             (new YUZ_Logger())->log('critical', "Table $table_name missing");
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
             return apply_filters('yuz_tra_language_by_code', null, $code);
         }
 
         $cache_key = 'yuz_tra_language_' . $code;
         $language  = wp_cache_get($cache_key, 'yuz-tra');
         if ($language !== false) {
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
             return apply_filters('yuz_tra_language_by_code', $language, $code);
         }
 
         $attempts = 3; $result = null;
         while ($attempts > 0) {
             $result = $wpdb->get_row(
-                $wpdb->prepare("SELECT * FROM {$table_name} WHERE language_code = %s LIMIT 1", $code),
+                $wpdb->prepare('SELECT * FROM %i WHERE language_code = %s LIMIT 1', $table_name, $code),
                 ARRAY_A
             );
             if ($result !== null) break;
@@ -1250,6 +1279,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         }
 
         wp_cache_set($cache_key, $language, 'yuz-tra', 3600);
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public language filter
         return apply_filters('yuz_tra_language_by_code', $language, $code);
     }
 
@@ -1269,14 +1299,16 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
 
             if ($requested_default && self::code_exists($requested_default)) {
                 $wpdb->query($wpdb->prepare(
-                    "UPDATE {$table} SET is_default = CASE WHEN language_code = %s THEN 1 ELSE 0 END",
+                    'UPDATE %i SET is_default = CASE WHEN language_code = %s THEN 1 ELSE 0 END',
+                    $table,
                     $requested_default
                 ));
             }
 
             if ($requested_source && self::code_exists($requested_source)) {
                 $wpdb->query($wpdb->prepare(
-                    "UPDATE {$table} SET is_source = CASE WHEN language_code = %s THEN 1 ELSE 0 END",
+                    'UPDATE %i SET is_source = CASE WHEN language_code = %s THEN 1 ELSE 0 END',
+                    $table,
                     $requested_source
                 ));
             }
@@ -1284,11 +1316,13 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
             if (!empty($translatable)) {
                 $wanted = array_filter(array_map([self::class, 'normalize_code'], (array) $translatable));
                 if (!empty($wanted)) {
-                    $placeholders = implode(',', array_fill(0, count($wanted), '%s'));
-                    $wpdb->query($wpdb->prepare(
-                        "UPDATE {$table} SET is_translatable = CASE WHEN language_code IN ({$placeholders}) THEN 1 ELSE is_translatable END",
-                        ...$wanted
-                    ));
+                    foreach ($wanted as $wanted_code) {
+                        $wpdb->query($wpdb->prepare(
+                            'UPDATE %i SET is_translatable = 1 WHERE language_code = %s',
+                            $table,
+                            $wanted_code
+                        ));
+                    }
                 }
             }
         }
@@ -1316,7 +1350,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         $S['yuz_tra_source_language']  = $final_source;
         if ($table_exists) {
             $table = self::languages_table();
-            $rows = (array) $wpdb->get_col("SELECT language_code FROM {$table} WHERE is_translatable = 1");
+            $rows = (array) $wpdb->get_col($wpdb->prepare('SELECT language_code FROM %i WHERE is_translatable = 1', $table));
             $rows = array_values(array_unique(array_merge(
                 $rows,
                 array_filter([$final_source, $final_default])
@@ -1330,6 +1364,7 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         $this->settings->update_option('yuz_tra_general', $S);
 
         if (method_exists($this, 'purge_caches')) $this->purge_caches();
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- persisted public lifecycle hook
         do_action('yuz_tra_after_enforce_language_rules', $final_source, $final_default, $translatable);
     }
 
@@ -1359,8 +1394,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
      */
     public function update_language_weights(array $weights): bool {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '{$table_name}'")) {
+        $table_name = self::languages_table();
+        if (!self::table_exists()) {
             (new YUZ_Logger())->log('critical', "Table $table_name missing after recreation attempt");
             return false;
         }
@@ -1411,8 +1446,8 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         global $wpdb;
         // 0) Préconditions DB
         $this->db->ensure_tables();
-        $table = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '{$table}'")) {
+        $table = self::languages_table();
+        if (!self::table_exists()) {
             (new YUZ_Logger())->log('critical', "swap_source_and_target: table {$table} missing");
             return false;
         }
@@ -1583,11 +1618,11 @@ class YUZ_Languages implements LanguagesInterface, LanguageManagerInterface {
         ];
 
         foreach ($suffixes as $suffix) {
-            if (function_exists('yuz_settings_delete_transient')) {
-                yuz_settings_delete_transient($suffix);
+            if (function_exists('yuztra_settings_delete_transient')) {
+                yuztra_settings_delete_transient($suffix);
             }
-            if (function_exists('yuz_settings_cache_delete')) {
-                yuz_settings_cache_delete($suffix);
+            if (function_exists('yuztra_settings_cache_delete')) {
+                yuztra_settings_cache_delete($suffix);
             }
         }
 

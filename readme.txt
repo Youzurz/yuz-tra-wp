@@ -4,7 +4,7 @@ Tags: translation, multilingual, localization, gettext, woocommerce
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.6
+Stable tag: 1.5.38
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -79,7 +79,7 @@ no bug report or translation content is automatically transmitted to the maintai
 == Installation ==
 
 1. Back up the database and previous plugin. Try staging first.
-2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.6.zip and activate it.
+2. In Plugins > Add New > Upload Plugin, select yuz-tra-1.5.18.zip and activate it.
 3. Configure source and target languages in YUZ-TRA.
 4. Open Strings, scan installed code and filter by domain/language.
 5. Edit and publish, or select up to five strings for provider translation and review.
@@ -109,6 +109,31 @@ logs are retained; deleting plugin files is not a data-erasure operation. Arrang
 site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Changelog ==
+
+= 1.5.18 =
+* Complete explicit AJAX nonce boundaries and remove the remaining high-confidence SQL preparation errors found in the 1.5.10 scan.
+* Keep request diagnostics free of stack traces and normalize settings requests at their input boundary.
+
+= 1.5.10 =
+* Harden settings and asset request handling with capability, nonce and typed sanitization controls.
+* Prepare dynamic SQL identifiers and values safely, and constrain generated table suffixes.
+* Prefix helper implementations while retaining data-compatible migration aliases.
+* Remove development diagnostics that could expose translated or provider response content.
+
+= 1.5.9 =
+* Enforce capability checks before effects on sensitive AJAX routes and verify denial without SQL writes.
+* Return an explicit failure when no translation can be published; never report a false publication success.
+* Keep provider secrets out of settings responses and restrict maintenance to the canonical translations table.
+
+= 1.5.8 =
+* Update the bundled Axios browser library to 1.20.0, with verified upstream package integrity.
+* Preserve prior candidate ZIPs; this evaluation artifact is not a WordPress.org approval.
+
+= 1.5.7 =
+* Separate published public lookups from privileged translation and publication endpoints.
+* Filter substituted HTML and validate bounded callback request data.
+* Reduce diagnostic content and derive asset URLs from the plugin file.
+* Evaluation candidate: not yet approved by WordPress.org.
 
 = 1.5.6 =
 * Reject executable translations on save and when loading legacy PHP/JavaScript catalogs.
@@ -146,6 +171,21 @@ site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 * Top-layer string catalog and protection against late translation responses overwriting edits.
 
 == Upgrade Notice ==
+
+= 1.5.18 =
+Security review candidate. Back up and test on staging before replacing an installed version.
+
+= 1.5.10 =
+Security review candidate. Back up and test on staging before replacing an installed version.
+
+= 1.5.9 =
+Security and publication-correctness review candidate. Back up and test on staging before replacing an installed version.
+
+= 1.5.8 =
+Evaluation candidate; staging validation required. Includes the 1.5.7 review fixes and Axios 1.20.0.
+
+= 1.5.7 =
+Evaluation candidate. Back up and test on staging. Public dynamic lookups require a public, non-password-protected post and return published content only.
 
 = 1.5.6 =
 Back up first. Test on staging. Review provider settings and privacy policy before enabling automatic translation.

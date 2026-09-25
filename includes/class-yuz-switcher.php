@@ -83,7 +83,8 @@ use YUZTRA\Fallbacks\NullLogger;
  * Shim : permet d'appeler get_url_for_language($code) (1 arg) depuis le partial historique.
  */
 if (!class_exists('YUZ_Switcher_Url_Converter_Shim')) {
-    class YUZ_Switcher_Url_Converter_Shim implements UrlConverterInterface
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
+class YUZ_Switcher_Url_Converter_Shim implements UrlConverterInterface
     {
         private UrlConverterInterface $inner;
 
@@ -146,6 +147,7 @@ if (!class_exists('YUZ_Switcher_Url_Converter_Shim')) {
 
 
 if (!class_exists('YUZ_Switcher')) {
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- public legacy class name
 class YUZ_Switcher implements SwitcherInterface {
     private const CACHE_GROUP   = 'yuz-switcher';
     private const CACHE_TTL     = 600;
@@ -564,6 +566,7 @@ class YUZ_Switcher implements SwitcherInterface {
                 : '';
             $url = $this->url_converter->get_url_for_language($lang_code, $current);
             // Optionnel: log/filtre, mais on ne fait pas de redirect ici.
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility action
             do_action('yuz/switcher/php_switch_computed', $lang_code, $url);
         } catch (\Throwable $e) {
             if (class_exists('YUZ_Logger')) {

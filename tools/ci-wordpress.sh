@@ -26,6 +26,11 @@ unzip -q "$archive" -d "$site/wp-content/plugins"
 wpcli plugin install plugin-check --version=2.1.0 --activate
 wpcli plugin activate yuz-tra
 wpcli eval-file "$root/tests/review-runtime.php" >"$evidence/runtime.log" 2>&1
+wpcli eval-file "$root/tests/review-sept16-runtime.php" >>"$evidence/runtime.log" 2>&1
+wpcli eval-file "$root/tests/frontend-safety-runtime.php" --skip-plugins --skip-themes >>"$evidence/runtime.log" 2>&1
+wpcli eval-file "$root/tests/review-publish-request.php" invalid >"$evidence/publish-invalid.json" 2>&1
+wpcli eval-file "$root/tests/review-publish-request.php" valid >"$evidence/publish-valid.json" 2>&1
+wpcli eval-file "$root/tests/review-publish-verify.php" >>"$evidence/runtime.log" 2>&1
 php -S "127.0.0.1:$http_port" -t "$site" >"$evidence/http-server.log" 2>&1 &
 server_pid=$!
 for attempt in {1..30}; do
@@ -40,7 +45,14 @@ set +e
 wpcli plugin check yuz-tra --format=strict-csv --fields=file,line,column,type,code,message --mode=new >"$evidence/plugin-check.csv" 2>"$evidence/plugin-check.stderr"
 scan_status=$?
 set -e
-php "$root/tools/check-plugin-report.php" "$evidence/plugin-check.csv" >"$evidence/plugin-check-summary.json"
+gate_args=("$evidence/plugin-check.csv")
+if [[ -n "${YUZ_PLUGIN_CHECK_TRIAGE:-}" ]]; then
+  triage=$(realpath "${YUZ_PLUGIN_CHECK_TRIAGE}")
+  [[ -f "$triage" ]]
+  gate_args+=("$triage")
+  sha256sum "$triage" >"$evidence/plugin-check-triage.sha256"
+fi
+php "$root/tools/check-plugin-report.php" "${gate_args[@]}" >"$evidence/plugin-check-summary.json"
 [[ "$scan_status" == 0 ]]
 sha256sum "$archive" >"$evidence/artifact.sha256"
 printf 'PASS WordPress %s PHP %s exact-artifact acceptance\n' "$wp_version" "$(php -r 'echo PHP_VERSION;')"

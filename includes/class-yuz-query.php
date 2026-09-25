@@ -57,7 +57,8 @@ if (!class_exists('YUZ_Query')) {
             $table = $this->wpdb->prefix . 'yuz_tra_languages';
             $row   = $this->wpdb->get_row(
                 $this->wpdb->prepare(
-                    "SELECT * FROM {$table} WHERE language_code = %s LIMIT 1",
+                    'SELECT * FROM %i WHERE language_code = %s LIMIT 1',
+                    $table,
                     $normalized
                 ),
                 ARRAY_A
@@ -68,7 +69,8 @@ if (!class_exists('YUZ_Query')) {
                 $fallback = substr($normalized, 0, 2);
                 $row      = $this->wpdb->get_row(
                     $this->wpdb->prepare(
-                        "SELECT * FROM {$table} WHERE language_code LIKE %s LIMIT 1",
+                        'SELECT * FROM %i WHERE language_code LIKE %s LIMIT 1',
+                        $table,
                         $fallback . '\_%'
                     ),
                     ARRAY_A
@@ -152,21 +154,10 @@ if (!class_exists('YUZ_Query')) {
 
             $table = $this->wpdb->prefix . 'yuz_tra_translations';
             $statuses = $this->allowed_statuses(false);
-            $placeholders = implode(',', array_fill(0, count($statuses), '%d'));
-
             $row   = $this->wpdb->get_row(
                 $this->wpdb->prepare(
-                    "
-                        SELECT translated_text, translated_slug, status
-                        FROM {$table}
-                        WHERE post_id = %d
-                          AND target_lang_id = %d
-                          AND context = %s
-                          AND status IN ({$placeholders})
-                        ORDER BY updated_at DESC
-                        LIMIT 1
-                    ",
-                    ...array_merge([$post_id, $target_lang_id, $context], $statuses)
+                    'SELECT translated_text, translated_slug, status FROM %i WHERE post_id = %d AND target_lang_id = %d AND context = %s AND status = %d ORDER BY updated_at DESC LIMIT 1',
+                    $table, $post_id, $target_lang_id, $context, (int) $statuses[0]
                 ),
                 ARRAY_A
             );
@@ -229,21 +220,12 @@ if (!class_exists('YUZ_Query')) {
             }
 
             $statuses     = $this->allowed_statuses(true);
-            $placeholders = implode(',', array_fill(0, count($statuses), '%d'));
-
             $rows = $this->wpdb->get_results(
                 $this->wpdb->prepare(
-                    "
-                        SELECT id, block_id, original_text, translated_text, status
-                        FROM {$table}
-                        WHERE post_id = %d
-                          AND target_lang_id = %d
-                          AND context = %s
-                          AND translated_text IS NOT NULL
-                          AND translated_text <> ''
-                          AND status IN ({$placeholders})
-                    ",
-                    ...array_merge([$post_id, $target_lang_id, $context], $statuses)
+                    'SELECT id, block_id, original_text, translated_text, status FROM %i WHERE post_id = %d AND target_lang_id = %d AND context = %s AND translated_text IS NOT NULL AND translated_text <> \'\' AND status IN (%d, %d, %d, %d)',
+                    $table, $post_id, $target_lang_id, $context,
+                    (int) ($statuses[0] ?? 4), (int) ($statuses[1] ?? 3),
+                    (int) ($statuses[2] ?? 2), (int) ($statuses[3] ?? 1)
                 ),
                 ARRAY_A
             );
@@ -322,13 +304,14 @@ if (!class_exists('YUZ_Query')) {
 
         private function cache_enabled(string $operation): bool {
             $enabled = true;
-            if (function_exists('yuz_settings_cache_heavy_request') && yuz_settings_cache_heavy_request()) {
+            if (function_exists('yuztra_settings_cache_heavy_request') && yuztra_settings_cache_heavy_request()) {
                 $enabled = false;
             } elseif (defined('YUZ_TRA_DISABLE_CACHE') && YUZ_TRA_DISABLE_CACHE) {
                 $enabled = false;
             } elseif (defined('YUZ_TRA_DISABLE_FRONT_CACHE') && YUZ_TRA_DISABLE_FRONT_CACHE && !is_admin()) {
                 $enabled = false;
             }
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
             return (bool) apply_filters('yuz/query/enable_cache', $enabled, $operation);
         }
 
@@ -343,6 +326,7 @@ if (!class_exists('YUZ_Query')) {
             if (!$this->cache_enabled($operation)) {
                 return false;
             }
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
             $ttl = (int) apply_filters('yuz/query/cache_ttl', $ttl, $key, $group, $operation, $value);
             if ($ttl <= 0) {
                 return false;

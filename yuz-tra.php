@@ -3,7 +3,7 @@
  * Plugin Name: YUZ-TRA
  * Plugin URI: https://github.com/Youzurz/yuz-tra-wp
  * Description: Traduction visuelle et catalogue Gettext WordPress, plugins et thèmes, avec relecture, publication et quotas.
- * Version: 1.5.6
+ * Version: 1.5.38
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: YOUZURZ (YUZ CLA GPT)
@@ -18,7 +18,11 @@ require_once __DIR__ . '/includes/class-yuz-plugin.php';
 YUZ_Plugin::boot(__FILE__);
 
 if (!defined('YUZ_TRA_DISABLE_FRONT_BUFFER')) define('YUZ_TRA_DISABLE_FRONT_BUFFER', false);
-add_filter('yuz_tra_enable_front_buffer', static function ($enabled) {
-    if (YUZ_TRA_DISABLE_FRONT_BUFFER || apply_filters('yuz_tra_force_disable_front_buffer', false)) return false;
+add_filter(
+    'yuz_tra_enable_front_buffer', // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- retained as the documented public compatibility filter used by existing YUZ-TRA integrations.
+    static function ($enabled) {
+    if (YUZ_TRA_DISABLE_FRONT_BUFFER || apply_filters('yuz_tra_force_disable_front_buffer', false) /* phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter. */) return false;
     return $enabled;
-}, 0);
+    },
+    0
+);

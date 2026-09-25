@@ -69,7 +69,7 @@ class YUZ_API_Manager implements TranslationManagerInterface {
     private function get_language_code(int $lang_id): ?string {
         global $wpdb;
         $table = $wpdb->prefix . 'yuz_tra_languages';
-        return $wpdb->get_var($wpdb->prepare("SELECT language_code FROM $table WHERE id = %d", $lang_id));
+        return $wpdb->get_var($wpdb->prepare('SELECT language_code FROM %i WHERE id = %d', $table, $lang_id));
     }
 
     private function get_language_id_with_retry(string $language_code): ?int {
@@ -93,8 +93,8 @@ class YUZ_API_Manager implements TranslationManagerInterface {
         $attempts = 3;
         while ($attempts > 0) {
             $existing = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM $table_name WHERE post_id = %d AND context = 'content' AND language_code = %s",
-                $post_id, $target_language
+                'SELECT COUNT(*) FROM %i WHERE post_id = %d AND context = %s AND language_code = %s',
+                $table_name, $post_id, 'content', $target_language
             ));
             if ($existing !== null) return (int)$existing;
             $attempts--; usleep(100000);
@@ -152,6 +152,13 @@ class YUZ_API_Manager implements TranslationManagerInterface {
             ?? null;
 
         if ($provider) {
+            $allowed_providers = function_exists('yuztra_allowed_remote_providers')
+                ? yuztra_allowed_remote_providers()
+                : ['libretranslate', 'google', 'deepl', 'custom', 'ollama', 'openai'];
+            if (!in_array($provider, $allowed_providers, true)) {
+                unset($normalized['api_type'], $normalized['provider'], $normalized['api_provider']);
+                return $normalized;
+            }
             if (!empty($normalized['api_type']) && $normalized['api_type'] !== $provider) {
                 unset($normalized['endpoint'], $normalized['api_key']);
             }
@@ -189,6 +196,7 @@ class YUZ_API_Manager implements TranslationManagerInterface {
                         ? 'https://api-free.deepl.com/v2/translate'
                         : 'https://api.deepl.com/v2/translate';
                 } elseif ($provider === 'openai') {
+                    // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Default endpoint is used only after the administrator selects the allowlisted provider.
                     $normalized['endpoint'] = 'https://api.openai.com/v1/chat/completions';
                 }
             }

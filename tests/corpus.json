@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "status": "AWAITING_HUMAN_REVIEW",
+  "origin": "Synthetic authored test cases, no customer data; no reference certified by a human",
+  "cases": [
+    {"id":"LANG-01","source_locale":"en_US","target_locale":"fr_FR","domain":"checkout","text":"Your order has been received.","checks":["sens","ton professionnel"]},
+    {"id":"LANG-02","source_locale":"en_US","target_locale":"de_DE","domain":"checkout","text":"Do not close this window until payment is confirmed.","checks":["négation","condition temporelle"]},
+    {"id":"LANG-03","source_locale":"en_US","target_locale":"ar","domain":"account","text":"Hello %1$s, your balance is %2$s.","checks":["variables printf","direction RTL"]},
+    {"id":"LANG-04","source_locale":"en_US","target_locale":"ja","domain":"account","text":"Save changes","checks":["libellé bref","contexte action"]},
+    {"id":"LANG-05","source_locale":"en_US","target_locale":"pl_PL","domain":"cart","text":"%d item","plural":"%d items","checks":["formes plurielles","valeurs 0 1 2 5 12 22"]},
+    {"id":"LANG-06","source_locale":"en_GB","target_locale":"en_US","domain":"catalog","text":"Choose your favourite colour.","checks":["variante régionale","pas de no-op forcé"]},
+    {"id":"LANG-07","source_locale":"en_US","target_locale":"fr_FR","domain":"shipping","text":"Shipping costs {amount}.","checks":["marqueur inchangé","terminologie livraison"]},
+    {"id":"LANG-08","source_locale":"fr_FR","target_locale":"en_GB","domain":"support","text":"Votre demande n’a pas encore été traitée.","checks":["négation","aspect temporel"]},
+    {"id":"LANG-09","source_locale":"en_US","target_locale":"es_ES","domain":"catalog","text":"<strong>Free</strong> delivery","checks":["balises conservées","sens"]},
+    {"id":"LANG-10","source_locale":"en_US","target_locale":"fr_FR","domain":"inventory","context":"inventory availability","text":"In stock","checks":["contexte métier"]},
+    {"id":"LANG-11","source_locale":"en_US","target_locale":"fr_FR","domain":"finance","context":"ownership of shares","text":"Stock","checks":["désambiguïsation domaine"]},
+    {"id":"LANG-12","source_locale":"en_US","target_locale":"pt_BR","domain":"privacy","text":"You can withdraw your consent at any time.","checks":["modalité","absence d'ajout"]}
+  ]
+}

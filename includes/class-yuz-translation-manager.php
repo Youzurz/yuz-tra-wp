@@ -31,23 +31,24 @@ class YUZ_Translation_Manager {
         }
         if (!class_exists('YUZ_Capabilities') || !\YUZ_Capabilities::user_is_translator()) {
             if (isset($_GET['yuz-edit-translation'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-                yuz_tra_debug_log('[YUZ_TM][CONTAINER] Translator capability missing while ?yuz-edit-translation is present');
+                yuztra_debug_log('[YUZ_TM][CONTAINER] Translator capability missing while ?yuz-edit-translation is present');
             }
             return;
         }
 
         // Always render for translators on the front so the JS overlay can mount,
         // even when the query string helper (?yuz-edit-translation=1) is absent.
-        if (!defined('YUZ_EDITOR_ROOT_PRINTED')) {
+        if (!defined('YUZTRA_EDITOR_ROOT_PRINTED')) {
             echo "\n<!-- YUZ-TRA Editor Container (server-driven) -->\n";
             echo '<div id="yuz-editor-container" class="yuz-editor-overlay" aria-hidden="false" data-yuz-editor-root></div>' . "\n";
-            define('YUZ_EDITOR_ROOT_PRINTED', true);
+            define('YUZTRA_EDITOR_ROOT_PRINTED', true);
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- legacy public hook retained for compatibility
             do_action('yuz/editor_root_printed');
             echo "<!-- /YUZ-TRA Editor Container -->\n";
             if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
                 $uid = get_current_user_id();
                 $uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
-                yuz_tra_debug_log('[YUZ_TM][CONTAINER] printed (user=' . $uid . ', uri=' . $uri . ')');
+                yuztra_debug_log('[YUZ_TM][CONTAINER] printed (user=' . $uid . ', uri=' . $uri . ')');
             }
         }
     }
@@ -72,7 +73,7 @@ class YUZ_Translation_Manager {
         $source_lang  = self::normalize_lang_code($ws_settings['yuz_tra_source_language'] ?? $default_lang);
 
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-            yuz_tra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][IN] ' . wp_json_encode([
+            yuztra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][IN] ' . wp_json_encode([
                 'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'lang'        => $lang,
                 'source'      => $source_lang,
@@ -101,7 +102,7 @@ class YUZ_Translation_Manager {
 
         if (!$lang) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-                yuz_tra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+                yuztra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
                     'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'lang'        => $lang,
                     'dict_count'  => 0,
@@ -115,7 +116,7 @@ class YUZ_Translation_Manager {
         $cached = wp_cache_get($cache_key, 'yuz_tra');
         if ($cached && is_array($cached)) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-                yuz_tra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+                yuztra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
                     'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'lang'        => $lang,
                     'dict_count'  => $dictCount($cached, $lang),
@@ -134,18 +135,16 @@ class YUZ_Translation_Manager {
         if (empty($targets)) {
             return [];
         }
-        $placeholders = implode(',', array_fill(0, count($targets), '%s'));
-
         // Quick success validated filter (status IN)
         $rows = $wpdb->get_results(
             $wpdb->prepare("
                 SELECT id, language_code, original_text, translated_text, context, origin, status
-                FROM {$table}
+                FROM %i
                 WHERE translated_text IS NOT NULL
                   AND translated_text <> ''
                   AND status IN (1,2,3,4)
-                  AND language_code IN ({$placeholders})
-            ", ...$targets),
+                  AND language_code IN (%s, %s)
+            ", $table, $targets[0], $targets[1] ?? $targets[0]),
             ARRAY_A
         );
 
@@ -174,7 +173,7 @@ class YUZ_Translation_Manager {
 
         if (!$rows) {
             if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-                yuz_tra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+                yuztra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
                     'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'lang'        => $lang,
                     'dict_count'  => 0,
@@ -236,7 +235,7 @@ class YUZ_Translation_Manager {
         ];
 
         if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-            yuz_tra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
+            yuztra_debug_log('[YUZ_TM][GET_FRONTEND_TRANSLATIONS][OUT] ' . wp_json_encode([
                 'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'lang'        => $lang,
                 'dict_count'  => $dictCount($result, $lang),
@@ -347,7 +346,7 @@ class YUZ_Translation_Manager {
     public static function get_all_langs() {
         global $wpdb;
         $table = $wpdb->prefix . 'yuz_tra_translations';
-        $langs = $wpdb->get_col("SELECT DISTINCT language_code FROM {$table}");
+        $langs = $wpdb->get_col($wpdb->prepare('SELECT DISTINCT language_code FROM %i', $table));
         return is_array($langs) ? array_filter($langs) : [];
     }
 
@@ -373,6 +372,7 @@ class YUZ_Translation_Manager {
     }
 
     // 3️⃣ Hooks from other multilingual plugins (Polylang / WPML…)
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- legacy integration hook
     $filtered_lang = apply_filters('yuz_current_language', '');
     if (is_string($filtered_lang) && $filtered_lang !== '') {
         $candidates[] = $filtered_lang;
@@ -452,14 +452,14 @@ class YUZ_Translation_Manager {
                 foreach ($translations as $lang => $dict) {
                     $counts[$lang] = is_array($dict) ? count($dict) : -1;
                 }
-                yuz_tra_debug_log(
+                yuztra_debug_log(
                     '[YUZ_TM][FRONT_SMOKE] lang=' . $current_lang
                     . ' | def=' . $default_lang
                     . ' | src=' . $source_lang
                     . ' | counts=' . wp_json_encode($counts)
                 );
             } catch (\Throwable $e) {
-                yuz_tra_debug_log('[YUZ_TM][FRONT_SMOKE_ERR] ' . $e->getMessage());
+                yuztra_debug_log('[YUZ_TM][FRONT_SMOKE_ERR] ' . $e->getMessage());
             }
         }
 
@@ -549,6 +549,7 @@ class YUZ_Translation_Manager {
             'default_language'  => self::detect_default_language($meta),
         ];
 
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- established public filter
         $payload = self::normalize_langs_payload(apply_filters('yuz_tra_langs_payload', $payload));
         wp_cache_set($cache_key, $payload, self::LANGS_CACHE_GROUP, self::LANGS_CACHE_TTL);
 
@@ -576,7 +577,7 @@ class YUZ_Translation_Manager {
 
         if ($exists) {
             $rows = $wpdb->get_results(
-                "SELECT language_code, is_default, is_source, is_translatable FROM {$table}",
+                $wpdb->prepare('SELECT language_code, is_default, is_source, is_translatable FROM %i', $table),
                 ARRAY_A
             );
             if ($rows) {

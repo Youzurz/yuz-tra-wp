@@ -48,13 +48,13 @@ class YUZ_Cron {
         $seconds=min(120,max(5,(int)($settings['worker_time_budget'] ?? 35)));
         try {
             $sources=$wpdb->prefix.'yuz_tra_string_sources'; $targets=$wpdb->prefix.'yuz_tra_string_targets';
-            $langs=$wpdb->get_results("SELECT language_code AS code FROM {$wpdb->prefix}yuz_tra_languages WHERE is_translatable=1 ORDER BY language_weight,id",ARRAY_A) ?: [];
+            $langs=$wpdb->get_results($wpdb->prepare('SELECT language_code AS code FROM %i WHERE is_translatable=1 ORDER BY language_weight,id', $wpdb->prefix.'yuz_tra_languages'),ARRAY_A) ?: [];
             $cursor=(int)get_option('yuz_tra_worker_language',0);
             $started=microtime(true);
             for($offset=0;$offset<count($langs) && $report['processed']+$report['failed']<min(10,max(1,$limit));$offset++) {
                 $index=($cursor+$offset)%count($langs); $lang=YUZ_String_Catalog::locale($langs[$index]['code']);
                 $remaining=min(10,max(1,$limit))-$report['processed']-$report['failed'];
-                $ids=$wpdb->get_col($wpdb->prepare("SELECT s.id FROM $sources s LEFT JOIN $targets t ON t.source_id=s.id AND t.lang=%s WHERE t.id IS NULL OR (t.status=0 AND t.attempts<3 AND (t.retry_after IS NULL OR t.retry_after<=UTC_TIMESTAMP())) ORDER BY s.id LIMIT %d",$lang,$remaining));
+                $ids=$wpdb->get_col($wpdb->prepare("SELECT s.id FROM %i s LEFT JOIN %i t ON t.source_id=s.id AND t.lang=%s WHERE t.id IS NULL OR (t.status=0 AND t.attempts<3 AND (t.retry_after IS NULL OR t.retry_after<=UTC_TIMESTAMP())) ORDER BY s.id LIMIT %d",$sources,$targets,$lang,$remaining));
                 foreach($ids as $id) {
                     if(microtime(true)-$started>$seconds) break 2;
                     try {
@@ -64,7 +64,7 @@ class YUZ_Cron {
                         $message=substr($e->getMessage(),0,150);
                         $report['failed']++; $report['errors'][]=$message;
                         if(in_array($message,['daily_character_limit','minute_request_limit','budget_busy','translation_time_budget','translation_in_progress'],true)) break 2;
-                        $wpdb->query($wpdb->prepare("INSERT INTO $targets (source_id,lang,forms,status,origin,attempts,retry_after,last_error,updated_at) VALUES (%d,%s,'[]',0,'machine',1,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE),%s,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE attempts=IF(status=0,attempts+1,attempts),retry_after=IF(status=0,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 MINUTE),retry_after),last_error=IF(status=0,VALUES(last_error),last_error)",$id,$lang,$message));
+                        $wpdb->query($wpdb->prepare("INSERT INTO %i (source_id,lang,forms,status,origin,attempts,retry_after,last_error,updated_at) VALUES (%d,%s,'[]',0,'machine',1,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 5 MINUTE),%s,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE attempts=IF(status=0,attempts+1,attempts),retry_after=IF(status=0,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 MINUTE),retry_after),last_error=IF(status=0,VALUES(last_error),last_error)",$targets,$id,$lang,$message));
                     }
                 }
             }

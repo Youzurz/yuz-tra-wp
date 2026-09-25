@@ -848,7 +848,7 @@
             const skip = limitedStrings.map(() => true);
             const cid = 'dom-' + Math.random().toString(36).slice(2) + '-' + Date.now();
             const data = {
-              action: 'yuz_get_regular',
+              action: 'yuz_tra_public_lookup',
               nonce: (nn.yuz_tra_nonce || nval),
               ajax_nonce: nval, yuz_tra_nonce: nval, yuz_nonce: nval,
               all_languages: 'false',

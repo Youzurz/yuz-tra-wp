@@ -7,6 +7,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 if (!class_exists('YUZ_Blocks')) {
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
 class YUZ_Blocks {
     public static function init(): void {
         add_action('init', [__CLASS__, 'register_blocks']);

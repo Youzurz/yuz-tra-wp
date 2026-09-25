@@ -113,7 +113,7 @@ private static function getLogger(): LoggerInterface {
     if ( ! $condition ) {
         $log_context = ['context' => $method, 'message' => $message];
         $logger->log('critical', "Health check failed: $message", $log_context);
-        yuz_tra_debug_log("🟥 [CRITICAL] YUZ-TRA: $message in $method");
+        yuztra_debug_log("🟥 [CRITICAL] YUZ-TRA: $message in $method");
         if ( is_admin() ) {
             wp_die( esc_html( "Critical error: $message" ) );
         }
@@ -132,7 +132,9 @@ private static function getLogger(): LoggerInterface {
             global $wpdb;
             $db_connection = $wpdb->check_connection();
             $table_name = $wpdb->prefix . 'yuz_tra_languages';
-            $tables_exist = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+            $tables_exist = $wpdb->get_var(
+                $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))
+            ) === $table_name;
             return [
                 'db_connection_alive' => $db_connection,
                 'db_tables_exist' => $tables_exist,

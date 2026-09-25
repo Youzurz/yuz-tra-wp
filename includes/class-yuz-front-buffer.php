@@ -38,6 +38,7 @@ if (!class_exists('YUZ_Front_Buffer')) {
                 return;
             }
 
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
             if (!apply_filters('yuz_tra_enable_front_buffer', true)) {
                 return;
             }
@@ -85,7 +86,7 @@ if (!class_exists('YUZ_Front_Buffer')) {
                 return YUZ_Front_Renderer::translate_page($output);
             } catch (\Throwable $e) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    yuz_tra_debug_log('[YUZ-TRA] front buffer failed: ' . $e->getMessage());
+                    yuztra_debug_log('[YUZ-TRA] front buffer failed: ' . $e->getMessage());
                 }
                 return $output;
             }

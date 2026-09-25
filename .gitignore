@@ -13,3 +13,4 @@ release/
 *.sql
 *.bak
 .env*
+.agent/

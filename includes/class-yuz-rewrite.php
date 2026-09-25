@@ -207,7 +207,7 @@ class YUZ_Rewrite implements RewriteInterface {
         $this->db->ensure_tables();
         global $wpdb;
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+        if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
             (new YUZ_Logger())->log('critical', 'Language table missing after recreation attempt');
             return;
         }
@@ -224,7 +224,7 @@ class YUZ_Rewrite implements RewriteInterface {
         $languages = [];
         $attempts  = 3;
         while ($attempts > 0) {
-            $languages = $wpdb->get_results("SELECT language_code, slug FROM {$table_name} WHERE is_translatable = 1");
+            $languages = $wpdb->get_results($wpdb->prepare('SELECT language_code, slug FROM %i WHERE is_translatable = 1', $table_name));
             if ($languages !== null) {
                 break;
             }
@@ -248,7 +248,7 @@ class YUZ_Rewrite implements RewriteInterface {
         foreach ($languages as $lang) {
             $lang_code = sanitize_text_field($lang->language_code);
             if (empty($lang_code)) {
-                (new YUZ_Logger())->log('warning', 'Invalid language code: ' . print_r($lang, true));
+                (new YUZ_Logger())->log('warning', 'Invalid language code', ['language_code' => '']);
                 continue;
             }
 
@@ -509,7 +509,7 @@ class YUZ_Rewrite implements RewriteInterface {
             return $this->url_converter->get_url_for_language($active_locale, $url, $context);
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                yuz_tra_debug_log('[YUZ-TRA][WARN] convert_url failed: ' . $e->getMessage());
+                yuztra_debug_log('[YUZ-TRA][WARN] convert_url failed: ' . $e->getMessage());
             }
             return $url;
         } finally {
@@ -694,7 +694,7 @@ class YUZ_Rewrite implements RewriteInterface {
         $this->db->ensure_tables();
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
 
-        if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+        if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
             (new YUZ_Logger())->log('critical', 'Language table missing after recreation attempt');
             return false;
         }
@@ -703,7 +703,8 @@ class YUZ_Rewrite implements RewriteInterface {
         $attempts = 3;
         while ($attempts > 0) {
             $count = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table_name} WHERE language_code = %s AND is_translatable = 1",
+                "SELECT COUNT(*) FROM %i WHERE language_code = %s AND is_translatable = 1",
+                $table_name,
                 $lang_code
             ));
             if ($count !== null) {
@@ -724,7 +725,7 @@ class YUZ_Rewrite implements RewriteInterface {
 
     private function should_skip_canonical_redirect(): bool
     {
-        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        $method = strtoupper(sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? 'GET')));
 
         // A canonical redirect must never consume a form or payment payload.
         if (!in_array($method, ['GET', 'HEAD'], true)) {
@@ -795,7 +796,7 @@ class YUZ_Rewrite implements RewriteInterface {
         if (isset($wp->query_vars['lang'])) {
             $lang = (string) $wp->query_vars['lang'];
         } elseif (isset($_GET['lang'])) {
-            $lang = (string) $_GET['lang'];
+            $lang = sanitize_text_field(wp_unslash((string) $_GET['lang']));
         }
 
         $has_page = !empty($wp->query_vars['page_id']) || !empty($wp->query_vars['pagename']);

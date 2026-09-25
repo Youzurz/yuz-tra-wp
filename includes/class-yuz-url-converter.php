@@ -140,7 +140,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         ];
         $prefix = $prefixes[$lvl] ?? $prefixes['info'];
         $suffix = $ctx ? ' | Context: ' . wp_json_encode($ctx) : '';
-        yuz_tra_debug_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
+        yuztra_debug_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
     }
 
     /* ---------------------------- SETTINGS HELPERS --------------------------- */
@@ -179,7 +179,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
             }
         }
 
-        $all = yuz_settings_get_all();
+        $all = yuztra_settings_get_all();
         $all = is_array($all) ? $all : [];
 
         return $this->ensure_settings_shape($all);
@@ -417,7 +417,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
                 return $this->db_slug_map_cache;
             }
 
-            $results = $wpdb->get_results("SELECT locale, slug FROM {$table}", ARRAY_A);
+            $results = $wpdb->get_results($wpdb->prepare('SELECT locale, slug FROM %i', $table), ARRAY_A);
             if (is_array($results)) {
                 foreach ($results as $row) {
                     if (!is_array($row)) {
@@ -585,11 +585,11 @@ public function cur_page_url(): string
         $scheme = 'http';
         if (
             (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower(sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_PROTO']))) === 'https')
         ) {
             $scheme = 'https';
         }
-        $reqHost = $_SERVER['HTTP_HOST'] ?? wp_parse_url($this->get_cached_home_url(), PHP_URL_HOST) ?? '';
+        $reqHost = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : (wp_parse_url($this->get_cached_home_url(), PHP_URL_HOST) ?? '');
         $port    = '';
         if (!empty($_SERVER['SERVER_PORT']) && !in_array((string) absint($_SERVER['SERVER_PORT']), ['80','443'], true)) {
             $port = ':' . (string) absint($_SERVER['SERVER_PORT']);
@@ -924,7 +924,8 @@ public function cur_page_url(): string
             if ($slugs_table_exists) {
                 $slug = $wpdb->get_var(
                     $wpdb->prepare(
-                        "SELECT slug FROM {$table_slugs} WHERE object_type = %s AND object_id = %d AND lang = %s LIMIT 1",
+                        'SELECT slug FROM %i WHERE object_type = %s AND object_id = %d AND lang = %s LIMIT 1',
+                        $table_slugs,
                         strtolower($object_type),
                         $object_id,
                         $lang
@@ -942,9 +943,10 @@ public function cur_page_url(): string
                 if ($translations_table_exists) {
                     $slug = $wpdb->get_var(
                         $wpdb->prepare(
-                            "SELECT translated_slug FROM {$table_translations}
+                            "SELECT translated_slug FROM %i
                              WHERE post_id = %d AND language_code = %s AND translated_slug <> ''
                              ORDER BY updated_at DESC LIMIT 1",
+                            $table_translations,
                             $object_id,
                             $lang
                         )
@@ -1226,7 +1228,7 @@ public function normalize(string $url): string
             return $final_url;
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                yuz_tra_debug_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
+                yuztra_debug_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
             }
             return $base;
         }
@@ -1245,8 +1247,12 @@ public function normalize(string $url): string
         if (function_exists('get_query_var')) {
             $query_lang = (string) get_query_var('lang', '');
         }
+        // Lecture publique en GET : aucun nonce n'est applicable sur une URL partageable.
+        // La valeur n'autorise rien ; elle est resolue contre le catalogue de langues enregistrees.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         if ($query_lang === '' && isset($_GET['lang'])) {
-            $query_lang = (string) $_GET['lang'];
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+            $query_lang = sanitize_text_field(wp_unslash((string) $_GET['lang']));
         }
 
         if ($query_lang !== '') {

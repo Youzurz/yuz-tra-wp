@@ -78,7 +78,8 @@ use YUZTRA\Interfaces\LanguageManagerInterface;
 
 if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
 
-    class YUZ_CSV_Importer implements CsvImporterInterface {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
+class YUZ_CSV_Importer implements CsvImporterInterface {
         /** @var LanguageManagerInterface */
         private $language_manager;
         /** @var YUZ_Logger */

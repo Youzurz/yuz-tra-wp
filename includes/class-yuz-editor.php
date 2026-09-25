@@ -83,6 +83,7 @@ use YUZTRA\Fallbacks\NullLanguageManager;
 use YUZTRA\Fallbacks\NullTranslationManager;
 
 if (!class_exists('YUZ_Editor')) {
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
 class YUZ_Editor {
     private static $instance = null;
     private $languages;
@@ -300,14 +301,14 @@ class YUZ_Editor {
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (! $wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+        if (! $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_name))) {
             wp_send_json_error(['message' => "Languages table $table_name does not exist"], 500);
         }
 
         $languages = null;
         $attempts  = 3;
         while ($attempts > 0) {
-            $languages = $wpdb->get_results("SELECT language_code, language_name FROM {$table_name} WHERE is_translatable = 1");
+            $languages = $wpdb->get_results($wpdb->prepare('SELECT language_code, language_name FROM %i WHERE is_translatable = 1', $table_name));
             if ($languages !== null) {
                 break;
             }
@@ -332,7 +333,7 @@ class YUZ_Editor {
         $table_key = $table ?: 'default';
         if (!isset($cache[$table_key])) {
             global $wpdb;
-            $columns = $wpdb->get_col("DESCRIBE {$table}", 0);
+            $columns = $wpdb->get_col($wpdb->prepare('DESCRIBE %i', $table), 0);
             $cache[$table_key] = is_array($columns) ? array_map('strtolower', $columns) : [];
         }
 

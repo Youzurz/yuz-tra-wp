@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..');
 const inventory=[
   ['vue','2.7.16','assets/vendor/vue/vue.js'],
   ['vue-router','3.5.3','assets/vendor/vue-router/vue-router.js'],
-  ['axios','1.11.0','assets/vendor/axios.js'],
+  ['axios','1.20.0','assets/vendor/axios.js'],
   ['he','1.2.0','assets/vendor/he.min.js'],
   ['select2','4.1.0','assets/vendor/select2/js/select2.full.js']
 ];

@@ -91,6 +91,7 @@ require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
 
 if (!class_exists('YUZ_Translate_Site')) {
 
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
 class YUZ_Translate_Site implements SiteTranslationInterface {
 
     private $ajax;
@@ -137,7 +138,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
 
         // Gardes minimales
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            yuz_tra_debug_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Translate_Site::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
+            yuztra_debug_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Translate_Site::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
             wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-tra'));
         }
 
@@ -299,26 +300,26 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         }
 
         // Server-side POST fallback (in addition to AJAX) for persistence when JS is disabled
-        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'yuz_con_nonce')) {
+        if (sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')) === 'POST' && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'yuz_con_nonce')) {
             $this->log('info', 'Processing POST submit for Translate Site settings');
 
             $input = isset($_POST['yuz_tra_ts_settings']) && is_array($_POST['yuz_tra_ts_settings'])
-                ? (array) wp_unslash($_POST['yuz_tra_ts_settings'])
+                ? map_deep(wp_unslash($_POST['yuz_tra_ts_settings']), 'sanitize_text_field')
                 : [];
 
             if (!empty($input)) {
                 $settings = $this->settings->sanitize_option('yuz_tra_ts_settings', $input);
 
                 $ok = true;
-                if (function_exists('yuz_settings_update_all')) {
-                    $ok = (bool) yuz_settings_update_all(['yuz_tra_ts_settings' => $settings]);
+                if (function_exists('yuztra_settings_update_all')) {
+                    $ok = (bool) yuztra_settings_update_all(['yuz_tra_ts_settings' => $settings]);
                 } else {
                     $ok = $this->get_settings()->update_option('yuz_tra_ts_settings', $settings);
                 }
 
                 if ($ok) {
                     delete_option('yuz_tra_site_settings');
-                    $canonical = function_exists('yuz_settings_get_all') ? (array) (yuz_settings_get_all()['yuz_tra_ts_settings'] ?? []) : [];
+                    $canonical = function_exists('yuztra_settings_get_all') ? (array) (yuztra_settings_get_all()['yuz_tra_ts_settings'] ?? []) : [];
                     $this->log('success', 'Translate Site settings saved via POST', [
                         'submitted' => $settings,
                         'canonical_after' => $canonical,
@@ -336,15 +337,15 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
         // Récupération robuste: consolide + fallback standalone (legacy)
         $settings = $this->settings->get_option('yuz_tra_ts_settings');
         if (!is_array($settings)) { $settings = []; }
-        if (function_exists('yuz_settings_sanitize_section')) {
-            $settings = yuz_settings_sanitize_section('yuz_tra_ts_settings', $settings);
+        if (function_exists('yuztra_settings_sanitize_section')) {
+            $settings = yuztra_settings_sanitize_section('yuz_tra_ts_settings', $settings);
         }
 
         // Legacy/standalone option name parfois utilisée par l’UI ou imports
         $legacy = get_option('yuz_translation_site_settings', []);
         if (is_array($legacy) && !empty($legacy)) {
-            if (function_exists('yuz_settings_sanitize_section')) {
-                $legacy = yuz_settings_sanitize_section('yuz_tra_ts_settings', $legacy);
+            if (function_exists('yuztra_settings_sanitize_section')) {
+                $legacy = yuztra_settings_sanitize_section('yuz_tra_ts_settings', $legacy);
             }
             foreach ($legacy as $key => $value) {
                 if (!array_key_exists($key, $settings) || $settings[$key] === '' || $settings[$key] === null) {
@@ -457,7 +458,7 @@ class YUZ_Translate_Site implements SiteTranslationInterface {
 
     // URL front courante, sinon Home depuis /wp-admin
     $scheme      = is_ssl() ? 'https' : 'http';
-    $host        = $_SERVER['HTTP_HOST'] ?? wp_parse_url( home_url(), PHP_URL_HOST );
+    $host        = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : wp_parse_url( home_url(), PHP_URL_HOST );
     $uri         = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
     $current_url = $scheme . '://' . $host . $uri;
 

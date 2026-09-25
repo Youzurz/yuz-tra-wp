@@ -104,8 +104,7 @@ if (!class_exists('YUZ_Ajax')) {
 
         /** Read-only routes required to translate pages for logged-out visitors. */
         private const PUBLIC_AJAX_ACTIONS = [
-            'yuz_get_regular',
-            'yuz_tra_js_get_regular',
+            'yuz_tra_public_lookup',
         ];
 
         /** @var \YUZ_Logger|\YUZTRA\Fallbacks\NullLogger */
@@ -307,11 +306,11 @@ if (!class_exists('YUZ_Ajax')) {
             ];
 
             foreach ($suffixes as $suffix) {
-                if (function_exists('yuz_settings_delete_transient')) {
-                    yuz_settings_delete_transient($suffix);
+                if (function_exists('yuztra_settings_delete_transient')) {
+                    yuztra_settings_delete_transient($suffix);
                 }
-                if (function_exists('yuz_settings_cache_delete')) {
-                    yuz_settings_cache_delete($suffix);
+                if (function_exists('yuztra_settings_cache_delete')) {
+                    yuztra_settings_cache_delete($suffix);
                 }
             }
 
@@ -327,47 +326,46 @@ if (!class_exists('YUZ_Ajax')) {
                 }
             }
 
-            if (function_exists('yuz_settings_cache_delete')) {
+            if (function_exists('yuztra_settings_cache_delete')) {
                 foreach ($codes as $code) {
                     $suffix = \YUZ_Languages::CACHE_LANGUAGE_PREFIX . sanitize_key($code);
-                    yuz_settings_cache_delete($suffix);
+                    yuztra_settings_cache_delete($suffix);
                 }
             }
 
             if (class_exists('YUZ_Settings_Service')) {
                 YUZ_Settings_Service::touch();
-            } elseif (function_exists('yuz_settings_get_all') && function_exists('yuz_settings_update_all')) {
-                $current = yuz_settings_get_all();
+            } elseif (function_exists('yuztra_settings_get_all') && function_exists('yuztra_settings_update_all')) {
+                $current = yuztra_settings_get_all();
                 if (is_array($current)) {
-                    yuz_settings_update_all($current);
+                    yuztra_settings_update_all($current);
                 }
             }
         }
 
-        /** Resolve translations table name (first match) */
+        /** Resolve only the canonical translations table, never a backup wildcard. */
         private function resolve_translations_table(\wpdb $wpdb): string {
-            $like = $wpdb->esc_like($wpdb->prefix . 'yuz_tra_translations');
-            $rows = $wpdb->get_col("SHOW TABLES LIKE '{$like}%'");
-            if (is_array($rows) && !empty($rows)) {
-                return (string) $rows[0];
+            $canonical = $wpdb->prefix . 'yuz_tra_translations';
+            $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($canonical)));
+            if (!is_string($found) || !hash_equals($canonical, $found)) {
+                throw new \RuntimeException('canonical_translations_table_missing');
             }
-            // Fallback to canonical
-            return $wpdb->prefix . 'yuz_tra_translations';
+            return $canonical;
         }
 
         /** Compute quick maintenance metrics */
         private function maintenance_metrics(\wpdb $wpdb, string $table): array {
-            $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}`");
-            $empties = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}` WHERE TRIM(COALESCE(translated_text,''))='' ");
+            $total = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i', $table));
+            $empties = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE TRIM(COALESCE(translated_text,''))=''", $table));
             $dups = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM (\n" .
+                $wpdb->prepare("SELECT COUNT(*) FROM (\n" .
                 " SELECT MIN(id) AS keep_id\n" .
-                " FROM `{$table}`\n" .
+                " FROM %i\n" .
                 " GROUP BY post_id, COALESCE(block_id,''), language_code, COALESCE(context,''), COALESCE(original_text,'')\n" .
                 " HAVING COUNT(*)>1\n" .
-                ") x"
+                ") x", $table)
             );
-            $locales = (array) $wpdb->get_results("SELECT language_code, COUNT(*) c FROM `{$table}` GROUP BY language_code ORDER BY c DESC", ARRAY_A);
+            $locales = (array) $wpdb->get_results($wpdb->prepare('SELECT language_code, COUNT(*) c FROM %i GROUP BY language_code ORDER BY c DESC', $table), ARRAY_A);
             return [
                 'table'   => $table,
                 'total'   => $total,
@@ -381,42 +379,44 @@ if (!class_exists('YUZ_Ajax')) {
         private function maintenance_backup(\wpdb $wpdb, string $table): array {
             $ts = gmdate('Ymd_His');
             $backup = $table . '_bak_' . $ts;
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Maintenance table names are validated plugin table names.
-            $wpdb->query("CREATE TABLE `{$backup}` LIKE `{$table}`");
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Maintenance table names are validated plugin table names.
-            $wpdb->query("INSERT INTO `{$backup}` SELECT * FROM `{$table}`");
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Temporary backup table is created only for the explicit maintenance operation and uses validated table identifiers.
+            $wpdb->query($wpdb->prepare('CREATE TABLE %i LIKE %i', $backup, $table));
+            $wpdb->query($wpdb->prepare('INSERT INTO %i SELECT * FROM %i', $backup, $table));
             return ['backup_table' => $backup];
         }
 
         /** Normalize locales safely: hyphen->underscore, lang lower, region upper */
         private function maintenance_normalize_locales(\wpdb $wpdb, string $table): int {
-            $sql = "UPDATE `{$table}`\n"
+            return (int) $wpdb->query($wpdb->prepare("UPDATE %i\n"
                  . "SET language_code = CASE\n"
-                 . "  WHEN language_code LIKE '%-%' OR language_code LIKE '%\\_%' THEN\n"
+                 . "  WHEN language_code LIKE %s OR language_code LIKE %s THEN\n"
                  . "    CONCAT(LOWER(SUBSTRING_INDEX(REPLACE(language_code,'-','_'),'_',1)),'_',UPPER(SUBSTRING_INDEX(REPLACE(language_code,'-','_'),'_',-1)))\n"
-                 . "  ELSE LOWER(language_code) END";
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Maintenance table name is validated before this helper is called.
-            return (int) $wpdb->query($sql);
+                 . "  ELSE LOWER(language_code) END", $table, '%-%', '%\\_%'));
         }
 
         /** Delete empty translated_text rows */
         private function maintenance_delete_empties(\wpdb $wpdb, string $table): int {
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Maintenance table name is validated before this helper is called.
-            return (int) $wpdb->query("DELETE FROM `{$table}` WHERE TRIM(COALESCE(translated_text,''))=''");
+            return (int) $wpdb->query($wpdb->prepare("DELETE FROM %i WHERE TRIM(COALESCE(translated_text,''))=''", $table));
         }
 
         /** Deduplicate logical duplicates keeping highest id */
         private function maintenance_dedupe(\wpdb $wpdb, string $table): int {
-            $sql = "DELETE t1 FROM `{$table}` t1\n"
-                 . "JOIN `{$table}` t2\n"
+            $sql = $wpdb->prepare("DELETE t1 FROM %i t1\n"
+                 . "JOIN %i t2\n"
                  . "  ON  t1.post_id = t2.post_id\n"
                  . "  AND COALESCE(t1.block_id,'') = COALESCE(t2.block_id,'')\n"
                  . "  AND t1.language_code = t2.language_code\n"
                  . "  AND COALESCE(t1.context,'') = COALESCE(t2.context,'')\n"
                  . "  AND COALESCE(t1.original_text,'') = COALESCE(t2.original_text,'')\n"
-                 . "  AND t1.id < t2.id";
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Maintenance table name is validated before this helper is called.
-            return (int) $wpdb->query($sql);
+                 . "  AND t1.id < t2.id", $table, $table);
+            return (int) $wpdb->query($wpdb->prepare("DELETE t1 FROM %i t1\n"
+                 . "JOIN %i t2\n"
+                 . "  ON  t1.post_id = t2.post_id\n"
+                 . "  AND COALESCE(t1.block_id,'') = COALESCE(t2.block_id,'')\n"
+                 . "  AND t1.language_code = t2.language_code\n"
+                 . "  AND COALESCE(t1.context,'') = COALESCE(t2.context,'')\n"
+                 . "  AND COALESCE(t1.original_text,'') = COALESCE(t2.original_text,'')\n"
+                 . "  AND t1.id < t2.id", $table, $table));
         }
 
         /** Normalize a locale code to xx or xx_YY; returns '' if invalid/auto */
@@ -464,7 +464,10 @@ if (!class_exists('YUZ_Ajax')) {
         private function get_translatable_index(\wpdb $wpdb): array {
             $table = $wpdb->prefix . 'yuz_tra_languages';
             $rows = (array) $wpdb->get_results(
-                "SELECT language_code, language_weight, is_translatable, is_source, is_default FROM {$table}",
+                $wpdb->prepare(
+                    'SELECT language_code, language_weight, is_translatable, is_source, is_default FROM %i',
+                    $table
+                ),
                 ARRAY_A
             );
             $codes = [];
@@ -535,11 +538,11 @@ if (!class_exists('YUZ_Ajax')) {
             check_ajax_referer('yuz_log_nonce', 'nonce');
 
             $event   = isset($_POST['event']) ? sanitize_text_field(wp_unslash((string) $_POST['event'])) : '';
-            $rawCtx  = isset($_POST['context']) ? wp_unslash((string) $_POST['context']) : '';
+            $rawCtx  = isset($_POST['context']) ? sanitize_textarea_field(wp_unslash((string) $_POST['context'])) : '';
             $context = null;
             if ($rawCtx !== '') {
                 $decoded = json_decode($rawCtx, true);
-                $context = is_array($decoded) ? $decoded : ['message' => substr($rawCtx, 0, 1000)];
+                $context = is_array($decoded) ? $decoded : [];
             } else {
                 $context = [];
             }
@@ -588,16 +591,14 @@ if (!class_exists('YUZ_Ajax')) {
                 wp_send_json_error(['ok' => false, 'error' => 'forbidden'], 403);
             }
             check_ajax_referer('yuz_log_nonce', 'nonce');
-            $payload_raw = isset($_POST['payload']) ? wp_unslash((string) $_POST['payload']) : '';
+            $payload_raw = isset($_POST['payload']) ? sanitize_textarea_field(wp_unslash((string) $_POST['payload'])) : '';
             if ($payload_raw === '') {
                 wp_send_json_error(['ok' => false, 'error' => 'empty_payload'], 400);
             }
 
             $decoded = json_decode($payload_raw, true);
             if (!is_array($decoded)) {
-                $decoded = [
-                    'raw_payload' => substr($payload_raw, 0, 2000),
-                ];
+                $decoded = [];
             }
 
             $marker = isset($decoded['marker']) ? sanitize_text_field((string) $decoded['marker']) : 'YUZ_TRACE_STATE';
@@ -637,13 +638,13 @@ if (!class_exists('YUZ_Ajax')) {
                 'empty_translations' => 0,
             ];
 
-            if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+            if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                 $summary['error'] = 'missing_table';
                 $this->emit_trace_marker('YUZ_DIAG_SUMMARY', $summary);
                 wp_send_json_error(['ok' => false, 'summary' => $summary], 500);
             }
 
-            $rows = (array) $wpdb->get_results("SELECT original_text, translated_text, language_code FROM {$trans_table} ORDER BY updated_at DESC LIMIT 50", ARRAY_A);
+            $rows = (array) $wpdb->get_results($wpdb->prepare('SELECT original_text, translated_text, language_code FROM %i ORDER BY updated_at DESC LIMIT 50', $trans_table), ARRAY_A);
             $summary['db_rows'] = count($rows);
 
             $normalized = [];
@@ -734,8 +735,10 @@ if (!class_exists('YUZ_Ajax')) {
         private static function load_languages_map(): array {
             global $wpdb;
             $rows = (array) $wpdb->get_results(
-                "SELECT language_code, language_name, is_translatable
-                 FROM `{$wpdb->prefix}yuz_tra_languages`",
+                $wpdb->prepare(
+                    'SELECT language_code, language_name, is_translatable FROM %i',
+                    $wpdb->prefix . 'yuz_tra_languages'
+                ),
                 ARRAY_A
             );
             $map = [];
@@ -810,11 +813,10 @@ if (!class_exists('YUZ_Ajax')) {
             $langs   = self::get_configured_languages();
             $targets = self::get_target_language_codes($langs);
 
-            // debug: log incoming POST/nonce for diagnosis (no sensitive data returned anyway)
+            // Public read-only route: never inspect or persist request payloads.
             try {
                 $incoming = [
                     'remote_addr' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
-                    'post_keys' => array_map('sanitize_key', array_keys($_POST)),
                     'user'        => $is_authenticated ? get_current_user_id() : 0,
                 ];
                 \YUZ\YUZ_Assets::get()->log_debug('ajax-incoming-yuz_tra_ws_get_languages', $incoming);
@@ -980,6 +982,7 @@ if (!class_exists('YUZ_Ajax')) {
                     'yuz_tra_js_get_gtxtscan' => 'yuz_tra_js_get_gtxtscan',
                     'yuz_tra_js_get_regular'  => 'yuz_tra_js_get_regular',
                     'yuz_get_regular'         => 'yuz_get_regular',
+                    'yuz_tra_public_lookup'   => 'yuz_tra_public_lookup',
                     'yuz_tra_js_upd_auto'     => 'yuz_tra_js_upd_auto',
                 ],
                 'general_settings' => [
@@ -1022,6 +1025,46 @@ if (!class_exists('YUZ_Ajax')) {
         }
 
         /** -------------------- CORE AJAX WRAPPER -------------------- */
+        /** Bounded request tree, preserving the slashed convention of legacy callbacks. */
+        private static function sanitize_callback_request(array $request): array {
+            if (strlen(wp_json_encode($request) ?: '') > 2000000) {
+                throw new InvalidArgumentException('request_too_large');
+            }
+            $clean = static function ($value, string $key, int $depth) use (&$clean) {
+                if ($depth > 8) throw new InvalidArgumentException('request_too_deep');
+                if (is_array($value)) {
+                    if (count($value) > 500) throw new InvalidArgumentException('request_array_too_large');
+                    $out = [];
+                    foreach ($value as $child_key => $child) {
+                        if (!is_int($child_key) && !preg_match('/^[a-zA-Z0-9_.:\\-]{1,128}$/D', (string) $child_key)) {
+                            throw new InvalidArgumentException('invalid_request_key');
+                        }
+                        $out[$child_key] = $clean($child, is_int($child_key) ? $key : $child_key, $depth + 1);
+                    }
+                    return $out;
+                }
+                if (is_bool($value) || is_int($value) || is_float($value) || $value === null) return $value;
+                if (!is_string($value) || wp_check_invalid_utf8($value) !== $value) {
+                    throw new InvalidArgumentException('invalid_request_value');
+                }
+                if (in_array($key, ['originals','block_keys','skip_machine_translation','items','ids','texts','entries','payload','data'], true)
+                    && preg_match('/^\\s*[\\[{]/', $value)) {
+                    $decoded = json_decode($value, true, 10);
+                    if (!is_array($decoded) || json_last_error() !== JSON_ERROR_NONE) throw new InvalidArgumentException('invalid_request_json');
+                    return wp_json_encode($clean($decoded, $key, $depth + 1));
+                }
+                if (in_array($key, ['action','context','object_type','provider','mode'], true)) return sanitize_key($value);
+                if (in_array($key, ['page_url','current_url','url','endpoint'], true)) return esc_url_raw($value);
+                if (in_array($key, ['post_id','page_id','object_id','translation_id','source_lang_id','target_lang_id','offset','limit'], true)) {
+                    if (!ctype_digit($value)) throw new InvalidArgumentException('invalid_request_integer');
+                    return (string) absint($value);
+                }
+                // Markup is allowed for translation content; scripts/events are never allowed.
+                return wp_kses_post($value);
+            };
+            return wp_slash($clean(wp_unslash($request), '', 0));
+        }
+
         public static function __handleRequest($nonce_key, array $required = [], callable $callback = null, bool $return_json = true) {
             if ($return_json && !headers_sent()) {
                 header('Content-Type: application/json; charset=' . get_bloginfo('charset'));
@@ -1034,28 +1077,18 @@ if (!class_exists('YUZ_Ajax')) {
             try {
                 self::ensure_req_id();
                 // Récup param nonce (multi noms acceptés)
-                $nonce_param = $_REQUEST['nonce'] ?? ($_REQUEST['_ajax_nonce'] ?? ($_REQUEST['security'] ?? ''));
-                $nonce_param = is_string($nonce_param) ? sanitize_text_field(wp_unslash($nonce_param)) : '';
+                $nonce_param = '';
+                foreach (['nonce', '_ajax_nonce', 'security'] as $nonce_field) {
+                    if (isset($_REQUEST[$nonce_field]) && is_string($_REQUEST[$nonce_field])) {
+                        $nonce_param = sanitize_text_field(wp_unslash($_REQUEST[$nonce_field]));
+                        break;
+                    }
+                }
                 $nonce_key   = self::normalize_nonce_key($nonce_key);
 
                 // Correlation id (si fourni par le client)
-                $cid    = isset($_REQUEST['cid']) ? sanitize_text_field(wp_unslash((string) $_REQUEST['cid'])) : null;
-                $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash((string) $_REQUEST['action'])) : '';
-
-                // Early probe logging BEFORE nonce verification, to help diagnose missing/non-matching nonces
-                if (class_exists('YUZ_Logger')) {
-                    try {
-                        (new YUZ_Logger())->log('info', '[AJAX][PRE] request incoming', [
-                            'remote_addr' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
-                            'uri'         => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
-                            'action'      => $action,
-                            'cid'         => $cid,
-                            'post_keys'   => array_map('sanitize_key', array_keys($_POST ?? [])),
-                            'has_nonce'   => (bool) $nonce_param,
-                            'expected'    => $nonce_key,
-                        ]);
-                    } catch (\Throwable $ignored) {}
-                }
+                $cid    = is_string($_REQUEST['cid'] ?? null) ? sanitize_text_field(wp_unslash($_REQUEST['cid'])) : null;
+                $action = is_string($_REQUEST['action'] ?? null) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
 
                 if (!$nonce_param || !wp_verify_nonce($nonce_param, $nonce_key)) {
                     if (class_exists('YUZ_Logger')) {
@@ -1074,6 +1107,18 @@ if (!class_exists('YUZ_Ajax')) {
                         'code'     => 'invalid_nonce',
                         'expected' => $nonce_key,
                     ], 403);
+                }
+
+                // Journal de requete : uniquement apres verification du nonce.
+                if (class_exists('YUZ_Logger')) {
+                    try {
+                        (new YUZ_Logger())->log('info', '[AJAX][PRE] request incoming', [
+                            'action'    => $action,
+                            'cid'       => $cid,
+                            'post_keys' => array_map('sanitize_key', array_keys($_POST ?? [])),
+                            'expected'  => $nonce_key,
+                        ]);
+                    } catch (\Throwable $ignored) {}
                 }
 
                 // Anti-rafale basique côté serveur (IP+action)
@@ -1103,7 +1148,7 @@ if (!class_exists('YUZ_Ajax')) {
                 }
                 // Normalize common locale shapes to en_US/fr_FR
                 if (isset($_REQUEST['language']) && is_string($_REQUEST['language'])) {
-                    $L = str_replace('-', '_', (string) $_REQUEST['language']);
+                    $L = str_replace('-', '_', sanitize_text_field(wp_unslash($_REQUEST['language'])));
                     if (strpos($L, '_') !== false) {
                         list($a, $b) = explode('_', $L, 2);
                         $_REQUEST['language'] = strtolower($a) . '_' . strtoupper($b);
@@ -1117,7 +1162,7 @@ if (!class_exists('YUZ_Ajax')) {
                     if (!isset($_REQUEST[$key])) {
                         $payload = ['message' => "Missing parameter: {$key}", 'code' => 'missing_param', 'param' => $key];
                         if (class_exists('YUZ_Logger')) {
-                            try { (new YUZ_Logger())->log('error', '[AJAX][REQUIRED_MISSING]', ['cid' => $cid, 'action' => $action, 'missing' => $key, 'keys' => array_keys($_REQUEST)]); } catch (\Throwable $ignored) {}
+                            try { (new YUZ_Logger())->log('error', '[AJAX][REQUIRED_MISSING]', ['cid' => $cid, 'action' => $action, 'missing' => $key, 'keys' => array_map('sanitize_key', array_keys($_REQUEST))]); } catch (\Throwable $ignored) {}
                         }
                         if ($obStarted) { ob_end_clean(); }
                         self::send_json_error($payload, 400);
@@ -1125,7 +1170,8 @@ if (!class_exists('YUZ_Ajax')) {
                 }
 
                 // Exécute l’action
-                $data = $callback ? call_user_func($callback, $_REQUEST) : [];
+                $request_data = self::sanitize_callback_request($_REQUEST);
+                $data = $callback ? call_user_func($callback, $request_data) : [];
 
                 // Vide et inspecte le tampon
                 $noise = $obStarted ? ob_get_clean() : '';
@@ -1153,7 +1199,7 @@ if (!class_exists('YUZ_Ajax')) {
                         'message' => $e->getMessage(),
                         'file'    => $e->getFile(),
                         'line'    => $e->getLine(),
-                        'keys'    => array_keys($_REQUEST ?? []),
+                        'keys'    => array_map('sanitize_key', array_keys($_REQUEST ?? [])),
                     ]);
                 } catch (\Throwable $ignored) {}
                 $code = ($e instanceof \InvalidArgumentException) ? 400 : 500;
@@ -1220,7 +1266,7 @@ if (!class_exists('YUZ_Ajax')) {
     $table = $wpdb->prefix . 'yuz_tra_languages';
 
     // 1) La DB est l'autorité: le manager peut servir des objets minimaux ou périmés.
-    $dbAll = $wpdb->get_results("SELECT * FROM $table ORDER BY language_weight ASC", ARRAY_A);
+    $dbAll = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i ORDER BY language_weight ASC', $table), ARRAY_A);
     $dbAll = is_array($dbAll) ? $dbAll : [];
 
     $dbTrans = array_values(array_filter($dbAll, static function ($row) {
@@ -1294,24 +1340,32 @@ public function yuz_tra_ws_get_languages() {
         }
     }
     $nonce = $received['yuz_tra_nonce'] ?? $received['nonce'] ?? $received['security'] ?? '';
+    $verified = false;
+    foreach (['yuz_tra_nonce', 'nonce', 'security'] as $nonce_field) {
+        if (check_ajax_referer('yuz_tra_nonce', $nonce_field, false)) {
+            $verified = true;
+            break;
+        }
+    }
 
-    // 2) Logs d’entrée (pas de valeur brute du nonce)
-    $this->log_debug('ajax-incoming-yuz_tra_ws_get_languages:begin', [
-        'remote_addr' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
-        'uri'         => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
-        'origin'      => $_SERVER['HTTP_ORIGIN'] ?? '',
-        'referer'     => $_SERVER['HTTP_REFERER'] ?? '',
-        'user'        => ['id'=>get_current_user_id(), 'logged_in'=>is_user_logged_in()],
-        'post_keys' => array_map('sanitize_key', array_keys($_POST)),
-        'nonce_keys'  => array_keys($received),
-        'nonce_sig'   => $nonce ? substr(md5($nonce), 0, 8) : null,
-    ]);
-
-    if ($nonce === '' || !wp_verify_nonce($nonce, 'yuz_tra_nonce')) {
+    if (!$verified) {
         $this->log_debug('ajax-incoming-yuz_tra_ws_get_languages:verify', [
             'verify_yuz_tra_nonce' => false,
         ]);
         wp_send_json_error(['code'=>'bad_nonce','msg'=>'invalid_nonce'], 403);
+    }
+
+    // Read request metadata only after the request nonce has been verified.
+    $this->log_debug('ajax-incoming-yuz_tra_ws_get_languages:begin', [
+        'remote_addr' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
+        'uri'         => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
+        'user'        => ['id'=>get_current_user_id(), 'logged_in'=>is_user_logged_in()],
+        'post_keys'   => array_map('sanitize_key', array_keys($_POST)),
+        'nonce_keys'  => array_keys($received),
+        'nonce_sig'   => substr(md5($nonce), 0, 8),
+    ]);
+    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+        wp_send_json_error(['code'=>'forbidden','msg'=>'insufficient_permissions'], 403);
     }
 
     $this->log_debug('ajax-incoming-yuz_tra_ws_get_languages:verify', [
@@ -1364,7 +1418,8 @@ private function log_debug($tag, array $data) {
 
                     // existe ?
                     $exists = (int)$wpdb->get_var($wpdb->prepare(
-                        "SELECT COUNT(*) FROM $table WHERE language_code = %s",
+                        'SELECT COUNT(*) FROM %i WHERE language_code = %s',
+                        $table,
                         $code
                     ));
 
@@ -1376,7 +1431,7 @@ private function log_debug($tag, array $data) {
                         $slug         = $langObj->slug ?? strtolower(str_replace('_','-',$code));
                         $browserSlug  = $langObj->browser_slug ?? strtolower(substr($code,0,2));
 
-                        $maxWeight = (int)$wpdb->get_var("SELECT MAX(language_weight) FROM $table");
+                        $maxWeight = (int)$wpdb->get_var($wpdb->prepare('SELECT MAX(language_weight) FROM %i', $table));
                         $ok = $wpdb->insert($table, [
                             'language_name'    => $languageName,
                             'language_code'    => $code,
@@ -1421,20 +1476,20 @@ private function log_debug($tag, array $data) {
                     unset($options['yuz_translatable_languages[]'], $options['yuz_tra_translatable_languages[]']);
 
                     // ---- Garantir default/source s'ils n'existent pas encore
-                    $hasDefault = (int)$wpdb->get_var("SELECT COUNT(*) FROM $table WHERE is_default = 1");
-                    $hasSource  = (int)$wpdb->get_var("SELECT COUNT(*) FROM $table WHERE is_source  = 1");
+                    $hasDefault = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE is_default = 1', $table));
+                    $hasSource  = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE is_source = 1', $table));
 
                     $madeDefault = false;
                     $madeSource  = false;
 
                     if ($hasDefault === 0) {
-                        $wpdb->query("UPDATE $table SET is_default = 0");
+                        $wpdb->query($wpdb->prepare('UPDATE %i SET is_default = 0', $table));
                         $wpdb->update($table, ['is_default'=>1, 'updated_at'=>current_time('mysql')], ['language_code'=>$code], ['%d','%s'], ['%s']);
                         $options['yuz_default_language'] = $code;
                         $madeDefault = true;
                     }
                     if ($hasSource === 0) {
-                        $wpdb->query("UPDATE $table SET is_source = 0");
+                        $wpdb->query($wpdb->prepare('UPDATE %i SET is_source = 0', $table));
                         $wpdb->update($table, ['is_source'=>1, 'updated_at'=>current_time('mysql')], ['language_code'=>$code], ['%d','%s'], ['%s']);
                         $options['yuz_source_language'] = $code;
                         $madeSource = true;
@@ -1444,7 +1499,7 @@ private function log_debug($tag, array $data) {
 
                     // Ensure fresh lists after mutation
                     $this->invalidate_language_caches([$code]);
-                    $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE language_code=%s", $code), ARRAY_A);
+                    $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM %i WHERE language_code=%s', $table, $code), ARRAY_A);
                     $payload = $this->build_ws_payload();
                     $payload['debug_row'] = $row;
                     $payload['message']      = __('Language created/activated', 'yuz-tra');
@@ -1470,25 +1525,25 @@ private function log_debug($tag, array $data) {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
 
-                    $res = $wpdb->query("UPDATE $table_name SET is_translatable = 1, language_weight = IF(language_weight=0, 999, language_weight)");
+                    $res = $wpdb->query($wpdb->prepare('UPDATE %i SET is_translatable = 1, language_weight = IF(language_weight=0, 999, language_weight)', $table_name));
                     if ($res === false) {
                         throw new \Exception( esc_html( "Failed to update all languages: " . $wpdb->last_error ) );                    }
 
                     // options miroir (mettre à jour les deux clés et nettoyer les clés parasites)
-                    $langs_col = $wpdb->get_col("SELECT language_code FROM $table_name WHERE is_translatable = 1");
+                    $langs_col = $wpdb->get_col($wpdb->prepare('SELECT language_code FROM %i WHERE is_translatable = 1', $table_name));
                     $options   = $this->get_settings()->get_option('yuz_tra_general');
                     if (!is_array($options)) { $options = []; }
                     $options['yuz_translatable_languages'] = $langs_col ?: [];
                     $options['yuz_tra_translatable_languages'] = $langs_col ?: [];
                     unset($options['yuz_translatable_languages[]'], $options['yuz_tra_translatable_languages[]']);
                     // assurer default/source
-                    $def = (int)$wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE is_default=1");
-                    $src = (int)$wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE is_source=1");
+                    $def = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE is_default=1', $table_name));
+                    $src = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE is_source=1', $table_name));
                     if ($def===0 && !empty($langs_col)) {
                         $wpdb->update($table_name, ['is_default'=>1], ['language_code'=>$langs_col[0]], ['%d'], ['%s']);
                         $options['yuz_default_language'] = $langs_col[0];
@@ -1516,7 +1571,7 @@ private function log_debug($tag, array $data) {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
@@ -1562,13 +1617,13 @@ private function log_debug($tag, array $data) {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
 
                     (new YUZ_Logger())->log('info', '[WS_DEL_ALL] disabling all translatables');
-                    $res = $wpdb->query("UPDATE $table_name SET is_translatable = 0 WHERE is_translatable = 1");
+                    $res = $wpdb->query($wpdb->prepare('UPDATE %i SET is_translatable = 0 WHERE is_translatable = 1', $table_name));
                     if ($res === false) {
                         (new YUZ_Logger())->log('error', '[WS_DEL_ALL] update failed', ['error'=>$wpdb->last_error]);
                         throw new \Exception( esc_html( "Failed to update all languages: " . $wpdb->last_error ) );                    }
@@ -1597,7 +1652,7 @@ private function log_debug($tag, array $data) {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
@@ -1685,12 +1740,12 @@ private function log_debug($tag, array $data) {
                         WHERE is_translatable = 1
                           AND language_code NOT IN ($placeholders)";
                 // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Placeholder list is generated from sanitized language codes.
-                $wpdb->query($wpdb->prepare($sql, $trans));
+                $wpdb->query($wpdb->prepare($sql, ...$trans));
 
                 // Ensure each translatable exists, enable and set weight
                 $weight = 1;
                 foreach ($trans as $tCode) {
-                    $id = $wpdb->get_var($wpdb->prepare("SELECT id FROM $table WHERE language_code = %s", $tCode));
+                    $id = $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $table, $tCode));
                     if (!$id) {
                         $slug        = strtolower(str_replace('_','-',$tCode));
                         $browserSlug = strtolower(substr($tCode,0,2));
@@ -1809,7 +1864,7 @@ private function log_debug($tag, array $data) {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
@@ -1856,7 +1911,7 @@ private function log_debug($tag, array $data) {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
@@ -1903,7 +1958,7 @@ private function log_debug($tag, array $data) {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
@@ -1911,7 +1966,7 @@ private function log_debug($tag, array $data) {
                     $language_code   = sanitize_text_field($data['language_code']);
                     $is_translatable = intval($data['is_translatable']);
 
-                    $max_weight = (int) $wpdb->get_var("SELECT MAX(language_weight) FROM $table_name WHERE is_translatable = 1");
+                    $max_weight = (int) $wpdb->get_var($wpdb->prepare('SELECT MAX(language_weight) FROM %i WHERE is_translatable = 1', $table_name));
                     $new_weight = $is_translatable ? ($max_weight  +1) : 0; 
 
                     $res = $wpdb->update(
@@ -1924,7 +1979,7 @@ private function log_debug($tag, array $data) {
                     if ($res === false) {
                         throw new \Exception( esc_html( "Failed to update translatable status for {$language_code}: " . $wpdb->last_error ) );                    }
 
-                    $fresh = $wpdb->get_col("SELECT language_code FROM {$table_name} WHERE is_translatable = 1 ORDER BY language_weight ASC");
+                    $fresh = $wpdb->get_col($wpdb->prepare('SELECT language_code FROM %i WHERE is_translatable = 1 ORDER BY language_weight ASC', $table_name));
                     if (!is_array($fresh)) {
                         $fresh = [];
                     }
@@ -1985,8 +2040,8 @@ private function log_debug($tag, array $data) {
 
                     $payload = isset($data['language_settings']) ? (array) $data['language_settings'] : [];
 
-                    $all      = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
-                    $defaults = function_exists('yuz_settings_section_default') ? yuz_settings_section_default('yuz_tra_ls_settings') : [];
+                    $all      = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
+                    $defaults = function_exists('yuztra_settings_section_default') ? yuztra_settings_section_default('yuz_tra_ls_settings') : [];
                     $existing = is_array($all) && isset($all['yuz_tra_ls_settings']) && is_array($all['yuz_tra_ls_settings'])
                         ? $all['yuz_tra_ls_settings']
                         : (is_array($defaults) ? $defaults : []);
@@ -1995,8 +2050,8 @@ private function log_debug($tag, array $data) {
                         $logger->log('info', '[AJAX][LS_UPD] before=' . wp_json_encode($existing));
                     }
 
-                    $clean = function_exists('yuz_settings_sanitize_section')
-                        ? yuz_settings_sanitize_section('yuz_tra_ls_settings', $payload)
+                    $clean = function_exists('yuztra_settings_sanitize_section')
+                        ? yuztra_settings_sanitize_section('yuz_tra_ls_settings', $payload)
                         : (is_array($payload) ? $payload : []);
 
                     $was_subdir = function_exists('yuz_settings_truthy')
@@ -2004,11 +2059,11 @@ private function log_debug($tag, array $data) {
                         : !empty($existing['use_subdirectory']);
                     $mutated = $clean !== $existing;
 
-                    $ok = function_exists('yuz_settings_update_all')
-                        ? yuz_settings_update_all(['yuz_tra_ls_settings' => $clean])
+                    $ok = function_exists('yuztra_settings_update_all')
+                        ? yuztra_settings_update_all(['yuz_tra_ls_settings' => $clean])
                         : false;
 
-                    $after_all = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
+                    $after_all = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
                     $saved     = is_array($after_all) && isset($after_all['yuz_tra_ls_settings']) && is_array($after_all['yuz_tra_ls_settings'])
                         ? $after_all['yuz_tra_ls_settings']
                         : $clean;
@@ -2101,8 +2156,8 @@ private function log_debug($tag, array $data) {
 
                     $payload = isset($data['switcher_settings']) ? (array) $data['switcher_settings'] : [];
 
-                    $all      = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
-                    $defaults = function_exists('yuz_settings_section_default') ? yuz_settings_section_default('yuz_tra_sw_settings') : [];
+                    $all      = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
+                    $defaults = function_exists('yuztra_settings_section_default') ? yuztra_settings_section_default('yuz_tra_sw_settings') : [];
                     $existing = is_array($all) && isset($all['yuz_tra_sw_settings']) && is_array($all['yuz_tra_sw_settings'])
                         ? $all['yuz_tra_sw_settings']
                         : (is_array($defaults) ? $defaults : []);
@@ -2111,17 +2166,17 @@ private function log_debug($tag, array $data) {
                         $logger->log('info', '[AJAX][SW_UPD] before=' . wp_json_encode($existing));
                     }
 
-                    $clean = function_exists('yuz_settings_sanitize_section')
-                        ? yuz_settings_sanitize_section('yuz_tra_sw_settings', $payload)
+                    $clean = function_exists('yuztra_settings_sanitize_section')
+                        ? yuztra_settings_sanitize_section('yuz_tra_sw_settings', $payload)
                         : (is_array($payload) ? $payload : []);
 
                     $mutated = $clean !== $existing;
 
-                    $ok = function_exists('yuz_settings_update_all')
-                        ? yuz_settings_update_all(['yuz_tra_sw_settings' => $clean])
+                    $ok = function_exists('yuztra_settings_update_all')
+                        ? yuztra_settings_update_all(['yuz_tra_sw_settings' => $clean])
                         : false;
 
-                    $after_all = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
+                    $after_all = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
                     $saved     = is_array($after_all) && isset($after_all['yuz_tra_sw_settings']) && is_array($after_all['yuz_tra_sw_settings'])
                         ? $after_all['yuz_tra_sw_settings']
                         : $clean;
@@ -2162,21 +2217,27 @@ private function log_debug($tag, array $data) {
         }
 
         public function yuz_tra_sw_switch_language() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+            }
             self::__handleRequest('yuz_tra_nonce',
                 ['language_code'],
                 function ($data) {
+                    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                        wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+                    }
                     global $wpdb;
                     $this->ensure_db_tables();
 
                     $lang_table = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$lang_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $lang_table missing after recreation attempt");
                         return [];
                     }
 
                     $language_code = $this->normalize_language_code(sanitize_text_field($data['language_code']));
 
-                    $exists = (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $lang_table WHERE language_code = %s AND is_translatable = 1", $language_code));
+                    $exists = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE language_code = %s AND is_translatable = 1', $lang_table, $language_code));
                     if (!$exists) {
                         (new YUZ_Logger())->log('error', "Invalid or non-translatable language code: {$language_code}");
                         throw new \Exception( esc_html( "Invalid or non-translatable language code: {$language_code}" ) );                    }
@@ -2249,15 +2310,21 @@ private function log_debug($tag, array $data) {
 
         /** -------------------- TRANSLATE SITE SETTINGS -------------------- */
         public function yuz_tra_ts_get_settings() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+            }
             self::__handleRequest('yuz_tra_nonce',
                 [],
                 function ($data) {
+                    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                        wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+                    }
                     $settings = $this->get_settings()->get_option('yuz_tra_ts_settings');
                     if (!is_array($settings)) {
                         $settings = [];
                     }
-                    if (function_exists('yuz_settings_sanitize_section')) {
-                        $settings = yuz_settings_sanitize_section('yuz_tra_ts_settings', $settings);
+                    if (function_exists('yuztra_settings_sanitize_section')) {
+                        $settings = yuztra_settings_sanitize_section('yuz_tra_ts_settings', $settings);
                     }
                     if (empty($settings)) {
                         throw new \Exception( esc_html( 'Failed to retrieve site settings' ) );                    }
@@ -2267,6 +2334,9 @@ private function log_debug($tag, array $data) {
         }
 
         public function yuz_tra_ts_upd_settings() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message'=>'unauthorized','code'=>'unauthorized'],403);
+    }
     self::__handleRequest('yuz_con_nonce',
         // Accept both legacy and new payload keys to avoid persistence issues
         ['translate_site_settings','site_settings'],
@@ -2279,7 +2349,7 @@ private function log_debug($tag, array $data) {
                     'raw_keys'       => array_keys((array) ($data['translate_site_settings'] ?? $data['site_settings'] ?? [])),
                 ]);
             }
-            if (!current_user_can('yuz_translate_content') && !current_user_can('manage_options')) {
+            if (!current_user_can('manage_options')) {
                 wp_send_json_error(['message'=>'unauthorized','code'=>'unauthorized'],403);
             }
             // Support both names: JS may send site_settings; older code used translate_site_settings
@@ -2355,6 +2425,7 @@ public function yuz_tra_ts_start_translation() {
 
         /** -------------------- TRANSLATION EDITOR -------------------- */
         public function yuz_tra_te_cre_tstart() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) wp_send_json_error(['message' => 'forbidden'], 403);
             self::__handleRequest('yuz_tra_nonce',
                 ['page_url'],
                 function ($data) {
@@ -2399,17 +2470,18 @@ public function yuz_tra_ts_start_translation() {
 
 
         public function yuz_tra_te_cre_translation() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) wp_send_json_error(['message' => 'forbidden'], 403);
             // Trace diagnostic d'entrée
             try {
                 $logger = $this->logger ?: (class_exists('YUZ_Logger') ? new \YUZ_Logger() : new \YUZTRA\Fallbacks\NullLogger());
                 $trace  = isset($_REQUEST['yuz_trace']) ? sanitize_text_field(wp_unslash((string) $_REQUEST['yuz_trace'])) : '';
                 $logger->log('info', '[TE][IN] create', [
                     'trace' => $trace,
-                    'keys'  => array_keys((array) $_REQUEST),
+                    'keys'  => array_map('sanitize_key', array_keys((array) $_REQUEST)),
                 ]);
             } catch (\Throwable $e) {}
             if (!isset($_REQUEST['target_langs']) && isset($_REQUEST['target_lang'])) {
-                $incoming = wp_unslash($_REQUEST['target_lang']);
+                $incoming = sanitize_text_field(wp_unslash((string) $_REQUEST['target_lang']));
                 if (!is_array($incoming)) {
                     $incoming = [$incoming];
                 }
@@ -2426,11 +2498,11 @@ public function yuz_tra_ts_start_translation() {
                 $_REQUEST['target_langs'] = $normalized;
             }
             if (!isset($_REQUEST['text']) && isset($_REQUEST['original_text'])) {
-                $original = $_REQUEST['original_text'];
+                $original = wp_kses_post(wp_unslash((string) $_REQUEST['original_text']));
                 if (is_array($original)) {
                     $original = '';
                 }
-                $_REQUEST['text'] = wp_kses_post(wp_unslash($original));
+                $_REQUEST['text'] = wp_slash(wp_kses_post($original));
             }
 
             self::__handleRequest('yuz_int_nonce',
@@ -2443,7 +2515,7 @@ public function yuz_tra_ts_start_translation() {
 
                     $lang_table  = $wpdb->prefix . 'yuz_tra_languages';
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$lang_table'") || !$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table))) || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         $logger->log('critical', "Languages/Translations table missing after recreation attempt");
                         return [];
                     }
@@ -2454,7 +2526,7 @@ public function yuz_tra_ts_start_translation() {
                     if (!$source_lang_id) {
                         $source_code = isset($data['source_lang']) ? $this->normalize_language_code((string) wp_unslash($data['source_lang'])) : '';
                         if ($source_code) {
-                            $candidate = $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $source_code));
+                            $candidate = $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $source_code));
                             if ($candidate) {
                                 $source_lang_id = (int) $candidate;
                             }
@@ -2462,7 +2534,7 @@ public function yuz_tra_ts_start_translation() {
                     }
 
                     if (!$source_lang_id) {
-                        $fallback = $wpdb->get_var("SELECT id FROM $lang_table WHERE is_source = 1");
+                        $fallback = $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE is_source = 1', $lang_table));
                         if ($fallback) {
                             $source_lang_id = (int) $fallback;
                         }
@@ -2592,7 +2664,7 @@ public function yuz_tra_ts_start_translation() {
 
                     foreach ($target_langs as $code) {
                         $target_lang_id = $wpdb->get_var(
-                            $wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $code)
+                            $wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $code)
                         );
                         if (!$target_lang_id) {
                             $logger->log('warning', "Invalid target language code: {$code}");
@@ -2623,9 +2695,9 @@ public function yuz_tra_ts_start_translation() {
 
                         $existing_row = null;
                         if ($whereParts) {
-                            $sql = "SELECT id, translated_text FROM $trans_table WHERE " . implode(' AND ', $whereParts) . " LIMIT 1";
+                            $sql = 'SELECT id, translated_text FROM %i WHERE ' . implode(' AND ', $whereParts) . ' LIMIT 1';
                             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- WHERE fragments are fixed templates; values are prepared.
-                            $existing_row = $wpdb->get_row($wpdb->prepare($sql, $params), ARRAY_A);
+                            $existing_row = $wpdb->get_row($wpdb->prepare($sql, $trans_table, ...$params), ARRAY_A);
                         }
 
                         if ((!is_array($existing_row) || empty($existing_row['id']))) {
@@ -2649,9 +2721,9 @@ public function yuz_tra_ts_start_translation() {
                             $keyWhere[]  = 'target_lang_id = %d';
                             $keyParams[] = (int) $target_lang_id;
 
-                            $sqlFallback = "SELECT id, translated_text FROM $trans_table WHERE " . implode(' AND ', $keyWhere) . " LIMIT 1";
+                            $sqlFallback = 'SELECT id, translated_text FROM %i WHERE ' . implode(' AND ', $keyWhere) . ' LIMIT 1';
                             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- WHERE fragments are fixed templates; values are prepared.
-                            $existing_row = $wpdb->get_row($wpdb->prepare($sqlFallback, $keyParams), ARRAY_A);
+                            $existing_row = $wpdb->get_row($wpdb->prepare($sqlFallback, $trans_table, ...$keyParams), ARRAY_A);
                             if (is_array($existing_row) && !empty($existing_row['id'])) {
                                 $logger->log('info', '[TE] reuse existing translation (composite match)', [
                                     'id'         => (int) $existing_row['id'],
@@ -2717,7 +2789,8 @@ public function yuz_tra_ts_start_translation() {
                             if (stripos($error_message, 'duplicate') !== false) {
                                 $duplicate = $wpdb->get_row(
                                     $wpdb->prepare(
-                                        "SELECT id, translated_text FROM {$trans_table} WHERE post_id = %d AND context = %s AND block_id = %s AND source_lang_id = %d AND target_lang_id = %d LIMIT 1",
+                                        'SELECT id, translated_text FROM %i WHERE post_id = %d AND context = %s AND block_id = %s AND source_lang_id = %d AND target_lang_id = %d LIMIT 1',
+                                        $trans_table,
                                         $post_id,
                                         $context,
                                         $block_id,
@@ -2772,6 +2845,8 @@ public function yuz_tra_ts_start_translation() {
         }
 
         public function yuz_tra_te_upd_manual() {
+            // This legacy endpoint saves a published translation, not only a draft.
+            if (!current_user_can('manage_options') && !current_user_can('yuz_publish_translations')) wp_send_json_error(['message' => 'forbidden'], 403);
             self::__handleRequest('yuz_int_nonce',
                 ['translation_id', 'translated_text', 'target_lang'],
                 function ($data) {
@@ -2780,7 +2855,7 @@ public function yuz_tra_ts_start_translation() {
 
                     $table_name = $wpdb->prefix . 'yuz_tra_translations';
                     $lang_table = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'") || !$wpdb->get_var("SHOW TABLES LIKE '$lang_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))) || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table)))) {
                         (new YUZ_Logger())->log('critical', "Tables missing after recreation attempt");
                         return [];
                     }
@@ -2796,12 +2871,12 @@ public function yuz_tra_ts_start_translation() {
                     $context        = sanitize_text_field($data['context'] ?? '');
                     $target_lang    = sanitize_text_field($data['target_lang']);
 
-                    $target_lang_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $target_lang));
+                    $target_lang_id = $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $target_lang));
                     if (!$target_lang_id) {
                         (new YUZ_Logger())->log('error', '[TE][MANUAL] invalid target lang', ['target_lang' => $target_lang, 'translation_id' => $translation_id]);
                         throw new \Exception( esc_html( "Invalid target language code: {$target_lang}" ) );                    }
 
-                    $exists = (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE id = %d", $translation_id));
+                    $exists = (int)$wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE id = %d', $table_name, $translation_id));
 
                     $result = $exists
                         ? $wpdb->update($table_name, ['translated_text' => $translated_text, 'context' => $context, 'status' => $published_status, 'origin' => 'manual', 'updated_at' => current_time('mysql')], ['id' => $translation_id], ['%s', '%s', '%d', '%s', '%s'], ['%d']) // YUZ: normalized
@@ -2840,13 +2915,14 @@ public function yuz_tra_ts_start_translation() {
         }
 
         public function yuz_tra_te_upd_publish() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_publish_translations')) wp_send_json_error(['message' => 'forbidden'], 403);
             // Trace diagnostic d'entrée
             try {
                 $logger = $this->logger ?: (class_exists('YUZ_Logger') ? new \YUZ_Logger() : new \YUZTRA\Fallbacks\NullLogger());
                 $trace  = isset($_REQUEST['yuz_trace']) ? sanitize_text_field(wp_unslash((string) $_REQUEST['yuz_trace'])) : '';
                 $logger->log('info', '[TE][IN] publish', [
                     'trace' => $trace,
-                    'keys'  => array_keys((array) $_REQUEST),
+                    'keys'  => array_map('sanitize_key', array_keys((array) $_REQUEST)),
                 ]);
             } catch (\Throwable $e) {}
 
@@ -2858,7 +2934,7 @@ public function yuz_tra_ts_start_translation() {
 
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
                     $lang_table  = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'") || !$wpdb->get_var("SHOW TABLES LIKE '$lang_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table))) || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table)))) {
                         (new YUZ_Logger())->log('critical', "Tables missing after recreation attempt");
                         return [];
                     }
@@ -2866,7 +2942,7 @@ public function yuz_tra_ts_start_translation() {
                     $page_url    = esc_url_raw($data['page_url']);
                     $target_lang = sanitize_text_field($data['target_lang']);
 
-                    $target_lang_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $target_lang));
+                    $target_lang_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $target_lang));
                     if (!$target_lang_id) {
                         throw new \Exception( esc_html( "Invalid target language code: {$target_lang}" ) );                    }
 
@@ -2942,11 +3018,13 @@ public function yuz_tra_ts_start_translation() {
 
                     if ($entries) {
                         $updated_ids = [];
+                        $matched_entries = 0;
                         $now = current_time('mysql');
                         foreach ($entries as $entry) {
                             $row = $wpdb->get_row(
                                 $wpdb->prepare(
-                                    "SELECT id, origin, post_id, target_lang_id FROM {$trans_table} WHERE id = %d",
+                                    'SELECT id, origin, post_id, target_lang_id FROM %i WHERE id = %d',
+                                    $trans_table,
                                     $entry['id']
                                 ),
                                 ARRAY_A
@@ -2961,6 +3039,7 @@ public function yuz_tra_ts_start_translation() {
                             if ($row_post_id > 0 && $row_post_id !== $post_id) {
                                 continue;
                             }
+                            $matched_entries++;
                             $result = $wpdb->update(
                                 $trans_table,
                                 [
@@ -2980,6 +3059,9 @@ public function yuz_tra_ts_start_translation() {
                             }
                         }
 
+                        if ($matched_entries === 0) {
+                            throw new \InvalidArgumentException('no_matching_translation_to_publish');
+                        }
                         return [
                             'message' => __('Translation published', 'yuz-tra'),
                             'updated' => count($updated_ids),
@@ -3000,10 +3082,10 @@ public function yuz_tra_ts_start_translation() {
                     }
                     $review_clause = implode(',', array_map('intval', $review_statuses));
                     $origin_params = ['manual', 'dock', 'gettext'];
-                    $select_sql = "SELECT id FROM {$trans_table} WHERE post_id = %d AND target_lang_id = %d AND status IN ({$review_clause})";
+                    $select_sql = "SELECT id FROM %i WHERE post_id = %d AND target_lang_id = %d AND status IN ({$review_clause})";
                     $select_sql .= " AND (origin IN ({$origin_clause}) OR origin IS NULL OR origin = '')";
                     // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Status and origin placeholder clauses are generated from fixed internal arrays.
-                    $ids_to_publish = $wpdb->get_col($wpdb->prepare($select_sql, array_merge([$post_id, $target_lang_id], $origin_params)));
+                    $ids_to_publish = $wpdb->get_col($wpdb->prepare($select_sql, array_merge([$trans_table, $post_id, $target_lang_id], $origin_params)));
                     if ($ids_to_publish === null) {
                         throw new \Exception( esc_html( "Failed to fetch translations for {$target_lang}: " . $wpdb->last_error ) );                    }
 
@@ -3057,14 +3139,14 @@ public function yuz_tra_ts_start_translation() {
                     if (!is_user_logged_in()) {
                         wp_send_json_error(['message' => 'not_logged_in', 'code' => 'not_logged_in'], 403);
                     }
-                    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                    if (!current_user_can('manage_options') && !current_user_can('yuz_publish_translations')) {
                         wp_send_json_error(['message' => 'forbidden'], 403);
                     }
 
                     global $wpdb;
                     $this->ensure_db_tables();
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         throw new \Exception( esc_html( 'Translations table missing' ) );                    }
 
                     $ids = $this->normalize_ajax_ids($data['ids'] ?? []);
@@ -3072,14 +3154,20 @@ public function yuz_tra_ts_start_translation() {
                         throw new \InvalidArgumentException('No translation IDs provided');
                     }
 
-                    $placeholders = implode(',', array_fill(0, count($ids), '%d'));
-                    $rows = $wpdb->get_results(
-                        $wpdb->prepare(
-                            "SELECT id, post_id, context, original_text, translated_text, status FROM {$trans_table} WHERE id IN ({$placeholders})",
-                            $ids
-                        ),
-                        ARRAY_A
-                    );
+                    $rows = [];
+                    foreach ($ids as $id) {
+                        $row = $wpdb->get_row(
+                            $wpdb->prepare(
+                                'SELECT id, post_id, context, original_text, translated_text, status FROM %i WHERE id = %d',
+                                $trans_table,
+                                $id
+                            ),
+                            ARRAY_A
+                        );
+                        if (is_array($row)) {
+                            $rows[] = $row;
+                        }
+                    }
                     if ($rows === null) {
                         throw new \Exception( esc_html( 'Failed to fetch translations: ' . $wpdb->last_error ) );                    }
 
@@ -3118,21 +3206,20 @@ public function yuz_tra_ts_start_translation() {
         }
 
         public function yuz_publish_translations() {
+            if (!is_user_logged_in()) {
+                wp_send_json_error(['message' => 'not_logged_in', 'code' => 'not_logged_in'], 403);
+            }
+            if (!current_user_can('manage_options') && !current_user_can('yuz_publish_translations')) {
+                wp_send_json_error(['message' => 'forbidden', 'code' => 'forbidden'], 403);
+            }
             self::__handleRequest(
                 'yuz_con_nonce',
                 ['ids'],
                 function ($data) {
-                    if (!is_user_logged_in()) {
-                        wp_send_json_error(['message' => 'not_logged_in', 'code' => 'not_logged_in'], 403);
-                    }
-                    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
-                        wp_send_json_error(['message' => 'forbidden'], 403);
-                    }
-
                     global $wpdb;
                     $this->ensure_db_tables();
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         throw new \Exception( esc_html( 'Translations table missing' ) );                    }
 
                     $ids = $this->normalize_ajax_ids($data['ids'] ?? []);
@@ -3183,13 +3270,33 @@ public function yuz_tra_ts_start_translation() {
 
         /** -------------------- AUTOMATIC TRANSLATION -------------------- */
         public function yuz_tra_at_get_api_settings() {
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+            }
             self::__handleRequest('yuz_tra_nonce',
                 [],
                 function ($data) {
-                    $settings = $this->get_settings()->get_option('yuz_tra_api_settings');
+                    if (!current_user_can('manage_options')) {
+                        wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+                    }
+                    $settings = $this->get_settings()->get_option('yuz_tra_at_settings');
+                    if (empty($settings)) {
+                        $settings = $this->get_settings()->get_option('yuz_tra_api_settings');
+                    }
                     if (empty($settings)) {
                         throw new \Exception( esc_html( 'Failed to retrieve API settings' ) );                    }
-                    return $settings;
+                    $strip_secrets = static function ($value) use (&$strip_secrets) {
+                        if (!is_array($value)) return $value;
+                        $safe=[];
+                        foreach ($value as $key=>$item) {
+                            if (preg_match('/(?:api[_-]?key|secret|token|password|authorization)/i',(string)$key)) continue;
+                            $safe[$key]=$strip_secrets($item);
+                        }
+                        return $safe;
+                    };
+                    $safe=$strip_secrets($settings);
+                    $safe['api_key_configured']=!empty($settings['api_key']);
+                    return $safe;
                 }
             );
         }
@@ -3239,10 +3346,13 @@ public function yuz_tra_ts_start_translation() {
         // class-yuz-ajax.php
 
         public function yuz_tra_at_del_api_settings() {
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error(['message'=>'unauthorized','code'=>'unauthorized'],403);
+            }
             self::__handleRequest('yuz_con_nonce',
                 [],
                 function ($data) {
-                    if (!current_user_can('yuz_translate_content')) {
+                    if (!current_user_can('manage_options')) {
                         wp_send_json_error(['message'=>'unauthorized','code'=>'unauthorized'],403);
                     }
                     delete_option('yuz_tra_api_settings');
@@ -3325,7 +3435,7 @@ public function yuz_tra_ts_start_translation() {
             self::__handleRequest('yuz_int_nonce',['text'],function($data) {
                 if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) self::send_json_error(['message'=>'forbidden'],403);
                 global $wpdb;
-                $targets=$wpdb->get_col("SELECT language_code FROM {$wpdb->prefix}yuz_tra_languages WHERE is_translatable=1");
+                $targets=$wpdb->get_col($wpdb->prepare('SELECT language_code FROM %i WHERE is_translatable=1', $wpdb->prefix . 'yuz_tra_languages'));
                 return $this->translate_and_store_legacy($data,$targets ?: []);
             });
         }
@@ -3343,12 +3453,12 @@ public function yuz_tra_ts_start_translation() {
             $this->ensure_db_tables();
             $text=wp_kses_post(wp_unslash((string)$data['text']));
             if ($text==='' || strlen($text)>20000 || !$targets || count($targets)>10) throw new InvalidArgumentException('invalid_legacy_translation_request');
-            $source=(int)$wpdb->get_var("SELECT id FROM {$wpdb->prefix}yuz_tra_languages WHERE is_source=1 LIMIT 1");
+                $source=(int)$wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE is_source=1 LIMIT 1', $wpdb->prefix . 'yuz_tra_languages'));
             if (!$source) throw new InvalidArgumentException('invalid_source_language');
             $resolved=[];
             foreach ($targets as $code) {
                 if (!is_string($code)) throw new InvalidArgumentException('invalid_target_language');
-                $id=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM {$wpdb->prefix}yuz_tra_languages WHERE language_code=%s",$code));
+                $id=(int)$wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code=%s', $wpdb->prefix . 'yuz_tra_languages', $code));
                 if (!$id) throw new InvalidArgumentException('invalid_target_language');
                 $resolved[$code]=$id;
             }
@@ -3373,15 +3483,21 @@ public function yuz_tra_ts_start_translation() {
         }
 
         public function yuz_tra_tm_cre_page() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+            }
             self::__handleRequest('yuz_int_nonce',
                 ['page_id', 'target_lang'],
                 function ($data) {
+                    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                        wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+                    }
                     global $wpdb;
                     $this->ensure_db_tables();
 
                     $lang_table  = $wpdb->prefix . 'yuz_tra_languages';
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$lang_table'") || !$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table))) || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         (new YUZ_Logger())->log('critical', "Tables missing after recreation attempt");
                         return [];
                     }
@@ -3392,17 +3508,18 @@ public function yuz_tra_ts_start_translation() {
                         throw new \Exception( esc_html( "Invalid post ID: {$page_id}" ) );                    }
 
                     $source_lang    = get_option('yuz_tra_general')['yuz_source_language'] ?? 'en_US';
-                    $source_lang_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $source_lang));
+                    $source_lang_id = $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $source_lang));
                     if (!$source_lang_id) {
                         throw new \Exception( esc_html( "Invalid source language: {$source_lang}" ) );                    }
 
                     $target_lang    = sanitize_text_field($data['target_lang']);
-                    $target_lang_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $target_lang));
+                    $target_lang_id = $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $target_lang));
                     if (!$target_lang_id) {
                         throw new \Exception( esc_html( "Invalid target language: {$target_lang}" ) );                    }
 
                     $review_status = defined('YUZ_TRA_STATUS_REVIEW') ? YUZ_TRA_STATUS_REVIEW : 1;
 
+                    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress core filter
                     $content    = apply_filters('the_content', $post->post_content);
                     // YUZ: NORMALIZE NEWLINES (contenu WP)
                     $content    = $this->normalize_newlines($content);
@@ -3428,15 +3545,21 @@ public function yuz_tra_ts_start_translation() {
         }
 
         public function yuz_tra_tm_get_translations() {
+        if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+            wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+        }
         self::__handleRequest('yuz_tra_nonce',
             ['limit', 'offset'],
             function ($data) {
+                if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+                    wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+                }
                 global $wpdb;
                 $this->ensure_db_tables();
 
                 $trans_table = $wpdb->prefix . 'yuz_tra_translations';
                 $lang_table  = $wpdb->prefix . 'yuz_tra_languages';
-                if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'") || !$wpdb->get_var("SHOW TABLES LIKE '$lang_table'")) {
+                if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table))) || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table)))) {
                     (new YUZ_Logger())->log('critical', "Tables missing after recreation attempt");
                     return [];
                 }
@@ -3456,7 +3579,7 @@ public function yuz_tra_ts_start_translation() {
                         'src'    => isset($data['src']) ? (string)$data['src'] : '',
                         'dst'    => $target_lang,
                         'url'    => $page_url,
-                        'trace'  => $_POST['yuz_trace'] ?? '',
+                        'trace'  => sanitize_text_field((string) ($data['yuz_trace'] ?? '')),
                     ]);
                 }
 
@@ -3574,10 +3697,10 @@ public function yuz_tra_ts_start_translation() {
                 if ($wantBootstrap) {
                     // Languages
                     $langs_rows = $wpdb->get_results(
-                        "SELECT language_code, language_name
-                        FROM $lang_table
+                        $wpdb->prepare("SELECT language_code, language_name
+                        FROM %i
                         WHERE is_translatable = 1
-                        ORDER BY language_weight ASC, language_name ASC", ARRAY_A
+                        ORDER BY language_weight ASC, language_name ASC", $lang_table), ARRAY_A
                     );
                     $languages  = is_array($langs_rows) ? array_values(array_filter(array_map(function($r){
                         $code = $this->normalize_language_code((string)$r['language_code']);
@@ -3593,9 +3716,9 @@ public function yuz_tra_ts_start_translation() {
                     // Source language
                     $opts          = get_option('yuz_tra_general');
                     $src_from_opt  = is_array($opts) ? ($opts['yuz_source_language'] ?? $opts['yuz_tra_source_language'] ?? '') : '';
-                    $src_from_db   = (string) $wpdb->get_var("SELECT language_code FROM $lang_table WHERE is_source = 1 LIMIT 1");
+                    $src_from_db   = (string) $wpdb->get_var($wpdb->prepare('SELECT language_code FROM %i WHERE is_source = 1 LIMIT 1', $lang_table));
                     if ($src_from_db === '') {
-                        $src_from_db = (string) $wpdb->get_var("SELECT language_code FROM $lang_table WHERE is_default = 1 LIMIT 1");
+                        $src_from_db = (string) $wpdb->get_var($wpdb->prepare('SELECT language_code FROM %i WHERE is_default = 1 LIMIT 1', $lang_table));
                     }
                     $source_lang   = $this->normalize_language_code($src_from_opt ?: ($src_from_db ?: get_locale()));
 
@@ -3617,6 +3740,7 @@ public function yuz_tra_ts_start_translation() {
                     // Extraction des chaînes depuis le post
                     $strings = [];
                     if ($post_id && (!$requested_source || $requested_source === $source_lang)) {
+                        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress core filter
                         $html    = (string) apply_filters('the_content', (string) get_post_field('post_content', $post_id));
                         $strings = $this->yuz_te_extract_strings_from_html($html);
                     }
@@ -3649,7 +3773,7 @@ public function yuz_tra_ts_start_translation() {
                         yuz_diag_log('ajax:done', [
                             'action' => current_action(),
                             'count'  => is_array($strings) ? count($strings) : 0,
-                            'trace'  => $_POST['yuz_trace'] ?? '',
+                            'trace'  => sanitize_text_field((string) ($data['yuz_trace'] ?? '')),
                         ]);
                     }
                 }
@@ -3664,6 +3788,9 @@ public function yuz_tra_ts_start_translation() {
        public function yuz_tra_tm_search() {
         // Sécurité
         check_ajax_referer('yuz_tra_nonce', 'nonce');
+        if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+            wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
+        }
 
         // Inputs
         $q        = isset($_POST['q']) ? sanitize_text_field(wp_unslash($_POST['q'])) : '';
@@ -3685,7 +3812,7 @@ public function yuz_tra_ts_start_translation() {
         static $has_col = [];
         $colExists = function(string $col) use ($wpdb, $table, &$has_col): bool {
             if (!array_key_exists($col, $has_col)) {
-                $sql = $wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $col);
+                $sql = $wpdb->prepare('SHOW COLUMNS FROM %i LIKE %s', $table, $col);
                 // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Prepared above; table is a fixed plugin table.
                 $has_col[$col] = (bool) $wpdb->get_var($sql);
             }
@@ -3948,7 +4075,7 @@ public function yuz_tra_ts_start_translation() {
                             'src'    => $source_code ?: $source_canon,
                             'dst'    => $target_code,
                             'url'    => '',
-                            'trace'  => $_POST['yuz_trace'] ?? '',
+                            'trace'  => sanitize_text_field((string) ($data['yuz_trace'] ?? '')),
                         ]);
                     }
 
@@ -4216,7 +4343,7 @@ public function yuz_tra_ts_start_translation() {
                         yuz_diag_log('ajax:done', [
                             'action' => current_action(),
                             'count'  => count($normalized),
-                            'trace'  => $_POST['yuz_trace'] ?? '',
+                            'trace'  => sanitize_text_field((string) ($data['yuz_trace'] ?? '')),
                         ]);
                     }
 
@@ -4247,8 +4374,8 @@ public function yuz_tra_ts_start_translation() {
                 ['q','from','to'],
                 function ($data) {
                     $trace_req_id = isset($data['req_id']) ? sanitize_text_field($data['req_id']) : '';
-                    $nonce_raw = isset($_REQUEST['_ajax_nonce']) ? (string) $_REQUEST['_ajax_nonce'] : '';
-                    $action_raw = isset($_REQUEST['action']) ? (string) $_REQUEST['action'] : '';
+                    $nonce_raw = isset($_REQUEST['_ajax_nonce']) ? sanitize_text_field(wp_unslash((string) $_REQUEST['_ajax_nonce'])) : '';
+                    $action_raw = isset($_REQUEST['action']) ? sanitize_key(wp_unslash((string) $_REQUEST['action'])) : '';
                     // Never log nonce values.
                     if (!current_user_can('yuz_translate_content')) {
                         if (!headers_sent()) {
@@ -4419,7 +4546,7 @@ public function yuz_tra_ts_start_translation() {
                             'to'     => $target_code,
                             'chars'  => strlen($text),
                             'ms'     => $durationMs,
-                            'trace'  => $_POST['yuz_trace'] ?? ''
+                            'trace'  => sanitize_text_field((string) ($data['yuz_trace'] ?? ''))
                         ]);
                     }
                     if (class_exists('YUZ_Logger')) {
@@ -4484,7 +4611,7 @@ public function yuz_tra_ts_start_translation() {
                     wp_send_json_success($result);
                 }
                 if ($action==='yuz_ai_save_settings') {
-                    $raw=wp_unslash($_POST['settings'] ?? []);
+                    $raw=map_deep(wp_unslash((array) ($_POST['settings'] ?? [])), 'sanitize_text_field');
                     if (is_string($raw)) $raw=json_decode($raw,true);
                     if (!is_array($raw)) throw new InvalidArgumentException('settings_array_required');
                     $next=YUZ_Translation_Budget::settings();
@@ -4511,9 +4638,15 @@ public function yuz_tra_ts_start_translation() {
                     throw new InvalidArgumentException('configure_provider_in_automatic_translation_settings');
                 }
                 if ($action==='yuz_ai_glossary_upload') {
-                    if (empty($_POST['approved'])) throw new InvalidArgumentException('explicit_human_approval_required');
-                    $csv=wp_unslash($_POST['csv'] ?? '');
-                    $upload = isset($_FILES['file']) && is_array($_FILES['file']) ? $_FILES['file'] : [];
+                    if (empty($_POST['approved']) || !rest_sanitize_boolean(wp_unslash($_POST['approved']))) throw new InvalidArgumentException('explicit_human_approval_required');
+                    $csv=sanitize_textarea_field(wp_unslash((string) ($_POST['csv'] ?? '')));
+                    // File metadata is not text input: validate its structure and every
+                    // field before trusting the temporary path or reading its contents.
+                    // Upload metadata is validated by type, size, error code and is_uploaded_file()
+                    // below; the temporary path must remain untouched for that filesystem check.
+                    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Uploaded-file metadata requires contextual validation, not text sanitization.
+                    $file_input = isset($_FILES['file']) && is_array($_FILES['file']) ? $_FILES['file'] : [];
+                    $upload = is_array($file_input) ? $file_input : [];
                     $tmp_name = isset($upload['tmp_name']) && is_string($upload['tmp_name']) ? $upload['tmp_name'] : '';
                     if ($tmp_name !== '') {
                         $upload_error = isset($upload['error']) ? (int) $upload['error'] : UPLOAD_ERR_NO_FILE;
@@ -4531,12 +4664,12 @@ public function yuz_tra_ts_start_translation() {
                 $source=sanitize_text_field(wp_unslash($_POST['source_lang'] ?? 'auto'));
                 $target=sanitize_text_field(wp_unslash($_POST['target_lang'] ?? ''));
                 if ($action==='yuz_ai_batch_translate') {
-                    $texts=wp_unslash($_POST['texts'] ?? []);
+                    $texts=array_map('sanitize_textarea_field', wp_unslash((array) ($_POST['texts'] ?? [])));
                     if (is_string($texts)) $texts=json_decode($texts,true);
                     if (!is_array($texts)) throw new InvalidArgumentException('texts_array_required');
                     wp_send_json_success(['job_id'=>YUZ_Translation_Jobs::create($texts,$source,$target),'status'=>'queued']);
                 }
-                $text=(string)wp_unslash($_POST['text'] ?? '');
+                $text=sanitize_textarea_field(wp_unslash((string) ($_POST['text'] ?? '')));
                 wp_send_json_success(['translation'=>YUZ_Services::tm()->translate_text($text,$source,$target),'status'=>2,'cost_cents'=>null]);
             } catch (InvalidArgumentException $e) { wp_send_json_error(['message'=>$e->getMessage()],400); }
             catch (Throwable $e) { wp_send_json_error(['message'=>$e->getMessage()],503); }
@@ -4551,7 +4684,7 @@ public function yuz_tra_ts_start_translation() {
                 $op = sanitize_key(wp_unslash($_POST['op'] ?? 'search'));
                 $lang = YUZ_String_Catalog::locale(sanitize_text_field(wp_unslash($_POST['lang'] ?? get_user_locale())));
                 if ($op === 'search') {
-                    wp_send_json_success(YUZ_String_Catalog::search($lang,sanitize_text_field(wp_unslash($_POST['q'] ?? '')),sanitize_text_field(wp_unslash($_POST['domain'] ?? '')),(int)($_POST['status'] ?? -1),max(1,(int)($_POST['page'] ?? 1))));
+                    wp_send_json_success(YUZ_String_Catalog::search($lang,sanitize_text_field(wp_unslash((string) ($_POST['q'] ?? ''))),sanitize_text_field(wp_unslash((string) ($_POST['domain'] ?? ''))),(int) sanitize_text_field(wp_unslash((string) ($_POST['status'] ?? -1))),max(1,(int) sanitize_text_field(wp_unslash((string) ($_POST['page'] ?? 1))))));
                 }
                 if ($op === 'scan') {
                     if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'Administrator permission required to scan installed code.'],403);
@@ -4563,16 +4696,18 @@ public function yuz_tra_ts_start_translation() {
                     wp_send_json_success($result);
                 }
                 if ($op === 'save') {
-                    if ((int) ($_POST['status'] ?? 1) === 4 && !current_user_can('manage_options')) wp_send_json_error(['message'=>'administrator_publication_required'],403);
-                    $forms=json_decode(wp_unslash($_POST['forms'] ?? '[]'),true);
+                    if ((int) sanitize_text_field(wp_unslash((string) ($_POST['status'] ?? 1))) === 4 && !current_user_can('manage_options')) wp_send_json_error(['message'=>'administrator_publication_required'],403);
+                    $forms_raw = isset($_POST['forms']) && is_string($_POST['forms']) ? sanitize_textarea_field(wp_unslash($_POST['forms'])) : '[]';
+                    $forms=map_deep((array) json_decode($forms_raw,true), 'sanitize_text_field');
                     if (!is_array($forms) || count($forms)>6) throw new InvalidArgumentException('invalid_plural_forms');
-                    YUZ_String_Catalog::save((int)($_POST['id'] ?? 0),$lang,array_values($forms),(int)($_POST['status'] ?? 1));
+                    YUZ_String_Catalog::save(absint(wp_unslash($_POST['id'] ?? 0)),$lang,array_values($forms),(int) sanitize_text_field(wp_unslash((string) ($_POST['status'] ?? 1))));
                     wp_send_json_success(['saved'=>1]);
                 }
                 if ($op === 'approve') {
-                    $forms=json_decode(wp_unslash($_POST['forms'] ?? '[]'),true);
+                    $forms_raw = isset($_POST['forms']) && is_string($_POST['forms']) ? sanitize_textarea_field(wp_unslash($_POST['forms'])) : '[]';
+                    $forms=map_deep((array) json_decode($forms_raw,true), 'sanitize_text_field');
                     if (!is_array($forms)) throw new InvalidArgumentException('invalid_forms');
-                    YUZ_Translation_Memory::approve((int)($_POST['id'] ?? 0),$lang,$forms);
+                    YUZ_Translation_Memory::approve(absint(wp_unslash($_POST['id'] ?? 0)),$lang,$forms);
                     wp_send_json_success(['approved'=>1]);
                 }
                 if ($op === 'source_language') {
@@ -4590,18 +4725,19 @@ public function yuz_tra_ts_start_translation() {
                 }
                 if ($op === 'glossary') {
                     if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
-                    if (empty($_POST['approved'])) throw new InvalidArgumentException('explicit_human_approval_required');
-                    wp_send_json_success(['imported'=>YUZ_Translation_Memory::import_csv((string)wp_unslash($_POST['csv'] ?? ''))]);
+                    if (empty($_POST['approved']) || !rest_sanitize_boolean(wp_unslash($_POST['approved']))) throw new InvalidArgumentException('explicit_human_approval_required');
+                    wp_send_json_success(['imported'=>YUZ_Translation_Memory::import_csv(sanitize_textarea_field(wp_unslash((string) ($_POST['csv'] ?? ''))))]);
                 }
                 if ($op === 'translate') {
-                    $ids=json_decode(wp_unslash($_POST['ids'] ?? '[]'),true);
+                    $ids_raw = isset($_POST['ids']) && is_string($_POST['ids']) ? sanitize_textarea_field(wp_unslash($_POST['ids'])) : '[]';
+                    $ids=array_map('absint', (array) json_decode($ids_raw,true));
                     if (!is_array($ids) || count($ids)>5 || !$ids) throw new InvalidArgumentException('select_one_to_five_strings');
                     if (!YUZ_String_Catalog::valid_language($lang)) throw new InvalidArgumentException('invalid_language');
                     global $wpdb;
                     $done=0; $errors=[]; $skipped=0;
                     $deadline=microtime(true)+80;
                     foreach (array_unique(array_map('intval',$ids)) as $id) {
-                        $existing=$wpdb->get_var($wpdb->prepare("SELECT forms FROM {$wpdb->prefix}yuz_tra_string_targets WHERE source_id=%d AND lang=%s AND status>0",$id,$lang));
+                        $existing=$wpdb->get_var($wpdb->prepare('SELECT forms FROM %i WHERE source_id=%d AND lang=%s AND status>0', $wpdb->prefix . 'yuz_tra_string_targets', $id, $lang));
                         if ($existing && array_filter((array)json_decode($existing,true),'strlen')) { $skipped++; continue; }
                         try { YUZ_String_Catalog::translate($id,$lang,2,$deadline); $done++; }
                         catch (Throwable $e) { $errors[]=['id'=>$id,'message'=>$e->getMessage()]; break; }
@@ -4631,30 +4767,25 @@ public function yuz_tra_ts_start_translation() {
             }
             $lang  = sanitize_text_field(wp_unslash($_REQUEST['lang'] ?? ''));
             $domain= sanitize_text_field(wp_unslash($_REQUEST['domain'] ?? ''));
-            $status= isset($_REQUEST['status']) ? (int) $_REQUEST['status'] : -1;
+            $status= isset($_REQUEST['status']) ? (int) sanitize_text_field(wp_unslash((string) $_REQUEST['status'])) : -1;
             $query = sanitize_text_field(wp_unslash($_REQUEST['q'] ?? ''));
-            $page  = max(1, (int) ($_REQUEST['page'] ?? 1));
-            $per   = min(100, max(10, (int) ($_REQUEST['per_page'] ?? 30)));
+            $page  = max(1, absint(wp_unslash($_REQUEST['page'] ?? 1)));
+            $per   = min(100, max(10, absint(wp_unslash($_REQUEST['per_page'] ?? 30))));
             $offset= ($page - 1) * $per;
 
-            $where = 'WHERE 1=1';
-            $params = [];
-            if ($lang) { $where .= ' AND lang = %s'; $params[] = $lang; }
-            if ($domain) { $where .= ' AND domain = %s'; $params[] = $domain; }
-            if ($status >= 0) { $where .= ' AND status = %d'; $params[] = $status; }
-            if ($query) {
-                $like = '%' . $wpdb->esc_like($query) . '%';
-                $where .= ' AND (original LIKE %s OR translated LIKE %s)';
-                $params[] = $like;
-                $params[] = $like;
-            }
+            $like = '%' . $wpdb->esc_like($query) . '%';
+            $status_filter = $status >= 0 ? 1 : 0;
 
             $sql = $wpdb->prepare(
                 "SELECT SQL_CALC_FOUND_ROWS id, domain, context, original, lang, translated, status, origin, updated_at
-                 FROM {$table} {$where}
+                 FROM %i
+                 WHERE (%s = '' OR lang = %s)
+                   AND (%s = '' OR domain = %s)
+                   AND (%d = 0 OR status = %d)
+                   AND (%s = '%%' OR original LIKE %s OR translated LIKE %s)
                  ORDER BY updated_at DESC
                  LIMIT %d OFFSET %d",
-                array_merge($params, [$per, $offset])
+                $table, $lang, $lang, $domain, $domain, $status_filter, $status, $like, $like, $like, $per, $offset
             );
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Prepared above; table and WHERE fragments are constrained internally.
             $rows = $wpdb->get_results($sql, ARRAY_A);
@@ -4669,10 +4800,25 @@ public function yuz_tra_ts_start_translation() {
         }
 
         /** Decode bounded, flat legacy catalog rows before field-specific sanitization. */
-        private static function legacy_catalog_items(): array {
-            $raw = $_POST['items'] ?? '[]';
+        /**
+         * Lit un payload brut de $_POST sans filtre PHP non assainissant.
+         * La validation stricte est faite par l'appelant (type, taille, structure).
+         */
+        private static function raw_post_payload(string $key): ?string {
+            // Charge utile JSON : un filtre a callback deseechappe sans denaturer le document.
+            // La validation stricte (type, taille, structure) est faite par l'appelant.
+            $value = filter_input(INPUT_POST, $key, FILTER_CALLBACK, [
+                'options' => static function ($raw) {
+                    return is_string($raw) ? wp_unslash($raw) : null;
+                },
+            ]);
+            return is_string($value) ? $value : null;
+        }
+
+        private static function legacy_catalog_items($raw): array {
             if (!is_string($raw) || strlen($raw) > 2000000) wp_send_json_error(['message'=>'invalid_items'],400);
-            $items = json_decode(wp_unslash($raw), true);
+            // $raw est deja deseechappe par raw_post_payload() : pas de second wp_unslash.
+            $items = json_decode($raw, true);
             if (!is_array($items) || !array_is_list($items) || count($items) > 100) wp_send_json_error(['message'=>'invalid_items'],400);
             foreach ($items as $row) {
                 if (!is_array($row)) wp_send_json_error(['message'=>'invalid_item'],400);
@@ -4689,7 +4835,7 @@ public function yuz_tra_ts_start_translation() {
                 wp_send_json_error(['message' => 'forbidden'], 403);
             }
 
-            $items = self::legacy_catalog_items();
+            $items = self::legacy_catalog_items(self::raw_post_payload('items'));
             $saved = 0;
             foreach ($items as $item) {
                 if (empty($item['original']) || empty($item['lang'])) {
@@ -4730,26 +4876,21 @@ public function yuz_tra_ts_start_translation() {
             $lang = sanitize_text_field(wp_unslash($_REQUEST['lang'] ?? ''));
             $post_type = sanitize_text_field(wp_unslash($_REQUEST['post_type'] ?? ''));
             $query = sanitize_text_field(wp_unslash($_REQUEST['q'] ?? ''));
-            $page = max(1, (int) ($_REQUEST['page'] ?? 1));
-            $per = min(100, max(10, (int) ($_REQUEST['per_page'] ?? 30)));
+            $page = max(1, absint(wp_unslash($_REQUEST['page'] ?? 1)));
+            $per = min(100, max(10, absint(wp_unslash($_REQUEST['per_page'] ?? 30))));
             $offset = ($page - 1) * $per;
 
-            $where = 'WHERE 1=1';
-            $params = [];
-            if ($lang) { $where .= ' AND lang = %s'; $params[] = $lang; }
-            if ($post_type) { $where .= ' AND post_type = %s'; $params[] = $post_type; }
-            if ($query) {
-                $like = '%' . $wpdb->esc_like($query) . '%';
-                $where .= ' AND slug LIKE %s';
-                $params[] = $like;
-            }
+            $like = '%' . $wpdb->esc_like($query) . '%';
 
             $sql = $wpdb->prepare(
                 "SELECT SQL_CALC_FOUND_ROWS object_id, object_type, post_type, lang, slug, status, updated_at
-                 FROM {$table} {$where}
+                 FROM %i
+                 WHERE (%s = '' OR lang = %s)
+                   AND (%s = '' OR post_type = %s)
+                   AND (%s = '%%' OR slug LIKE %s)
                  ORDER BY updated_at DESC
                  LIMIT %d OFFSET %d",
-                array_merge($params, [$per, $offset])
+                $table, $lang, $lang, $post_type, $post_type, $like, $like, $per, $offset
             );
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Prepared above; table and WHERE fragments are constrained internally.
             $rows = $wpdb->get_results($sql, ARRAY_A);
@@ -4769,7 +4910,7 @@ public function yuz_tra_ts_start_translation() {
         wp_send_json_error(['message' => 'forbidden'], 403);
     }
 
-    $items = self::legacy_catalog_items();
+    $items = self::legacy_catalog_items(self::raw_post_payload('items'));
 
     $updated = 0;
     foreach ($items as $item) {
@@ -4812,26 +4953,20 @@ public function yuz_tra_ts_start_translation() {
             }
             $lang = sanitize_text_field(wp_unslash($_REQUEST['lang'] ?? ''));
             $query = sanitize_text_field(wp_unslash($_REQUEST['q'] ?? ''));
-            $page = max(1, (int) ($_REQUEST['page'] ?? 1));
-            $per = min(100, max(10, (int) ($_REQUEST['per_page'] ?? 30)));
+            $page = max(1, absint(wp_unslash($_REQUEST['page'] ?? 1)));
+            $per = min(100, max(10, absint(wp_unslash($_REQUEST['per_page'] ?? 30))));
             $offset = ($page - 1) * $per;
 
-            $where = 'WHERE 1=1';
-            $params = [];
-            if ($lang) { $where .= ' AND lang = %s'; $params[] = $lang; }
-            if ($query) {
-                $like = '%' . $wpdb->esc_like($query) . '%';
-                $where .= ' AND (ekey LIKE %s OR translated LIKE %s)';
-                $params[] = $like;
-                $params[] = $like;
-            }
+            $like = '%' . $wpdb->esc_like($query) . '%';
 
             $sql = $wpdb->prepare(
                 "SELECT SQL_CALC_FOUND_ROWS ekey, lang, translated, status, source, updated_at
-                 FROM {$table} {$where}
+                 FROM %i
+                 WHERE (%s = '' OR lang = %s)
+                   AND (%s = '%%' OR ekey LIKE %s OR translated LIKE %s)
                  ORDER BY updated_at DESC
                  LIMIT %d OFFSET %d",
-                array_merge($params, [$per, $offset])
+                $table, $lang, $lang, $like, $like, $like, $per, $offset
             );
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Prepared above; table and WHERE fragments are constrained internally.
             $rows = $wpdb->get_results($sql, ARRAY_A);
@@ -4851,7 +4986,7 @@ public function yuz_tra_ts_start_translation() {
                 wp_send_json_error(['message' => 'forbidden'], 403);
             }
 
-            $items = self::legacy_catalog_items();
+            $items = self::legacy_catalog_items(self::raw_post_payload('items'));
 
             $saved = 0;
             foreach ($items as $item) {
@@ -4938,7 +5073,7 @@ public function yuz_tra_ts_start_translation() {
                     $this->ensure_db_tables();
 
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         (new YUZ_Logger())->log('critical', "Translations table $trans_table missing after recreation attempt");
                         return [];
                     }
@@ -5034,7 +5169,7 @@ public function yuz_tra_ts_start_translation() {
                     $this->ensure_db_tables();
 
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         (new YUZ_Logger())->log('critical', "Translations table $trans_table missing after recreation attempt");
                         return [];
                     }
@@ -5043,7 +5178,7 @@ public function yuz_tra_ts_start_translation() {
                         ? yuz_tra_status_transition('publish')
                         : 1;
 
-                    $result = $wpdb->query($wpdb->prepare("UPDATE $trans_table SET updated_at = %s WHERE status = %d", current_time('mysql'), $publish_status));
+                    $result = $wpdb->query($wpdb->prepare('UPDATE %i SET updated_at = %s WHERE status = %d', $trans_table, current_time('mysql'), $publish_status));
                     if ($result === false) {
                         throw new \Exception( esc_html( "Failed to update translations: " . $wpdb->last_error ) );                    }
 
@@ -5064,7 +5199,7 @@ public function yuz_tra_ts_start_translation() {
                     $this->ensure_db_tables();
 
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         (new YUZ_Logger())->log('critical', "Translations table $trans_table missing after recreation attempt");
                         return [];
                     }
@@ -5092,11 +5227,11 @@ public function yuz_tra_ts_start_translation() {
                     if ($updated_rows === 0) {
                         throw new \Exception( esc_html( 'No translations updated' ) );                    }
 
-                    $dictionary = $wpdb->get_results($wpdb->prepare("SELECT * FROM $trans_table WHERE status = %d", $publish_status), ARRAY_A);
+                    $dictionary = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i WHERE status = %d', $trans_table, $publish_status), ARRAY_A);
                     if ($dictionary === null) {
                         throw new \Exception( esc_html( "Failed to retrieve dictionary: " . $wpdb->last_error ) );                    }
 
-                    $total_items = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $trans_table WHERE status = %d", $publish_status));
+                    $total_items = $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i WHERE status = %d', $trans_table, $publish_status));
                     if ($total_items === null) {
                         throw new \Exception( esc_html( "Failed to retrieve total items: " . $wpdb->last_error ) );                    }
 
@@ -5124,6 +5259,7 @@ public function yuz_tra_ts_start_translation() {
         }
 
         public function yuz_tra_js_get_regular() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) wp_send_json_error(['message' => 'forbidden'], 403);
             self::__handleRequest('yuz_int_nonce',
                 ['nodes', 'target_lang'],
                 function ($data) {
@@ -5131,7 +5267,7 @@ public function yuz_tra_ts_start_translation() {
                     $this->ensure_db_tables();
 
                     $lang_table = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$lang_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $lang_table missing after recreation attempt");
                         return [];
                     }
@@ -5150,15 +5286,15 @@ public function yuz_tra_ts_start_translation() {
                     $target_lang = $this->best_match_locale($requested, $codes, $weights, $defTarget);
 
                     if ($this->logger) { try { $this->logger->log('debug','Lang resolver (js_get_regular)',['requested'=>$requested,'resolved'=>$target_lang,'codes'=>array_slice($codes,0,10)]); } catch(\Throwable $ignored){} }
-                    $target_lang_id = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $target_lang));
+                    $target_lang_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $target_lang));
                     if ($target_lang_id <= 0) {
                         $target_lang = $defTarget;
-                        $target_lang_id = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $target_lang));
+                        $target_lang_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $target_lang));
                     }
                     if ($target_lang_id <= 0) {
                         throw new \Exception( esc_html( "Invalid target language resolution: {$requested}" ) );                    }
 
-                    $source_lang_id = $wpdb->get_var("SELECT id FROM $lang_table WHERE is_source = 1");
+                    $source_lang_id = $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE is_source = 1', $lang_table));
                     if (!$source_lang_id) {
                         throw new \Exception( esc_html( 'Failed to retrieve source language ID: ' . $wpdb->last_error ) );                    }
 
@@ -5173,17 +5309,62 @@ public function yuz_tra_ts_start_translation() {
             );
         }
 
-        public function yuz_get_regular() {
-            if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-                $orig = isset($_POST['originals']) ? json_decode(stripslashes((string) $_POST['originals']), true) : []; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-                yuz_tra_debug_log('[YUZ_AJAX][yuz_get_regular][IN] ' . wp_json_encode([
-                    'request_uri'       => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
-                    'language'          => $_POST['language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-                    'original_language' => $_POST['original_language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-                    'orig_count'        => is_array($orig) ? count($orig) : 0,
-                    'dynamic'           => $_POST['dynamic_strings'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-                ]));
+        /** Public display only: no provider, table creation, draft reads or writes. */
+        public function yuz_tra_public_lookup() {
+            $nonce = sanitize_text_field(wp_unslash((string) ($_REQUEST['nonce'] ?? '')));
+            if (!is_string($nonce) || !wp_verify_nonce(sanitize_text_field(wp_unslash($nonce)), 'yuz_tra_nonce')) {
+                wp_send_json_error(['message' => 'invalid_nonce'], 403);
             }
+            $post_id = absint(wp_unslash($_REQUEST['post_id'] ?? 0));
+            $lang = is_scalar($_REQUEST['language'] ?? null)
+                ? sanitize_text_field(wp_unslash((string) $_REQUEST['language']))
+                : '';
+            $raw = is_scalar($_REQUEST['originals'] ?? null)
+                ? sanitize_textarea_field(wp_unslash((string) $_REQUEST['originals']))
+                : '';
+            if (!is_scalar($post_id) || !ctype_digit((string) $post_id) || !is_string($lang) || !is_string($raw) || strlen($raw) > 131072) {
+                wp_send_json_error(['message' => 'invalid_request'], 400);
+            }
+            $post = get_post(absint($post_id));
+            if (!$post || !is_post_publicly_viewable($post) || $post->post_password !== '') {
+                wp_send_json_error(['message' => 'not_public'], 403);
+            }
+            $lang = sanitize_text_field(wp_unslash($lang));
+            if (!preg_match('/^[a-z]{2,3}(?:[_-][A-Za-z0-9]{2,8}){0,2}$/D', $lang)) {
+                wp_send_json_error(['message' => 'invalid_language'], 400);
+            }
+            $originals = json_decode(wp_unslash($raw), true, 8);
+            if (!is_array($originals) || !array_is_list($originals) || count($originals) > 100) {
+                wp_send_json_error(['message' => 'invalid_originals'], 400);
+            }
+            foreach ($originals as $original) {
+                if (!is_string($original) || strlen($original) > 8192 || wp_check_invalid_utf8($original) !== $original) {
+                    wp_send_json_error(['message' => 'invalid_original'], 400);
+                }
+            }
+            global $wpdb;
+            $results = [];
+            foreach ($originals as $original) {
+                // Exact source equality is intentional: markup and placeholders are lookup keys.
+                // Both the post and the translation must be published; client flags cannot relax this.
+                $row = $wpdb->get_row($wpdb->prepare(
+                    "SELECT t.id, t.block_id, t.translated_text FROM {$wpdb->prefix}yuz_tra_translations t
+                     INNER JOIN {$wpdb->prefix}yuz_tra_languages l ON l.id = t.target_lang_id
+                     WHERE t.post_id = %d AND t.context = %s AND t.original_text = %s
+                       AND t.status = %d AND l.language_code = %s ORDER BY t.id DESC LIMIT 1",
+                    $post->ID, 'content', $original, YUZ_TRA_STATUS_PUBLISHED, str_replace('-', '_', $lang)
+                ), ARRAY_A);
+                $translation = ['translated' => $row ? wp_kses_post($row['translated_text']) : '',
+                    'status' => $row ? '4' : '0', 'translation_id' => $row ? (int) $row['id'] : 0];
+                $results[] = ['original' => $original, 'block_id' => $row['block_id'] ?? '',
+                    'translation_id' => $translation['translation_id'],
+                    'translations' => [$lang => $translation], 'translationsArray' => [$lang => $translation]];
+            }
+            wp_send_json_success($results);
+        }
+
+        public function yuz_get_regular() {
+            if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) wp_send_json_error(['message' => 'forbidden'], 403);
             self::__handleRequest(
                 'yuz_tra_nonce',
                 ['originals', 'language'],
@@ -5197,14 +5378,14 @@ public function yuz_tra_ts_start_translation() {
                         'cid'       => $cid,
                         'language'  => $lang_param,
                         'post_id'   => isset($_REQUEST['post_id']) ? absint($_REQUEST['post_id']) : 0,
-                        'selectors' => isset($_REQUEST['selectors']) ? $_REQUEST['selectors'] : '',
+                        // Selectors are unnecessary for diagnostic correlation; do not persist them.
                     ]);
                     if ($logger) {
                         try {
                             $logger->log('info', 'GET_REGULAR.IN', [
                                 'cid'      => $cid,
-                                'keys'     => array_keys((array) $_REQUEST),
-                                'language' => isset($_REQUEST['language']) ? (string) $_REQUEST['language'] : null,
+                                'keys'     => array_map('sanitize_key', array_keys((array) $_REQUEST)),
+                                'language' => $lang_param,
                             ]);
                         } catch (\Throwable $ignored) {}
                     }
@@ -5212,7 +5393,7 @@ public function yuz_tra_ts_start_translation() {
 
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
                     $lang_table  = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'") || !$wpdb->get_var("SHOW TABLES LIKE '$lang_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table))) || !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang_table)))) {
                         if ($logger) { try { $logger->log('error', 'GET_REGULAR.NO_TABLES', ['cid'=>$cid,'trans_table'=>$trans_table,'lang_table'=>$lang_table]); } catch(\Throwable $ignored) {} }
                         return [];
                     }
@@ -5336,7 +5517,7 @@ public function yuz_tra_ts_start_translation() {
                         $row = $wpdb->get_row(
                             $wpdb->prepare(
                                 "SELECT id, translated_text, status
-                                 FROM $trans_table
+                                 FROM %i
                                  WHERE original_text = %s
                                    AND target_lang_id = %d
                                    AND source_lang_id = %d
@@ -5345,6 +5526,7 @@ public function yuz_tra_ts_start_translation() {
                                    AND translated_text <> ''
                                  ORDER BY updated_at DESC, id DESC
                                  LIMIT 1",
+                                $trans_table,
                                 $original_text,
                                 $target_id,
                                 $source_id
@@ -5488,11 +5670,11 @@ public function yuz_tra_ts_start_translation() {
                     $target_code = $this->best_match_locale($requested, $codes, $weights, $defTarget);
 
                     if ($this->logger) { try { $this->logger->log('debug','Lang resolver (get_regular)',['requested'=>$requested,'resolved'=>$target_code,'codes'=>array_slice($codes,0,10)]); } catch(\Throwable $ignored){} }
-                    $target_lang_id = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $target_code));
+                    $target_lang_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $target_code));
                     if ($target_lang_id <= 0) {
                         // fallback to default target
                         $target_code = $defTarget;
-                        $target_lang_id = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM $lang_table WHERE language_code = %s", $target_code));
+                        $target_lang_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE language_code = %s', $lang_table, $target_code));
                     }
                     if ($target_lang_id <= 0) {
                         return [];
@@ -5512,13 +5694,14 @@ public function yuz_tra_ts_start_translation() {
                     $source_code = $this->best_match_locale($requested_source, $source_codes, $weights, $source ?: $defTarget);
                     $source_code = $source_code ?: get_locale();
 
-                    $source_lang_id = (int) $wpdb->get_var($wpdb->prepare(
-                        "SELECT id FROM $lang_table WHERE language_code = %s",
+                        $source_lang_id = (int) $wpdb->get_var($wpdb->prepare(
+                        'SELECT id FROM %i WHERE language_code = %s',
+                        $lang_table,
                         $source_code
                     ));
 
                     if ($source_lang_id <= 0) {
-                        $source_lang_id = (int) $wpdb->get_var("SELECT id FROM $lang_table WHERE is_source = 1 LIMIT 1");
+                        $source_lang_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE is_source = 1 LIMIT 1', $lang_table));
                     }
 
                     // Probe switch (query/body/header)
@@ -5571,7 +5754,6 @@ public function yuz_tra_ts_start_translation() {
                             $this->trace_log('GET_REGULAR.SKIP_INVALID_ORIGINAL', [
                                 'target'   => $target_code,
                                 'source'   => $source_code,
-                                'original' => substr($normalized_original, 0, 160),
                             ]);
                             continue;
                         }
@@ -5581,7 +5763,6 @@ public function yuz_tra_ts_start_translation() {
                             $this->trace_log('GET_REGULAR.SKIP_LIKELY_SELECTOR', [
                                 'len'      => $len,
                                 'separators' => $separator_score,
-                                'original_preview' => substr($normalized_original, 0, 160),
                                 'target'   => $target_code,
                             ]);
                             continue;
@@ -5598,7 +5779,8 @@ public function yuz_tra_ts_start_translation() {
 
                         $row = $wpdb->get_row(
                             $wpdb->prepare(
-                                "SELECT id, translated_text, status FROM $trans_table WHERE block_id = %s AND target_lang_id = %d AND source_lang_id = %d",
+                                "SELECT id, translated_text, status FROM %i WHERE block_id = %s AND target_lang_id = %d AND source_lang_id = %d",
+                                $trans_table,
                                 $block_id,
                                 $target_lang_id,
                                 $source_lang_id
@@ -5612,7 +5794,8 @@ public function yuz_tra_ts_start_translation() {
                                 : substr(sha1($normalized_original), 0, 40);
                             $row = $wpdb->get_row(
                                 $wpdb->prepare(
-                                    "SELECT id, translated_text, status FROM $trans_table WHERE block_id = %s AND target_lang_id = %d AND source_lang_id = %d",
+                                    "SELECT id, translated_text, status FROM %i WHERE block_id = %s AND target_lang_id = %d AND source_lang_id = %d",
+                                    $trans_table,
                                     $legacy_id,
                                     $target_lang_id,
                                     $source_lang_id
@@ -5629,7 +5812,6 @@ public function yuz_tra_ts_start_translation() {
                             $row = $lookup_placeholder_by_original($normalized_original, $target_lang_id, $source_lang_id);
                             $this->trace_log('GET_REGULAR.ORIGINAL_FALLBACK', [
                                 'bk'        => $bk,
-                                'original'  => substr($normalized_original, 0, 160),
                                 'resolved'  => (bool) $row,
                             ]);
                         }
@@ -5638,7 +5820,6 @@ public function yuz_tra_ts_start_translation() {
                             $this->trace_log('GET_REGULAR.EMPTY_ROW', [
                                 'block_id'  => $block_id,
                                 'block_key' => $bk,
-                                'original'  => substr($normalized_original, 0, 500),
                                 'target'    => $target_code,
                             ]);
                         }
@@ -5727,7 +5908,6 @@ public function yuz_tra_ts_start_translation() {
                                             'block_id' => $block_id,
                                             'target'   => $target_code,
                                             'len'      => strlen($candidate),
-                                            'plain'    => $plain_candidate,
                                         ]);
                                     } catch (\Throwable $ignored) {}
                                 }
@@ -5737,8 +5917,6 @@ public function yuz_tra_ts_start_translation() {
                                     $this->trace_log('AUTO_TRANSLATE.EMPTY_OR_SAME', [
                                         'block_id' => $block_id,
                                         'target'   => $target_code,
-                                        'plain_candidate' => $plain_candidate,
-                                        'plain_original'  => $plain_original,
                                     ]);
                                 }
                             }
@@ -5788,7 +5966,8 @@ public function yuz_tra_ts_start_translation() {
                                 } else {
                                     $row = $wpdb->get_row(
                                         $wpdb->prepare(
-                                            "SELECT id, translated_text, status FROM $trans_table WHERE block_id = %s AND target_lang_id = %d AND source_lang_id = %d",
+                                            "SELECT id, translated_text, status FROM %i WHERE block_id = %s AND target_lang_id = %d AND source_lang_id = %d",
+                                            $trans_table,
                                             $block_id,
                                             $target_lang_id,
                                             $source_lang_id
@@ -5844,7 +6023,6 @@ public function yuz_tra_ts_start_translation() {
                                 'source'    => $source_code,
                                 'status'    => $status,
                                 'id'        => $translation_id,
-                                'original'  => substr($normalized_original, 0, 300),
                             ]);
                         }
                         $this->trace_log('GET_REGULAR.ENTRY', [
@@ -5855,8 +6033,6 @@ public function yuz_tra_ts_start_translation() {
                             'translation_id' => $translation_id,
                             'status'         => $status,
                             'translated_len' => strlen($translated),
-                            'translated'     => substr($translated, 0, 500),
-                            'original'       => substr($normalized_original, 0, 500),
                         ]);
                         $results[] = [
                             'original' => $original,
@@ -5919,8 +6095,6 @@ public function yuz_tra_ts_start_translation() {
                     $rows = $results;
                     if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
                         yuz_tra_debug_log('[YUZ_AJAX][yuz_get_regular][OUT] ' . wp_json_encode([
-                            'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
-                            'language'    => $_POST['language'] ?? null, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
                             'rows'        => is_array($rows ?? null) ? count($rows) : 0,
                             'success'     => !empty($rows),
                         ]));
@@ -6006,7 +6180,7 @@ public function yuz_tra_ts_start_translation() {
                     $this->ensure_db_tables();
 
                     $trans_table = $wpdb->prefix . 'yuz_tra_translations';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$trans_table'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans_table)))) {
                         (new YUZ_Logger())->log('critical', "Translations table $trans_table missing after recreation attempt");
                         return [];
                     }
@@ -6034,12 +6208,15 @@ public function yuz_tra_ts_start_translation() {
                     $this->ensure_db_tables();
 
                     $table_name = $wpdb->prefix . 'yuz_tra_languages';
-                    if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+                    if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
                         (new YUZ_Logger())->log('critical', "Languages table $table_name missing after recreation attempt");
                         return [];
                     }
 
-                    $res = $wpdb->query("DELETE FROM $table_name WHERE is_translatable = 1 AND is_default = 0 AND is_source = 0");
+                    $res = $wpdb->query($wpdb->prepare(
+                        'DELETE FROM %i WHERE is_translatable = 1 AND is_default = 0 AND is_source = 0',
+                        $table_name
+                    ));
                     if ($res === false) {
                         throw new \Exception( esc_html( "Failed to delete all languages: " . $wpdb->last_error ) );                    }
 
@@ -6097,7 +6274,7 @@ public function ajax_clear_cache(): void {
             }
             wp_cache_flush();
             global $wpdb;
-            $wpdb->query("DELETE FROM {$wpdb->prefix}options WHERE option_name LIKE '_transient_%'");
+            $wpdb->query($wpdb->prepare("DELETE FROM %i WHERE option_name LIKE %s", $wpdb->prefix . 'options', '_transient_%'));
             return ['success' => true, 'message' => __('Cache cleared successfully', 'yuz-tra'), 'timestamp' => current_time('mysql')];
         },
         []
@@ -6112,10 +6289,17 @@ public function yuz_tra_diag_chain() {
             $received[$key] = sanitize_text_field(wp_unslash($_POST[$key]));
         }
     }
-    $nonce = $received['yuz_tra_nonce'] ?? $received['nonce'] ?? $received['security'] ?? '';
-    $verify_ws_get = $nonce ? wp_verify_nonce($nonce, 'yuz_tra_ws_get_languages') : false;
-    $verify_main   = $nonce ? wp_verify_nonce($nonce, 'yuz_tra_nonce') : false;
-    $check_ajax    = check_ajax_referer('yuz_tra_nonce', isset($received['nonce']) ? 'nonce' : false, false);
+    // Une seule action de nonce est acceptee : pas de condition alternative contournable.
+    $verified = false;
+    foreach (['yuz_tra_nonce', 'nonce', 'security'] as $nonce_field) {
+        if (check_ajax_referer('yuz_tra_nonce', $nonce_field, false)) {
+            $verified = true;
+            break;
+        }
+    }
+    if (!$verified) {
+        wp_send_json_error(['message'=>'invalid_nonce','code'=>'invalid_nonce'],403);
+    }
 
     if (!current_user_can('manage_options')) {
         wp_send_json_error([
@@ -6126,7 +6310,10 @@ public function yuz_tra_diag_chain() {
 
     global $wpdb;
     $table = $wpdb->prefix . 'yuz_tra_languages';
-    $rows  = $wpdb->get_results("SELECT language_code, is_default, is_source, is_translatable FROM {$table}", ARRAY_A);
+    $rows  = $wpdb->get_results($wpdb->prepare(
+        'SELECT language_code, is_default, is_source, is_translatable FROM %i',
+        $table
+    ), ARRAY_A);
     $rows  = is_array($rows) ? $rows : [];
 
     $counts = [
@@ -6151,8 +6338,6 @@ public function yuz_tra_diag_chain() {
     $payload = [
         'server' => [
             'uri'     => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
-            'origin'  => $_SERVER['HTTP_ORIGIN'] ?? '',
-            'referer' => $_SERVER['HTTP_REFERER'] ?? '',
             'user'    => [
                 'id'        => get_current_user_id(),
                 'logged_in' => is_user_logged_in(),
@@ -6163,9 +6348,8 @@ public function yuz_tra_diag_chain() {
             'nonce_sig' => $nonce ? substr(md5($nonce), 0, 8) : null,
         ],
         'verify' => [
-            'wp_verify_ws_get_languages' => $verify_ws_get,
-            'wp_verify_yuz_tra_nonce'    => $verify_main,
-            'check_ajax_referer'         => $check_ajax ? 1 : 0,
+            'nonce_action' => 'yuz_tra_nonce',
+            'verified'     => $verified ? 1 : 0,
         ],
         'db' => [
             'counts' => $counts,
@@ -6208,12 +6392,17 @@ public function yuz_tra_diag_chain() {
         }
 
         /** -------------------- PREFLIGHT -------------------- */
-        public static function ajax_preflight() {
+public static function ajax_preflight() {
     self::ensure_req_id();
     // Vérif nonce tolérante (nonce | _ajax_nonce | security), clé attendue 'yuz_hvy_nonce'
-    $nonce_param = $_REQUEST['nonce'] ?? ($_REQUEST['_ajax_nonce'] ?? ($_REQUEST['security'] ?? ''));
-    $nonce_param = is_string($nonce_param) ? sanitize_text_field(wp_unslash($nonce_param)) : '';
-    $ok          = $nonce_param && wp_verify_nonce($nonce_param, 'yuz_hvy_nonce');
+    $ok = false;
+    foreach (['nonce', '_ajax_nonce', 'security'] as $nonce_field) {
+        if (check_ajax_referer('yuz_hvy_nonce', $nonce_field, false)) {
+            $ok = true;
+            break;
+        }
+    }
+    $nonce_param = $ok ? 'verified' : '';
 
     if (!$ok) {
         if (class_exists('YUZ_Logger')) {
@@ -6225,7 +6414,10 @@ public function yuz_tra_diag_chain() {
                 isset($_SERVER['HTTP_REFERER']) ? esc_url_raw(wp_unslash($_SERVER['HTTP_REFERER'])) : 'n/a'
             ));
         }
-        self::send_json_error(['message' => 'invalid_nonce', 'expected' => 'yuz_hvy_nonce'], 403);
+        wp_send_json_error(['message' => 'invalid_nonce', 'expected' => 'yuz_hvy_nonce'], 403);
+    }
+    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+        wp_send_json_error(['message'=>'forbidden','code'=>'forbidden'],403);
     }
 
     $mode = isset($_POST['mode']) ? sanitize_text_field(wp_unslash($_POST['mode'])) : null;
@@ -6240,6 +6432,10 @@ public function yuz_tra_diag_chain() {
  * YUZ: save translation
  */
 public function yuz_save_translation() {
+    check_ajax_referer('yuz_tra_nonce', 'nonce');
+    if (!current_user_can('manage_options') && !current_user_can('yuz_translate_content')) {
+        wp_send_json_error(['message'=>'Unauthorized','code'=>'forbidden'],403);
+    }
     $actor_id = function_exists('get_current_user_id') ? (int) get_current_user_id() : 0;
     $remote_fingerprint = isset($_SERVER['REMOTE_ADDR']) ? md5(sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']))) : (string) wp_rand();
     $actor_suffix = $actor_id > 0 ? 'user_' . $actor_id : 'ip_' . substr($remote_fingerprint, 0, 12);
@@ -6252,7 +6448,7 @@ public function yuz_save_translation() {
         $trace_id  = isset($_REQUEST['yuz_trace']) ? sanitize_text_field(wp_unslash((string) $_REQUEST['yuz_trace'])) : '';
         $logger->log('info', '[TE][IN] save', [
             'trace' => $trace_id,
-            'keys'  => array_keys((array) $_REQUEST),
+            'keys'  => array_map('sanitize_key', array_keys((array) $_REQUEST)),
         ]);
     } catch (\Throwable $e) {}
     $active_slots = (int) get_transient($busy_key);
@@ -6282,18 +6478,16 @@ public function yuz_save_translation() {
     $page_url       = '';
     $block_id       = '';
 
-    check_ajax_referer('yuz_tra_nonce', 'nonce');
-
     $logger = $this->logger ?: (class_exists('YUZ_Logger') ? new \YUZ_Logger() : new \YUZTRA\Fallbacks\NullLogger());
     $req_id = self::ensure_req_id();
     $raw_mode = isset($_POST['mode']) ? sanitize_key(wp_unslash((string) $_POST['mode'])) : '';
     $allowed_modes = ['auto', 'semi', 'manual'];
     $mode = in_array($raw_mode, $allowed_modes, true) ? $raw_mode : 'manual';
-    $string_id_input = isset($_POST['string_id']) ? absint($_POST['string_id']) : 0;
+    $string_id_input = isset($_POST['string_id']) ? absint(wp_unslash($_POST['string_id'])) : 0;
     $translation_id = 0;
     foreach (['translation_id', 'translationId', 'id', 'ID'] as $maybe_id_key) {
         if (isset($_POST[$maybe_id_key])) {
-            $translation_id = absint($_POST[$maybe_id_key]);
+            $translation_id = absint(wp_unslash($_POST[$maybe_id_key]));
             if ($translation_id > 0) {
                 break;
             }
@@ -6305,7 +6499,7 @@ public function yuz_save_translation() {
     $this->log_ajax_entry('yuz_save_translation', [
         'string_id'       => $string_id_input,
         'target_lang_raw' => isset($_POST['target_lang']) ? sanitize_text_field(wp_unslash((string) $_POST['target_lang'])) : (isset($_POST['language_code']) ? sanitize_text_field(wp_unslash((string) $_POST['language_code'])) : ''),
-        'post_id'         => isset($_POST['post_id']) ? absint($_POST['post_id']) : 0,
+        'post_id'         => isset($_POST['post_id']) ? absint(wp_unslash($_POST['post_id'])) : 0,
         'context'         => isset($_POST['context']) ? sanitize_text_field(wp_unslash((string) $_POST['context'])) : '',
         'has_original'    => isset($_POST['original_text']) && $_POST['original_text'] !== '',
         'has_translated'  => isset($_POST['translated_text']) && $_POST['translated_text'] !== '',
@@ -6315,12 +6509,6 @@ public function yuz_save_translation() {
     ]);
 
     try {
-    if (!current_user_can('yuz_translate_content')) {
-        $logger->log('warning', 'yuz_save_translation denied: capability yuz_translate missing');
-        $release();
-        self::send_json_error(['message' => 'Unauthorized', 'code' => 'forbidden'], 403);
-    }
-
     global $wpdb;
     $table      = $wpdb->prefix . 'yuz_tra_translations';
     $lang_table = $wpdb->prefix . 'yuz_tra_languages';
@@ -6361,23 +6549,27 @@ public function yuz_save_translation() {
 
     $target_langs = [];
     if (isset($_POST['target_langs'])) {
-        $decoded = wp_unslash($_POST['target_langs']);
+        // JSON must be decoded before sanitization; sanitizing the JSON envelope
+        // can corrupt Unicode and punctuation. collect_targets() validates and
+        // sanitizes each resulting scalar locale below.
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON is decoded before contextual scalar sanitization in collect_targets().
+        $decoded = wp_unslash((string) $_POST['target_langs']);
         if (is_string($decoded)) {
-            $json = json_decode($decoded, true);
-            if (is_array($json)) {
+            $json = json_decode($decoded, true, 8, JSON_INVALID_UTF8_SUBSTITUTE);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($json)) {
                 $decoded = $json;
             }
         }
         $target_langs = array_merge($target_langs, $collect_targets($decoded));
     }
     if (!$target_langs && isset($_POST['target_lang'])) {
-        $target_langs = array_merge($target_langs, $collect_targets($_POST['target_lang']));
+        $target_langs = array_merge($target_langs, $collect_targets(sanitize_text_field(wp_unslash((string) $_POST['target_lang']))));
     }
     if (!$target_langs && isset($_POST['to'])) {
-        $target_langs = array_merge($target_langs, $collect_targets($_POST['to']));
+        $target_langs = array_merge($target_langs, $collect_targets(sanitize_text_field(wp_unslash((string) $_POST['to']))));
     }
     if (!$target_langs && isset($_POST['language_code'])) {
-        $target_langs = array_merge($target_langs, $collect_targets($_POST['language_code']));
+        $target_langs = array_merge($target_langs, $collect_targets(sanitize_text_field(wp_unslash((string) $_POST['language_code']))));
     }
 
     $normalize_locale = function (string $locale): string {
@@ -6422,7 +6614,7 @@ public function yuz_save_translation() {
     $page_url       = esc_url_raw(wp_unslash($_POST['page_url'] ?? ''));
     $context        = sanitize_text_field(wp_unslash($_POST['context'] ?? '')) ?: 'content';
         $block_id       = sanitize_text_field(wp_unslash($_POST['block_id'] ?? ''));
-    $post_id        = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+    $post_id        = isset($_POST['post_id']) ? absint(wp_unslash($_POST['post_id'])) : 0;
     // Resolve post_id from page_url when missing, to avoid post_id=0 rows
     if ($post_id === 0 && $page_url !== '') {
         $resolved = $this->resolve_post_id_from_page_url($page_url);
@@ -6455,9 +6647,9 @@ public function yuz_save_translation() {
     }
 
     if (function_exists('yuz_tra_status_sanitize')) {
-        $status = yuz_tra_status_sanitize($_POST['status'] ?? null, $mode_default_status);
+        $status = yuz_tra_status_sanitize(isset($_POST['status']) ? sanitize_text_field(wp_unslash((string) $_POST['status'])) : null, $mode_default_status);
     } else {
-        $status_input   = isset($_POST['status']) ? (int) $_POST['status'] : null;
+        $status_input   = isset($_POST['status']) ? (int) sanitize_text_field(wp_unslash((string) $_POST['status'])) : null;
     if ($status_input === null) {
         $status = $mode_default_status;
     } else {
@@ -6548,7 +6740,7 @@ public function yuz_save_translation() {
     $translated_slug = '';
     $is_slug_context = false;
     try {
-        $flag = isset($_POST['is_slug']) ? filter_var($_POST['is_slug'], FILTER_VALIDATE_BOOLEAN) : false;
+        $flag = isset($_POST['is_slug']) ? filter_var(wp_unslash($_POST['is_slug']), FILTER_VALIDATE_BOOLEAN) : false;
         $is_slug_context = $flag || (stripos($context, 'slug') !== false) || (stripos($context, 'permalink') !== false) || (stripos($context, 'seo') !== false);
     } catch (\Throwable $e) {
         $is_slug_context = false;
@@ -6673,7 +6865,7 @@ public function yuz_save_translation() {
     $existing = null;
     if ($translation_id > 0) {
         $existing = $wpdb->get_row(
-            $wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $translation_id),
+            $wpdb->prepare('SELECT * FROM %i WHERE id = %d', $table, $translation_id),
             ARRAY_A
         );
         if (!$existing) {
@@ -6695,7 +6887,8 @@ public function yuz_save_translation() {
     if ($source_lang_id <= 0 && $source_code) {
         $source_lang_id = (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT id FROM {$lang_table} WHERE language_code = %s OR locale = %s",
+                "SELECT id FROM %i WHERE language_code = %s OR locale = %s",
+                $lang_table,
                 $source_code,
                 $source_code
             )
@@ -6747,7 +6940,7 @@ public function yuz_save_translation() {
     $existing_by_key = null;
     if ($translation_id > 0) {
         $existing_by_id = $wpdb->get_row(
-            $wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $translation_id),
+            $wpdb->prepare('SELECT * FROM %i WHERE id = %d', $table, $translation_id),
             ARRAY_A
         );
     }
@@ -6784,7 +6977,7 @@ public function yuz_save_translation() {
     if (!$existing && $has_string_id_column) {
         $existing_by_key = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$table}
+                "SELECT * FROM %i
                  WHERE post_id = %d
                    AND language_code = %s
                    AND context = %s
@@ -6794,6 +6987,7 @@ public function yuz_save_translation() {
                    )
                  ORDER BY id ASC
                  LIMIT 1",
+                $table,
                 $post_id,
                 $target_code,
                 $context,
@@ -6808,7 +7002,7 @@ public function yuz_save_translation() {
     if (!$existing && !$has_string_id_column) {
         $existing_by_key = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$table}
+                "SELECT * FROM %i
                  WHERE post_id = %d
                    AND language_code = %s
                    AND context = %s
@@ -6818,6 +7012,7 @@ public function yuz_save_translation() {
                    )
                  ORDER BY id ASC
                  LIMIT 1",
+                $table,
                 $post_id,
                 $target_code,
                 $context,
@@ -6832,9 +7027,10 @@ public function yuz_save_translation() {
     if (!$existing && !$existing_by_key && $block_id !== '') {
         $existing_by_key = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$table}
+                "SELECT * FROM %i
                  WHERE post_id = %d AND context = %s AND target_lang_id = %d AND block_id = %s
                  LIMIT 1",
+                $table,
                 $post_id,
                 $context,
                 $target_lang_id,
@@ -7080,7 +7276,8 @@ public function yuz_save_translation() {
         if (stripos($error_message, 'duplicate') !== false) {
             $duplicate = $wpdb->get_row(
                 $wpdb->prepare(
-                    "SELECT * FROM {$table} WHERE post_id = %d AND context = %s AND source_lang_id = %d AND target_lang_id = %d AND block_id = %s",
+                    "SELECT * FROM %i WHERE post_id = %d AND context = %s AND source_lang_id = %d AND target_lang_id = %d AND block_id = %s",
+                    $table,
                     $post_id,
                     $context,
                     $source_lang_id,
@@ -7207,7 +7404,7 @@ public function yuz_save_translation() {
             return $cache[$key];
         }
         // Compatible MySQL/MariaDB ; évite INFORMATION_SCHEMA sur installs restreintes.
-        $cols = $wpdb->get_results("DESC {$table}", ARRAY_A);
+        $cols = $wpdb->get_results($wpdb->prepare('DESC %i', $table), ARRAY_A);
         if (!is_array($cols)) {
             $cache[$key] = false;
             return false;
@@ -7266,7 +7463,7 @@ public function yuz_save_translation() {
         if (self::$current_req_id !== '') {
             return self::$current_req_id;
         }
-        $incoming = isset($_REQUEST['req_id']) ? self::sanitize_req_id($_REQUEST['req_id']) : '';
+        $incoming = isset($_REQUEST['req_id']) ? self::sanitize_req_id(sanitize_text_field(wp_unslash((string) $_REQUEST['req_id']))) : '';
         if ($incoming === '') {
             $incoming = function_exists('wp_generate_uuid4') ? wp_generate_uuid4() : uniqid('yuz_', true);
         }
@@ -7306,7 +7503,7 @@ public function yuz_save_translation() {
     private static function preview_payload($payload): array
     {
         if (!is_array($payload)) {
-            return ['value' => is_scalar($payload) ? $payload : gettype($payload)];
+            return ['type' => gettype($payload)];
         }
         $slice = array_slice($payload, 0, 5, true);
         foreach ($slice as $key => &$value) {
@@ -7314,8 +7511,8 @@ public function yuz_save_translation() {
                 $value = sprintf('array(%d)', count($value));
             } elseif (is_object($value)) {
                 $value = 'object('.get_class($value).')';
-            } elseif (is_string($value) && strlen($value) > 120) {
-                $value = mb_substr($value, 0, 120) . '…';
+            } else {
+                $value = gettype($value);
             }
         }
         return $slice;
@@ -7476,7 +7673,10 @@ public function yuz_save_translation() {
             if ($wpdb instanceof \wpdb) {
                 $table = $wpdb->prefix . 'yuz_tra_languages';
                 if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table))) {
-                    $rows = $wpdb->get_col("SELECT slug FROM {$table} WHERE slug <> ''");
+                    $rows = $wpdb->get_col($wpdb->prepare(
+                        "SELECT slug FROM %i WHERE slug <> ''",
+                        $table
+                    ));
                     if (is_array($rows)) {
                         foreach ($rows as $slug) {
                             $norm = $this->normalize_slug_value((string) $slug);

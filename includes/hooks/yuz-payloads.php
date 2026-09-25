@@ -4,9 +4,9 @@ defined('ABSPATH') || exit;
 /**
  * Util: noms de langue simples (à raffiner si besoin)
  */
-function yuz_lang_names(array $codes): array {
+function yuztra_lang_names(array $codes): array {
     $out = [];
-    $index = function_exists('yuz_get_languages_index') ? (array) yuz_get_languages_index() : [];
+    $index = function_exists('yuztra_get_languages_index') ? (array) yuztra_get_languages_index() : [];
 
     foreach ($codes as $c) {
         $code = (string) $c;
@@ -26,8 +26,8 @@ function yuz_lang_names(array $codes): array {
 
         if ($label !== '') {
             $out[$code] = $label;
-        } elseif (function_exists('yuz_lang_label')) {
-            $out[$code] = yuz_lang_label($code);
+        } elseif (function_exists('yuztra_lang_label')) {
+            $out[$code] = yuztra_lang_label($code);
         } elseif (function_exists('yuz_human_label_from_locale')) {
             $fallback = yuz_human_label_from_locale($code);
             $out[$code] = $fallback !== '' ? $fallback : $code;
@@ -82,8 +82,8 @@ add_filter('yuz/assets/payload/switcher', function($payload){
         // Données fonctionnelles
         'languages'         => $langs,
         'translation_langs' => $langs,                 // alias compat
-        'langNames'         => yuz_lang_names($langs),
-        'language_names'    => yuz_lang_names($langs), // alias compat
+        'langNames'         => yuztra_lang_names($langs),
+        'language_names'    => yuztra_lang_names($langs), // alias compat
 
         'endpoints' => [
             'resolve_url' => 'yuz_tra_sw_resolve_url',

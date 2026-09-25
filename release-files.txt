@@ -1,6 +1,7 @@
 CHANGELOG.md
 LICENSE
 README.md
+readme.txt
 SECURITY.md
 assets/css/yuz-general-settings.css
 assets/css/yuz-language-switcher.css
@@ -865,7 +866,7 @@ assets/js/yuz-update-database.js
 assets/vendor/axios.js
 assets/vendor/axios.min.js
 assets/vendor/he.min.js
-assets/vendor/licenses/axios-1.11.0.txt
+assets/vendor/licenses/axios-1.20.0.txt
 assets/vendor/licenses/flag-icons.txt
 assets/vendor/licenses/he-1.2.0.txt
 assets/vendor/licenses/select2-4.1.0.txt
