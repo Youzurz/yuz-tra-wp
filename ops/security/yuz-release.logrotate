@@ -1,0 +1,10 @@
+/var/log/yuz-release/events.jsonl {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 root wazuh
+    su root wazuh
+}

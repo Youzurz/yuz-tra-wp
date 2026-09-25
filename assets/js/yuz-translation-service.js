@@ -229,7 +229,7 @@ async function startTranslation(opts = {}) {
   const ep =
     endpoint
     || (typeof window !== 'undefined' && window.yuzTraSettings && window.yuzTraSettings.ajax_url)
-    || '/wp-admin/admin-ajax.php';
+    || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
 
   // Nonces alignés (via shim si dispo, sinon fallback local)
   const nf = nonceFieldsEffective(action);
@@ -272,7 +272,7 @@ async function startTranslation(opts = {}) {
 try {
   translateNowEffective = async function ({ page_url, target_langs, text }) {
     const action  = 'yuz_start_translation';
-    const endpoint = (typeof window !== 'undefined' && window.yuzTraSettings && window.yuzTraSettings.ajax_url) || '/wp-admin/admin-ajax.php';
+    const endpoint = (typeof window !== 'undefined' && window.yuzTraSettings && window.yuzTraSettings.ajax_url) || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
     return startTranslation({ action, page_url, target_langs, text, endpoint });
   };
   if (typeof window !== 'undefined') {

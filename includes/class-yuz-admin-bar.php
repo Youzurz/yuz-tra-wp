@@ -80,7 +80,8 @@ use YUZTRA\Fallbacks\NullTranslationManager;
 use YUZTRA\Fallbacks\NullLanguageManager;
 
 if (!class_exists('YUZ_Admin_Bar')) {
-    class YUZ_Admin_Bar implements AdminBarInterface
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
+class YUZ_Admin_Bar implements AdminBarInterface
     {
         private LoggerInterface $logger;
 
@@ -110,7 +111,7 @@ if (!class_exists('YUZ_Admin_Bar')) {
                     }
                 }
             } catch (\Throwable $e) {
-                error_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
+                yuztra_debug_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
             }
 
             // Flag optionnel : par défaut on laisse l’admin-bar activée
@@ -151,8 +152,8 @@ public function add_admin_items($wp_admin_bar): void
 
     // URL de contexte fiable (front = URL courante ; admin = home)
     $scheme      = is_ssl() ? 'https' : 'http';
-    $host        = $_SERVER['HTTP_HOST']  ?? wp_parse_url( home_url(), PHP_URL_HOST );
-    $uri         = $_SERVER['REQUEST_URI'] ?? '/';
+    $host        = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : wp_parse_url( home_url(), PHP_URL_HOST );
+    $uri         = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
     $current_url = $scheme . '://' . $host . $uri;
 
     $target = is_admin() ? home_url('/') : $current_url;

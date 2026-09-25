@@ -1,6 +1,4 @@
 <?php
-// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- This class owns schema migrations and internal DB wrappers for plugin tables.
-// phpcs:disable PluginCheck.Security.DirectDB.UnescapedDBParameter -- Dynamic SQL below is constrained to plugin-owned table/column definitions.
 /**
  * Class YUZ_DB
  * Manages database setup and translation storage for the YUZ-TRA plugin.
@@ -77,8 +75,48 @@ if (!class_exists('YUZ_DB')) {
     class YUZ_DB implements DBInterface {
         const DB_VERSION = '1.0.4';
         const DB_VERSION_OPTION = 'yuz_tra_db_version';
+        private const TABLE_LANGUAGES       = 'yuz_tra_languages';
+        private const TABLE_TRANSLATIONS    = 'yuz_tra_translations';
+        private const TABLE_LOGS            = 'yuz_tra_logs';
+        private const TABLE_GLOBAL_SETTINGS = 'yuz_tra_global_settings';
+        private const TABLE_USER_PREFERENCES = 'yuz_tra_user_preferences';
+        private const TABLE_TRANSLATION_META = 'yuz_tra_translation_meta';
+        private const TABLE_GETTEXT          = 'yuz_tra_gettext_translations';
+        private const TABLE_MENU             = 'yuz_tra_menu_translations';
+        private const TABLE_APPROVED_MEMORY = 'yuz_tra_approved_memory';
+        private const TABLE_GLOSSARY        = 'yuz_tra_glossary';
+        private const TABLE_STRING_SOURCES  = 'yuz_tra_string_sources';
+        private const TABLE_STRING_TARGETS  = 'yuz_tra_string_targets';
+        private const TABLE_USAGE           = 'yuz_tra_translation_usage';
+        private const TABLE_SLUGS            = 'yuz_tra_slugs';
+        private const TABLE_EMAILS           = 'yuz_tra_emails';
         private $logger;
         private $health_check;
+
+        private static function table_name(string $suffix): string {
+            global $wpdb;
+            $allowed = [
+                self::TABLE_LANGUAGES,
+                self::TABLE_TRANSLATIONS,
+                self::TABLE_LOGS,
+                self::TABLE_GLOBAL_SETTINGS,
+                self::TABLE_USER_PREFERENCES,
+                self::TABLE_TRANSLATION_META,
+                self::TABLE_GETTEXT,
+                self::TABLE_MENU,
+                self::TABLE_APPROVED_MEMORY,
+                self::TABLE_GLOSSARY,
+                self::TABLE_STRING_SOURCES,
+                self::TABLE_STRING_TARGETS,
+                self::TABLE_USAGE,
+                self::TABLE_SLUGS,
+                self::TABLE_EMAILS,
+            ];
+            if (!in_array($suffix, $allowed, true)) {
+                throw new \InvalidArgumentException('Unknown YUZ-TRA table suffix.');
+            }
+            return $wpdb->prefix . $suffix;
+        }
 
         private static function can_run_runtime_maintenance(): bool {
             if ((defined('WP_CLI') && WP_CLI) || (defined('DOING_CRON') && DOING_CRON)) {
@@ -121,11 +159,11 @@ if (!class_exists('YUZ_DB')) {
         public function log_action(string $action, string $message, array $details = [], int $success = 1): void {
             global $wpdb;
             // MODIF: Gate sur tables_ok pour éviter writes si tables KO (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping log_action', ['class' => __CLASS__]);
                 return;
             }
-            $table = $wpdb->prefix . 'yuz_tra_logs';
+            $table = self::table_name(self::TABLE_LOGS);
             if (!$wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table))) { // Force prepare
                 $this->logger->log('critical', "Logs table {$table} missing", ['class' => __CLASS__]);
                 return;
@@ -137,7 +175,7 @@ if (!class_exists('YUZ_DB')) {
             }
             $logged_actions[$log_key] = true;
             $details = is_array($details) ? $details : [];
-            $details['request_uri'] = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field($_SERVER['REQUEST_URI']) : '';
+            $details['request_uri'] = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
             $translator = 'system';
             if (function_exists('is_user_logged_in') && is_user_logged_in()) {
                 $user = wp_get_current_user();
@@ -183,20 +221,19 @@ if (!class_exists('YUZ_DB')) {
          */
         private function constraint_exists($table_name, $constraint_name) {
             global $wpdb;
-            $query = $wpdb->prepare(
-                "SELECT COUNT(*)
-                 FROM information_schema.TABLE_CONSTRAINTS
-                 WHERE CONSTRAINT_TYPE = 'FOREIGN KEY'
-                 AND TABLE_SCHEMA = DATABASE()
-                 AND TABLE_NAME = %s
-                 AND CONSTRAINT_NAME = %s",
-                $table_name,
-                $constraint_name
-            );
             $attempts = 3;
             $result = null;
             while ($attempts > 0) {
-                $result = $wpdb->get_var($query);
+                $result = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*)
+                     FROM information_schema.TABLE_CONSTRAINTS
+                     WHERE CONSTRAINT_TYPE = 'FOREIGN KEY'
+                     AND TABLE_SCHEMA = DATABASE()
+                     AND TABLE_NAME = %s
+                     AND CONSTRAINT_NAME = %s",
+                    $table_name,
+                    $constraint_name
+                ));
                 if ($result !== null) {
                     break;
                 }
@@ -217,8 +254,8 @@ if (!class_exists('YUZ_DB')) {
         private function seed_global_settings(): void {
             global $wpdb;
 
-            $global_table = $wpdb->prefix . 'yuz_tra_global_settings';
-            $lang_table   = $wpdb->prefix . 'yuz_tra_languages';
+            $global_table = self::table_name(self::TABLE_GLOBAL_SETTINGS);
+            $lang_table   = self::table_name(self::TABLE_LANGUAGES);
 
             $global_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $global_table));
             $lang_exists   = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $lang_table));
@@ -230,7 +267,7 @@ if (!class_exists('YUZ_DB')) {
                 return;
             }
 
-            $rows = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$global_table}");
+            $rows = (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i', $global_table));
             if ($rows > 0) {
                 $this->logger->log('info', 'seed_global_settings skipped: data present');
                 return;
@@ -290,7 +327,8 @@ if (!class_exists('YUZ_DB')) {
                     ]);
                     foreach ($variants as $variant) {
                         $id = (int) $wpdb->get_var($wpdb->prepare(
-                            "SELECT id FROM {$lang_table} WHERE language_code = %s OR slug = %s OR browser_slug = %s LIMIT 1",
+                            'SELECT id FROM %i WHERE language_code = %s OR slug = %s OR browser_slug = %s LIMIT 1',
+                            $lang_table,
                             $variant,
                             strtolower($variant),
                             strtolower($variant)
@@ -307,27 +345,33 @@ if (!class_exists('YUZ_DB')) {
             $fallback_id = $resolveId($fallback_candidates);
 
             if ($source_id === 0) {
-                $source_id = (int) $wpdb->get_var("SELECT id FROM {$lang_table} ORDER BY is_source DESC, is_default DESC, language_weight DESC, id ASC LIMIT 1");
+                $source_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i ORDER BY is_source DESC, is_default DESC, language_weight DESC, id ASC LIMIT 1', $lang_table));
             }
             if ($fallback_id === 0) {
-                $fallback_id = (int) $wpdb->get_var("SELECT id FROM {$lang_table} ORDER BY is_default DESC, language_weight DESC, id ASC LIMIT 1");
+                $fallback_id = (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i ORDER BY is_default DESC, language_weight DESC, id ASC LIMIT 1', $lang_table));
             }
 
             if ($source_id > 0) {
-                $wpdb->query($wpdb->prepare("UPDATE {$lang_table} SET is_source = CASE WHEN id = %d THEN 1 ELSE 0 END", $source_id));
+                $wpdb->query($wpdb->prepare('UPDATE %i SET is_source = CASE WHEN id = %d THEN 1 ELSE 0 END', $lang_table, $source_id));
             }
             if ($fallback_id > 0) {
-                $wpdb->query($wpdb->prepare("UPDATE {$lang_table} SET is_default = CASE WHEN id = %d THEN 1 ELSE 0 END", $fallback_id));
+                $wpdb->query($wpdb->prepare('UPDATE %i SET is_default = CASE WHEN id = %d THEN 1 ELSE 0 END', $lang_table, $fallback_id));
             }
 
             $ids_to_enable = array_values(array_filter([$source_id, $fallback_id]));
             if (!empty($ids_to_enable)) {
-                $placeholders = implode(', ', array_fill(0, count($ids_to_enable), '%d'));
-                $prepared = $wpdb->prepare(
-                    "UPDATE {$lang_table} SET is_translatable = 1, updated_at = %s WHERE id IN ({$placeholders})",
-                    array_merge([current_time('mysql')], $ids_to_enable)
-                );
-                $wpdb->query($prepared);
+                $updated_at = current_time('mysql');
+                if (count($ids_to_enable) === 1) {
+                    $wpdb->query($wpdb->prepare(
+                        'UPDATE %i SET is_translatable = 1, updated_at = %s WHERE id = %d',
+                        $lang_table, $updated_at, (int) $ids_to_enable[0]
+                    ));
+                } else {
+                    $wpdb->query($wpdb->prepare(
+                        'UPDATE %i SET is_translatable = 1, updated_at = %s WHERE id IN (%d, %d)',
+                        $lang_table, $updated_at, (int) $ids_to_enable[0], (int) $ids_to_enable[1]
+                    ));
+                }
             }
 
             if ($source_id === $fallback_id) {
@@ -374,14 +418,14 @@ if (!class_exists('YUZ_DB')) {
                 ]);
             }
             // MODIF: Gate sur tables_ok (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping store_translation', ['class' => __CLASS__]);
                 if (function_exists('yuz_debug_probe_log')) {
                     yuz_debug_probe_log('db_store_translation_abort', ['reason' => 'tables_flag_false']);
                 }
                 return false;
             }
-            $table = $wpdb->prefix . 'yuz_tra_translations';
+            $table = self::table_name(self::TABLE_TRANSLATIONS);
             if (!$wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table))) { // Force prepare
                 $this->logger->log('critical', "Translations table $table missing", ['class' => __CLASS__]);
                 if (function_exists('yuz_debug_probe_log')) {
@@ -455,43 +499,15 @@ if (!class_exists('YUZ_DB')) {
                     'insert_id' => $wpdb->insert_id,
                 ]);
             }
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public translation lifecycle action
             do_action('yuz_translation_stored', $translation_data);
             return true;
-        }
-        private static function create_languages_table(string $lang): bool {
-            global $wpdb;
-            $charset_collate = $wpdb->get_charset_collate();
-            $sql = "CREATE TABLE {$lang} (
-                    id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                    locale VARCHAR(12) NOT NULL,              -- NEW
-
-                    language_code VARCHAR(10) NOT NULL,
-                    language_name VARCHAR(100) NOT NULL,
-                    native_name VARCHAR(100) DEFAULT NULL,
-                    slug VARCHAR(50) DEFAULT NULL,
-                    flag_svg TEXT DEFAULT NULL,
-                    is_default TINYINT(1) DEFAULT 0,
-                    is_source TINYINT(1) DEFAULT 0,
-                    is_translatable TINYINT(1) DEFAULT 0,
-                    browser_slug VARCHAR(10) DEFAULT NULL,
-                    language_weight INT DEFAULT 0,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    PRIMARY KEY (id),
-                    UNIQUE KEY unique_lang_code (language_code),
-                    UNIQUE KEY unique_slug (slug),
-                    UNIQUE KEY uniq_locale (locale)           -- NEW
-                ) $charset_collate;";
-            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-            dbDelta($sql);
-            return !$wpdb->last_error;
         }
         /** Additive, independently versioned storage; never renames or drops legacy tables. */
         public static function ensure_string_tables(): bool {
             global $wpdb;
             if (get_option('yuz_tra_strings_schema') === '2') return true;
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-            $p = $wpdb->prefix;
             $charset = $wpdb->get_charset_collate();
             $schemas = [
                 'approved_memory' => "source_id bigint(20) unsigned NOT NULL,
@@ -566,9 +582,19 @@ if (!class_exists('YUZ_DB')) {
                     updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY  (ekey,lang)",
             ];
-            foreach ($schemas as $suffix => $columns) {
-                $table = $p . 'yuz_tra_' . $suffix;
-                dbDelta("CREATE TABLE $table ($columns) ENGINE=InnoDB $charset;");
+            $table_suffixes = [
+                'approved_memory'  => self::TABLE_APPROVED_MEMORY,
+                'glossary'         => self::TABLE_GLOSSARY,
+                'string_sources'   => self::TABLE_STRING_SOURCES,
+                'string_targets'   => self::TABLE_STRING_TARGETS,
+                'translation_usage'=> self::TABLE_USAGE,
+                'slugs'            => self::TABLE_SLUGS,
+                'emails'           => self::TABLE_EMAILS,
+            ];
+            foreach ($schemas as $key => $columns) {
+                $table = self::table_name($table_suffixes[$key]);
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- dbDelta is the plugin's idempotent installation/migration path; table identifiers and schema fragments are built only from internal constants.
+                dbDelta("CREATE TABLE {$table} ({$columns}) ENGINE=InnoDB {$charset};");
                 if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))) !== $table) return false;
             }
             update_option('yuz_tra_strings_schema', '2', false);
@@ -578,11 +604,11 @@ if (!class_exists('YUZ_DB')) {
         public function ensure_tables(): bool {
             self::ensure_string_tables();
             global $wpdb;
-            if (get_option('tables_ok', false)) {
-                $lang = $wpdb->prefix . 'yuz_tra_languages';
-                $trans = $wpdb->prefix . 'yuz_tra_translations';
-                $lang_ok = (bool)$wpdb->get_var("SHOW TABLES LIKE '{$lang}'");
-                $trans_ok = (bool)$wpdb->get_var("SHOW TABLES LIKE '{$trans}'");
+            if (get_option('yuz_tra_tables_ok', false)) {
+                $lang = self::table_name(self::TABLE_LANGUAGES);
+                $trans = self::table_name(self::TABLE_TRANSLATIONS);
+                $lang_ok = (bool)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($lang)));
+                $trans_ok = (bool)$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($trans)));
                 if ($lang_ok && $trans_ok) {
                     $this->logger->log('info', 'Tables already OK, skipping DDL', ['class' => __CLASS__]);
                     return true;
@@ -593,8 +619,16 @@ if (!class_exists('YUZ_DB')) {
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
             $charset_collate = $wpdb->get_charset_collate();
             $prefix = $wpdb->prefix;
+            $languages_name       = self::table_name(self::TABLE_LANGUAGES);
+            $logs_name            = self::table_name(self::TABLE_LOGS);
+            $preferences_name     = self::table_name(self::TABLE_USER_PREFERENCES);
+            $settings_name        = self::table_name(self::TABLE_GLOBAL_SETTINGS);
+            $translations_name    = self::table_name(self::TABLE_TRANSLATIONS);
+            $translation_meta_name= self::table_name(self::TABLE_TRANSLATION_META);
+            $gettext_name         = self::table_name(self::TABLE_GETTEXT);
+            $menu_name            = self::table_name(self::TABLE_MENU);
             $tables_definitions = [
-                'yuz_tra_languages' => "CREATE TABLE {$prefix}yuz_tra_languages (
+                self::TABLE_LANGUAGES => "CREATE TABLE {$languages_name} (
                     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                     locale VARCHAR(12) NOT NULL,             -- NEW
 
@@ -616,7 +650,7 @@ if (!class_exists('YUZ_DB')) {
                     UNIQUE KEY unique_slug (slug),
                     UNIQUE KEY uniq_locale (locale)          -- NEW
                 ) $charset_collate;",
-                'yuz_tra_logs' => "CREATE TABLE {$prefix}yuz_tra_logs (
+                self::TABLE_LOGS => "CREATE TABLE {$logs_name} (
                     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                     translator VARCHAR(255) NOT NULL,
                     action VARCHAR(50) NOT NULL,
@@ -628,20 +662,20 @@ if (!class_exists('YUZ_DB')) {
                     INDEX idx_action (action),
                     INDEX idx_created_at (created_at)
                 ) $charset_collate;",
-                'yuz_tra_user_preferences' => "CREATE TABLE {$prefix}yuz_tra_user_preferences (
+                self::TABLE_USER_PREFERENCES => "CREATE TABLE {$preferences_name} (
                     user_id BIGINT(20) UNSIGNED NOT NULL,
                     preferred_lang_id BIGINT(20) UNSIGNED NOT NULL,
                     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id)
                 ) $charset_collate;",
-                'yuz_tra_global_settings' => "CREATE TABLE {$prefix}yuz_tra_global_settings (
+                self::TABLE_GLOBAL_SETTINGS => "CREATE TABLE {$settings_name} (
                     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                     source_lang_id BIGINT(20) UNSIGNED DEFAULT NULL,
                     fallback_lang_id BIGINT(20) UNSIGNED DEFAULT NULL,
                     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     PRIMARY KEY (id)
                 ) $charset_collate;",
-                'yuz_tra_translations' => "CREATE TABLE {$prefix}yuz_tra_translations (
+                self::TABLE_TRANSLATIONS => "CREATE TABLE {$translations_name} (
                     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                     post_id BIGINT(20) NOT NULL COMMENT '0 = homepage, else wp_posts.ID',
                     context VARCHAR(255) NULL COMMENT 'title, content, menu, widget, block',
@@ -665,7 +699,7 @@ if (!class_exists('YUZ_DB')) {
                     INDEX idx_post_context (post_id, context),
                     INDEX idx_status (status)
                 ) $charset_collate;",
-                'yuz_tra_translation_meta' => "CREATE TABLE {$prefix}yuz_tra_translation_meta (
+                self::TABLE_TRANSLATION_META => "CREATE TABLE {$translation_meta_name} (
                     meta_id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                     translation_id BIGINT(20) UNSIGNED NOT NULL,
                     meta_key VARCHAR(255) NOT NULL,
@@ -674,7 +708,7 @@ if (!class_exists('YUZ_DB')) {
                     INDEX idx_translation_id (translation_id),
                     INDEX idx_meta_key (meta_key)
                 ) $charset_collate;",
-                'yuz_tra_gettext_translations' => "CREATE TABLE {$prefix}yuz_tra_gettext_translations (
+                self::TABLE_GETTEXT => "CREATE TABLE {$gettext_name} (
                     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                     original_text VARCHAR(191) NOT NULL,
                     translated_text TEXT,
@@ -688,7 +722,7 @@ if (!class_exists('YUZ_DB')) {
                     INDEX idx_original_text (original_text),
                     INDEX idx_status (status)
                 ) $charset_collate;",
-                'yuz_tra_menu_translations' => "CREATE TABLE {$prefix}yuz_tra_menu_translations (
+                self::TABLE_MENU => "CREATE TABLE {$menu_name} (
                     id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                     menu_item_id BIGINT(20) NOT NULL COMMENT 'Link to wp_posts (menu item)',
                     original_title TEXT NOT NULL,
@@ -706,49 +740,49 @@ if (!class_exists('YUZ_DB')) {
                 ) $charset_collate;"
             ];
             $foreign_keys = [
-                'yuz_tra_user_preferences' => "ALTER TABLE {$prefix}yuz_tra_user_preferences
+                self::TABLE_USER_PREFERENCES => "ALTER TABLE {$preferences_name}
                     ADD CONSTRAINT fk_preferred_lang
                     FOREIGN KEY (preferred_lang_id)
-                    REFERENCES {$prefix}yuz_tra_languages(id)
+                    REFERENCES {$languages_name}(id)
                     ON DELETE CASCADE;",
                 'yuz_tra_translations' => [
-                    "ALTER TABLE {$prefix}yuz_tra_translations
+                    "ALTER TABLE {$translations_name}
                     ADD CONSTRAINT fk_source_lang
                     FOREIGN KEY (source_lang_id)
-                    REFERENCES {$prefix}yuz_tra_languages(id)
+                    REFERENCES {$languages_name}(id)
                     ON DELETE CASCADE;",
-                    "ALTER TABLE {$prefix}yuz_tra_translations
+                    "ALTER TABLE {$translations_name}
                     ADD CONSTRAINT fk_target_lang
                     FOREIGN KEY (target_lang_id)
-                    REFERENCES {$prefix}yuz_tra_languages(id)
+                    REFERENCES {$languages_name}(id)
                     ON DELETE CASCADE;",
-                    "ALTER TABLE {$prefix}yuz_tra_translations
+                    "ALTER TABLE {$translations_name}
                     ADD CONSTRAINT fk_revision_of
                     FOREIGN KEY (revision_of)
-                    REFERENCES {$prefix}yuz_tra_translations(id)
+                    REFERENCES {$translations_name}(id)
                     ON DELETE SET NULL;"
                 ],
-                'yuz_tra_translation_meta' => "ALTER TABLE {$prefix}yuz_tra_translation_meta
+                self::TABLE_TRANSLATION_META => "ALTER TABLE {$translation_meta_name}
                     ADD CONSTRAINT fk_translation_meta
                     FOREIGN KEY (translation_id)
-                    REFERENCES {$prefix}yuz_tra_translations(id)
+                    REFERENCES {$translations_name}(id)
                     ON DELETE CASCADE;",
-                'yuz_tra_gettext_translations' => "ALTER TABLE {$prefix}yuz_tra_gettext_translations
+                self::TABLE_GETTEXT => "ALTER TABLE {$gettext_name}
                     ADD CONSTRAINT fk_gettext_target_lang
                     FOREIGN KEY (target_lang_id)
-                    REFERENCES {$prefix}yuz_tra_languages(id)
+                    REFERENCES {$languages_name}(id)
                     ON DELETE CASCADE;",
-                'yuz_tra_menu_translations' => "ALTER TABLE {$prefix}yuz_tra_menu_translations
+                self::TABLE_MENU => "ALTER TABLE {$menu_name}
                     ADD CONSTRAINT fk_menu_target_lang
                     FOREIGN KEY (target_lang_id)
-                    REFERENCES {$prefix}yuz_tra_languages(id)
+                    REFERENCES {$languages_name}(id)
                     ON DELETE CASCADE;"
             ];
             $this->logger->log('info', 'Starting table creation', ['class' => __CLASS__]);
             $failed_tables = [];
             // Create languages table first
-            $languages_table = 'yuz_tra_languages';
-            $full_table_name = $prefix . $languages_table;
+            $languages_table = self::TABLE_LANGUAGES;
+            $full_table_name = self::table_name($languages_table);
             $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $full_table_name)); // Force prepare
             if (!$exists) {
                 $this->logger->log('info', "Creating table $full_table_name (dependency root)", ['class' => __CLASS__]);
@@ -773,19 +807,20 @@ if (!class_exists('YUZ_DB')) {
             } else {
                 $this->logger->log('info', "Table $full_table_name exists, verifying structure", ['class' => __CLASS__]);
                 $this->log_action('ensure_tables', "Table $full_table_name exists, verifying structure", [], 1);
-                $columns = (array)$wpdb->get_results("SHOW COLUMNS FROM `{$full_table_name}`");
+                $columns = (array)$wpdb->get_results($wpdb->prepare('SHOW COLUMNS FROM %i', $full_table_name));
                 $actual_columns = array_column($columns, 'Field');
 
                 if (!in_array('native_name', $actual_columns, true)) {
                     $this->logger->log('warning', "Column native_name missing in $full_table_name, adding it", ['class' => __CLASS__]);
-                    $wpdb->query("ALTER TABLE `{$full_table_name}` ADD COLUMN `native_name` VARCHAR(100) NULL AFTER `language_name`");
+                    // Intentional schema migration; the identifier is prepared with %i and the column is static.
+                    $wpdb->query($wpdb->prepare('ALTER TABLE %i ADD COLUMN `native_name` VARCHAR(100) NULL AFTER `language_name`', $full_table_name)); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- versioned compatibility migration
                     if ($wpdb->last_error) {
                         $failed_tables[] = ['table' => $full_table_name, 'error' => $wpdb->last_error];
                         $this->logger->log('error', "Failed to add native_name: " . $wpdb->last_error, ['class' => __CLASS__]);
                         $this->log_action('ensure_tables', "Failed to add native_name column to $full_table_name", ['error' => $wpdb->last_error], 0);
                     } else {
-                        $wpdb->query("UPDATE `{$full_table_name}` SET native_name = language_name WHERE native_name IS NULL OR native_name = ''");
-                        $columns = (array)$wpdb->get_results("SHOW COLUMNS FROM `{$full_table_name}`");
+                        $wpdb->query($wpdb->prepare("UPDATE %i SET native_name = language_name WHERE native_name IS NULL OR native_name = ''", $full_table_name));
+                        $columns = (array)$wpdb->get_results($wpdb->prepare('SHOW COLUMNS FROM %i', $full_table_name));
                         $actual_columns = array_column($columns, 'Field');
                         $this->logger->log('success', "Column native_name added to $full_table_name", ['class' => __CLASS__]);
                         $this->log_action('ensure_tables', "Column native_name added to $full_table_name", [], 1);
@@ -796,13 +831,14 @@ if (!class_exists('YUZ_DB')) {
                 if (!in_array('locale', $actual_columns, true)) {
                     $this->logger->log('warning', "Column locale missing in $full_table_name, adding it", ['class' => __CLASS__]);
 
-                    $wpdb->query("ALTER TABLE `{$full_table_name}` ADD COLUMN `locale` VARCHAR(12) NOT NULL AFTER `id`");
+                    // Intentional schema migration; the identifier is prepared with %i and the column is static.
+                    $wpdb->query($wpdb->prepare('ALTER TABLE %i ADD COLUMN `locale` VARCHAR(12) NOT NULL AFTER `id`', $full_table_name)); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- versioned compatibility migration
                     if ($wpdb->last_error) {
                         $failed_tables[] = ['table' => $full_table_name, 'error' => $wpdb->last_error];
                         $this->logger->log('error', "Failed to add locale: " . $wpdb->last_error, ['class' => __CLASS__]);
                         $this->log_action('ensure_tables', "Failed to add locale column to $full_table_name", ['error' => $wpdb->last_error], 0);
                     } else {
-                        $wpdb->query("UPDATE `{$full_table_name}` SET `locale` = `language_code` WHERE `locale` IS NULL OR `locale` = ''");
+                        $wpdb->query($wpdb->prepare("UPDATE %i SET `locale` = `language_code` WHERE `locale` IS NULL OR `locale` = ''", $full_table_name));
 
                         $has_idx = (int)$wpdb->get_var(
                             $wpdb->prepare(
@@ -812,13 +848,13 @@ if (!class_exists('YUZ_DB')) {
                             )
                         );
                         if (!$has_idx) {
-                            $wpdb->query("ALTER TABLE `{$full_table_name}` ADD UNIQUE KEY `uniq_locale` (`locale`)");
+                            $wpdb->query($wpdb->prepare('ALTER TABLE %i ADD UNIQUE KEY `uniq_locale` (`locale`)', $full_table_name)); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- versioned compatibility migration
                             if ($wpdb->last_error) {
                                 $this->logger->log('error', "Failed to add uniq_locale index: " . $wpdb->last_error, ['class' => __CLASS__]);
                             }
                         }
 
-                        $columns = (array)$wpdb->get_results("SHOW COLUMNS FROM `{$full_table_name}`");
+                        $columns = (array)$wpdb->get_results($wpdb->prepare('SHOW COLUMNS FROM %i', $full_table_name));
                         $actual_columns = array_column($columns, 'Field');
 
                         $this->logger->log('success', "Column locale added and backfilled in $full_table_name", ['class' => __CLASS__]);
@@ -847,8 +883,8 @@ if (!class_exists('YUZ_DB')) {
                 }
             }
             // Create logs table next
-            $logs_table = 'yuz_tra_logs';
-            $full_logs_table = $prefix . $logs_table;
+            $logs_table = self::TABLE_LOGS;
+            $full_logs_table = self::table_name($logs_table);
             $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $full_logs_table)); // Force prepare
             if (!$exists) {
                 $this->logger->log('info', "Creating table $full_logs_table (logging dependency)", ['class' => __CLASS__]);
@@ -880,19 +916,20 @@ if (!class_exists('YUZ_DB')) {
                 if ($table_name === $languages_table || $table_name === $logs_table) {
                     continue;
                 }
-                $full_table_name = $prefix . $table_name;
+                $full_table_name = self::table_name($table_name);
                 $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $full_table_name)); // Force prepare
                 if (!$exists) {
-                    if ($table_name === 'yuz_tra_translation_meta' && !$wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", "{$prefix}yuz_tra_translations"))) { // Force prepare
-                        $this->logger->log('info', "Creating dependency table {$prefix}yuz_tra_translations for $table_name", ['class' => __CLASS__]);
+                    $dependency_table = self::table_name(self::TABLE_TRANSLATIONS);
+                    if ($table_name === self::TABLE_TRANSLATION_META && !$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $dependency_table))) {
+                        $this->logger->log('info', "Creating dependency table {$dependency_table} for $table_name", ['class' => __CLASS__]);
                         $attempts = 3;
                         while ($attempts > 0) {
-                            dbDelta($tables_definitions['yuz_tra_translations']);
+                            dbDelta($tables_definitions[self::TABLE_TRANSLATIONS]);
                             if (!$wpdb->last_error) {
                                 break;
                             }
                             $attempts--;
-                            $this->logger->log('warning', "Retry attempt for creating table {$prefix}yuz_tra_translations, attempts left: {$attempts}", ['class' => __CLASS__]);
+                            $this->logger->log('warning', "Retry attempt for creating table {$dependency_table}, attempts left: {$attempts}", ['class' => __CLASS__]);
                             usleep(100000);
                         }
                         if ($wpdb->last_error) {
@@ -929,16 +966,16 @@ if (!class_exists('YUZ_DB')) {
                 }
             }
             // Check and add revision_of column to yuz_tra_translations if missing
-            $translations_table = $prefix . 'yuz_tra_translations';
-            $columns = (array)$wpdb->get_results("SHOW COLUMNS FROM `{$translations_table}`");
+            $translations_table = self::table_name(self::TABLE_TRANSLATIONS);
+            $columns = (array)$wpdb->get_results($wpdb->prepare('SHOW COLUMNS FROM %i', $translations_table));
             $actual_columns = array_column($columns, 'Field');
             if (!in_array('revision_of', $actual_columns)) {
                 $this->logger->log('warning', "Column revision_of missing in $translations_table, adding it", ['class' => __CLASS__]);
-                $add_column_sql = "ALTER TABLE `{$translations_table}`
-                    ADD COLUMN revision_of BIGINT(20) UNSIGNED NULL DEFAULT NULL COMMENT 'If manual, refers to original auto-translation ID'";
                 $attempts = 3;
                 while ($attempts > 0) {
-                    $wpdb->query($add_column_sql);
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- versioned compatibility migration.
+                    $wpdb->query($wpdb->prepare("ALTER TABLE %i
+                        ADD COLUMN revision_of BIGINT(20) UNSIGNED NULL DEFAULT NULL COMMENT 'If manual, refers to original auto-translation ID'", $translations_table));
                     if (!$wpdb->last_error) {
                         break;
                     }
@@ -960,7 +997,7 @@ if (!class_exists('YUZ_DB')) {
             // Apply foreign key constraints
             $wpdb->query('SET FOREIGN_KEY_CHECKS = 0;');
             foreach ($foreign_keys as $table_name => $fk_definitions) {
-                $full_table_name = $prefix . $table_name;
+                $full_table_name = self::table_name($table_name);
                 // MySQL constraint names are schema-wide, including multisite/parallel installs.
                 $namespace_fk = static function ($sql) use ($prefix) {
                     return preg_replace_callback('/ADD CONSTRAINT (\w+)/', static function ($m) use ($prefix) {
@@ -980,6 +1017,7 @@ if (!class_exists('YUZ_DB')) {
                         $this->logger->log('info', "Applying foreign key to $full_table_name", ['class' => __CLASS__]);
                         $attempts = 3;
                         while ($attempts > 0) {
+                            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Static schema DDL; constraint names are namespaced and validated immediately above.
                             $wpdb->query($fk_sql);
                             if (!$wpdb->last_error) {
                                 break;
@@ -1008,6 +1046,7 @@ if (!class_exists('YUZ_DB')) {
                     $this->logger->log('info', "Applying foreign key to $full_table_name", ['class' => __CLASS__]);
                     $attempts = 3;
                     while ($attempts > 0) {
+                        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Static schema DDL; constraint names are namespaced and validated immediately above.
                         $wpdb->query($fk_definitions);
                         if (!$wpdb->last_error) {
                             break;
@@ -1028,7 +1067,7 @@ if (!class_exists('YUZ_DB')) {
             }
             $wpdb->query('SET FOREIGN_KEY_CHECKS = 1;');
             if (!empty($failed_tables)) {
-                $this->logger->log('error', "Table creation completed with errors: " . print_r($failed_tables, true), ['class' => __CLASS__]);
+                $this->logger->log('error', 'Table creation completed with errors', ['class' => __CLASS__, 'failed_tables' => $failed_tables]);
                 $this->log_action('ensure_tables', 'Table creation completed with errors', ['failed_tables' => $failed_tables], 0);
                 return false;
             }
@@ -1037,7 +1076,8 @@ if (!class_exists('YUZ_DB')) {
             $existing_languages = null;
             $attempts = 3;
             while ($attempts > 0) {
-                $existing_languages = $wpdb->get_var("SELECT COUNT(*) FROM `{$prefix}yuz_tra_languages`");
+                $languages_table_name = self::table_name(self::TABLE_LANGUAGES);
+                $existing_languages = $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i', $languages_table_name));
                 if ($existing_languages !== null) {
                     break;
                 }
@@ -1105,7 +1145,7 @@ if (!class_exists('YUZ_DB')) {
                 $failed_languages = [];
                 foreach ($default_languages as $lang) {
                     if (!isset($lang['language_code'], $lang['language_name'], $lang['slug'])) {
-                        $this->logger->log('error', "Invalid language data: " . print_r($lang, true));
+                        $this->logger->log('error', 'Invalid language data', ['language_code' => $lang['language_code'] ?? 'unknown']);
                         $failed_languages[] = ['language_code' => $lang['language_code'] ?? 'unknown', 'error' => 'Missing required fields'];
                         continue;
                     }
@@ -1113,7 +1153,8 @@ if (!class_exists('YUZ_DB')) {
                     $attempts = 3;
                     while ($attempts > 0) {
                         $exists = $wpdb->get_var($wpdb->prepare(
-                            "SELECT COUNT(*) FROM `{$prefix}yuz_tra_languages` WHERE language_code = %s OR slug = %s",
+                            'SELECT COUNT(*) FROM %i WHERE language_code = %s OR slug = %s',
+                            $languages_table_name,
                             $lang['language_code'],
                             $lang['slug']
                         ));
@@ -1138,7 +1179,7 @@ if (!class_exists('YUZ_DB')) {
                     $attempts = 3;
                     while ($attempts > 0) {
                         $result = $wpdb->insert(
-                            "{$prefix}yuz_tra_languages",
+                            $languages_table_name,
                             [
                                 'locale'          => $lang['language_code'],        // NEW
                                 'language_name'   => $lang['language_name'],
@@ -1173,7 +1214,7 @@ if (!class_exists('YUZ_DB')) {
                     }
                 }
                 if (!empty($failed_languages)) {
-                    $this->logger->log('error', 'Failed to insert some languages: ' . print_r($failed_languages, true));
+                    $this->logger->log('error', 'Failed to insert some languages', ['failed_languages' => $failed_languages]);
                     $this->log_action('ensure_tables', 'Failed to insert some languages', ['failed' => $failed_languages], 0);
                     $wpdb->query('ROLLBACK');
                     return false;
@@ -1200,7 +1241,7 @@ if (!class_exists('YUZ_DB')) {
             $integrity_report = [];
             $all_tables_exist = true;
             foreach (array_keys($tables_definitions) as $table_name) {
-                $full_table_name = $prefix . $table_name;
+                $full_table_name = self::table_name($table_name);
                 $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $full_table_name)); // Force prepare
                 if (!$exists) {
                     $all_tables_exist = false;
@@ -1209,17 +1250,17 @@ if (!class_exists('YUZ_DB')) {
                 } else {
                     $integrity_report[] = "Table $full_table_name exists.";
                     $this->logger->log('info', "Integrity check passed - Table $full_table_name exists");
-                    $columns = (array)$wpdb->get_results("SHOW COLUMNS FROM `{$full_table_name}`");
-                    $indexes = (array)$wpdb->get_results("SHOW INDEX FROM `{$full_table_name}`");
+                    $columns = (array)$wpdb->get_results($wpdb->prepare('SHOW COLUMNS FROM %i', $full_table_name));
+                    $indexes = (array)$wpdb->get_results($wpdb->prepare('SHOW INDEX FROM %i', $full_table_name));
                     $column_count = count($columns);
                     $index_count = count($indexes);
                     $integrity_report[] = "Table $full_table_name has $column_count columns and $index_count indexes.";
                     $this->logger->log('info', "Table $full_table_name has $column_count columns and $index_count indexes");
-                    if ($table_name === 'yuz_tra_languages') {
+                    if ($table_name === self::TABLE_LANGUAGES) {
                         $flags = null;
                         $attempts = 3;
                         while ($attempts > 0) {
-                            $flags = $wpdb->get_results("SELECT is_default, is_source, is_translatable FROM `{$full_table_name}` WHERE is_default != 0 OR is_source != 0 OR is_translatable != 0", ARRAY_A);
+                            $flags = $wpdb->get_results($wpdb->prepare('SELECT is_default, is_source, is_translatable FROM %i WHERE is_default != 0 OR is_source != 0 OR is_translatable != 0', $full_table_name), ARRAY_A);
                             if ($flags !== null) {
                                 break;
                             }
@@ -1230,8 +1271,9 @@ if (!class_exists('YUZ_DB')) {
                         if ($flags === null) {
                             $this->logger->log('error', "Failed to retrieve flags from $full_table_name: " . $wpdb->last_error);
                         } elseif (!empty($flags)) {
-                            $integrity_report[] = "Table $full_table_name has non-zero flags: " . print_r($flags, true);
-                            $this->logger->log('info', "Table $full_table_name has non-zero flags: " . print_r($flags, true));
+                            $flags_json = wp_json_encode($flags, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                            $integrity_report[] = "Table $full_table_name has non-zero flags: " . ($flags_json !== false ? $flags_json : '[unencodable]');
+                            $this->logger->log('info', "Table $full_table_name has non-zero flags", ['flags' => $flags]);
                         } else {
                             $integrity_report[] = "Table $full_table_name has all flags set to 0.";
                             $this->logger->log('info', "Table $full_table_name has all flags set to 0");
@@ -1239,7 +1281,7 @@ if (!class_exists('YUZ_DB')) {
                         $languages = null;
                         $attempts = 3;
                         while ($attempts > 0) {
-                            $languages = $wpdb->get_results("SELECT language_code, language_name, slug, browser_slug FROM `{$full_table_name}`", ARRAY_A);
+                            $languages = $wpdb->get_results($wpdb->prepare('SELECT language_code, language_name, slug, browser_slug FROM %i', $full_table_name), ARRAY_A);
                             if ($languages !== null) {
                                 break;
                             }
@@ -1258,8 +1300,8 @@ if (!class_exists('YUZ_DB')) {
                 }
             }
             // Ensure coherence across already-populated rows
-            // $wpdb->query("UPDATE {$prefix}yuz_tra_languages SET native_name = language_name WHERE native_name IS NULL OR native_name = ''");
-            $wpdb->query("UPDATE {$prefix}yuz_tra_languages SET is_translatable = 1 WHERE is_source = 1 OR is_default = 1");
+            $languages_table_name = self::table_name(self::TABLE_LANGUAGES);
+            $wpdb->query($wpdb->prepare('UPDATE %i SET is_translatable = 1 WHERE is_source = 1 OR is_default = 1', $languages_table_name));
 
             // Log results and update DB version
             $final_report = implode("\n", $integrity_report);
@@ -1269,7 +1311,7 @@ if (!class_exists('YUZ_DB')) {
                 return false;
             }
             update_option(self::DB_VERSION_OPTION, self::DB_VERSION);
-            update_option('tables_ok', true);
+            update_option('yuz_tra_tables_ok', true);
             $this->logger->log('success', "Table creation completed at " . current_time('mysql') . "\nDeployment Report:\n$final_report");
             $this->log_action('ensure_tables', 'Table creation completed', ['report' => $integrity_report], 1);
             return true;
@@ -1310,14 +1352,16 @@ if (!class_exists('YUZ_DB')) {
         public function query(string $sql, array $params = []): array {
             global $wpdb;
             // MODIF: Gate sur tables_ok pour reads aussi (Phase 4: cohérence globale)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping query', ['class' => __CLASS__]);
                 return [];
             }
-            if (!empty($params)) {
-                $sql = $wpdb->prepare($sql, $params);
+            if (empty($params)) {
+                $this->logger->log('error', 'YUZ_DB query refused: parameters are required', ['class' => __CLASS__]);
+                return [];
             }
-            return $wpdb->get_results($sql, ARRAY_A) ?: [];
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Generic DBInterface SQL is prepared with the caller's typed parameter list immediately here.
+            return $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A) ?: [];
         }
         /**
          * Exécute une requête de modification (INSERT, UPDATE, DELETE).
@@ -1329,14 +1373,16 @@ if (!class_exists('YUZ_DB')) {
         public function execute(string $sql, array $params = []): void {
             global $wpdb;
             // MODIF: Gate sur tables_ok (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping execute', ['class' => __CLASS__]);
                 return;
             }
-            if (!empty($params)) {
-                $sql = $wpdb->prepare($sql, $params);
+            if (empty($params)) {
+                $this->logger->log('error', 'YUZ_DB execute refused: parameters are required', ['class' => __CLASS__]);
+                return;
             }
-            $result = $wpdb->query($sql);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Generic DBInterface SQL is prepared with the caller's typed parameter list immediately here.
+            $result = $wpdb->query($wpdb->prepare($sql, $params));
             if ($result === false) {
                 $this->logger->log('error', "Execute failed: {$wpdb->last_error}", ['sql' => $sql]);
             }
@@ -1347,8 +1393,10 @@ if (!class_exists('YUZ_DB')) {
          */
         private function translation_table_has_column(string $table, string $column): bool {
             global $wpdb;
-            // $table is already prefixed; rely on prepare for the LIKE pattern only
-            $col = $wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $column));
+            if ($table !== self::table_name(self::TABLE_TRANSLATIONS)) {
+                return false;
+            }
+            $col = $wpdb->get_var($wpdb->prepare('SHOW COLUMNS FROM %i LIKE %s', $table, $column));
             return !empty($col);
         }
 
@@ -1362,11 +1410,11 @@ if (!class_exists('YUZ_DB')) {
         public function delete_translation(int $translation_id): bool {
             global $wpdb;
             // MODIF: Gate sur tables_ok (Phase 4)
-            if (!get_option('tables_ok', false)) {
+            if (!get_option('yuz_tra_tables_ok', false)) {
                 $this->logger->log('critical', 'Tables not OK, skipping delete_translation', ['class' => __CLASS__]);
                 return false;
             }
-            $table = $wpdb->prefix . 'yuz_tra_translations';
+            $table = self::table_name(self::TABLE_TRANSLATIONS);
             $this->logger->log('info', "Tentative de suppression de la traduction #{$translation_id}", ['class'=>__CLASS__]);
             $attempts = 3;
             $deleted = null;

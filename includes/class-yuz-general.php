@@ -28,6 +28,7 @@ use YUZTRA\Fallbacks\NullHealthCheck;
 
 if (interface_exists('YUZTRA\Interfaces\GeneralInterface')) {
 
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- public legacy class name
 class YUZ_General implements GeneralInterface {
     private $settings;
     private $ajax;
@@ -57,7 +58,7 @@ class YUZ_General implements GeneralInterface {
         self::$booted = true;
 
         if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_General::init');
+            yuztra_debug_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_General::init');
             wp_die('Critical error: YUZ-TRA constants missing.');
         }
 
@@ -240,6 +241,7 @@ class YUZ_General implements GeneralInterface {
 
 } else {
 
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- public legacy class name
 class YUZ_General {
     public static function init() {
         (new YUZ_Logger())->log('critical', 'GeneralInterface missing, disabling YUZ_General admin init');

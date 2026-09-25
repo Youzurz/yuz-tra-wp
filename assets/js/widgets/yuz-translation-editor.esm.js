@@ -85,9 +85,9 @@ import $ from 'jquery';
   const TRACE = CFG.trace || Math.random().toString(16).slice(2);
 
   const TRANSLATE_ENDPOINT = (() => {
-    const raw = (Y && Y.ajax_url) || (typeof window !== 'undefined' && window.ajaxurl) || '/wp-admin/admin-ajax.php';
+    const raw = (Y && Y.ajax_url) || (typeof window !== 'undefined' && window.ajaxurl) || Y.ajax_url;
     try { return new URL(raw, window.location.origin).toString(); }
-    catch (_) { return '/wp-admin/admin-ajax.php'; }
+    catch (_) { return Y.ajax_url; }
   })();
 
   const TRANSLATE_NONCE = pickNonce('yuz_translate');
@@ -485,9 +485,9 @@ import $ from 'jquery';
       return $.Deferred().reject(e).promise();
     }
 
-    let urlStr = Y.ajax_url || '/wp-admin/admin-ajax.php';
+    let urlStr = Y.ajax_url || Y.ajax_url;
     let url;
-    try { url = new URL(urlStr, window.location.origin); } catch (_) { url = new URL('/wp-admin/admin-ajax.php', window.location.origin); }
+    try { url = new URL(urlStr, window.location.origin); } catch (_) { url = new URL(Y.ajax_url, window.location.origin); }
     if (url.origin !== window.location.origin) {
       log('critical','[YUZ][TE] ajax_url cross-origin — bloqué', { ajax_url: urlStr });
       return $.Deferred().reject(new Error('CROSS_ORIGIN')).promise();
@@ -1382,7 +1382,7 @@ if (pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', prun
 (() => {
   const Y   = window.yuzTE || {};
   const app = window.YUZ_EDITOR_APP || {};
-  const ajaxURL = Y.ajax_url || '/wp-admin/admin-ajax.php';
+  const ajaxURL = Y.ajax_url || Y.ajax_url;
   const nonce   = pickNonce('yuz_tra_tm_translate');
   const from    = app.sourceLanguage || 'auto';
   const to      = (app.getCurrentLanguage && app.getCurrentLanguage()) || 'en_US';

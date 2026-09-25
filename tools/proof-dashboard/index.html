@@ -1,0 +1,9 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YUZ-TRA · Banc de preuves</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head><body><main>
+<header><span class="eyebrow">YOUZURZ / QUALITÉ LOGICIELLE</span><h1>YUZ-TRA<span>Le banc de preuves.</span></h1><p>Ce qui a été testé. Ce qui reste à démontrer.</p></header>
+<div class="toolbar"><span id="connection" role="status">Chargement du rapport…</span><button id="refresh">Actualiser le rapport</button><a href="/api/report" download="yuz-tra-report.json">Exporter le JSON</a></div>
+<p class="notice">Lecture seule · Aucun test ni appel IA n'est lancé par cette page. Un résultat réussi ne certifie pas l'ensemble du plugin.</p>
+<section id="metrics" aria-label="Synthèse"></section>
+<section><h2>Axes d’amélioration — priorité WordPress.org</h2><p id="improvements-date">Chargement du suivi…</p><div id="improvements"></div></section>
+<section><h2>Scénarios exécutés et limites</h2><label>Filtrer <select id="filter"><option value="all">Tous les scénarios</option><option value="PASS">Réussis</option><option value="NOT_TESTED">Non testés</option><option value="FAIL">Échecs</option></select></label><div id="scenarios"></div></section>
+<section><h2>Exigences et traçabilité</h2><p>Les correspondances sont partielles. Les scénarios non implémentés ne constituent pas une preuve.</p><label for="search">Rechercher dans les documents</label><input id="search" type="search" placeholder="Exemple : mémoire, installation, données…"><div id="requirements"></div></section>
+<footer id="provenance"></footer></main></body></html>

@@ -242,7 +242,7 @@ public function render_licenses_tab(array $settings = []): void {
         // Health check for table existence
         if (class_exists('YUZ_Health_Check')) {
             YUZ_Health_Check::ensure(
-                $wpdb->get_var("SHOW TABLES LIKE '$table_name'") !== null,
+                $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))) !== null,
                 'Languages table missing',
                 __METHOD__
             );
@@ -705,8 +705,12 @@ public function render_licenses_tab(array $settings = []): void {
                     </td>
                 </tr>
             </table>
-            <script type="text/javascript">
-                (function($) {
+            <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                     function toggleCustomEndpoint() {
                         var model = $('#yuz_tra_ai_model').val();
                         $('#yuz_tra_custom_ai_endpoint_row').toggle(model === 'custom');
@@ -714,7 +718,10 @@ public function render_licenses_tab(array $settings = []): void {
                     $('#yuz_tra_ai_model').on('change', toggleCustomEndpoint);
                     toggleCustomEndpoint();
                 })(jQuery);
-            </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         </div>
         <?php
         // Maintenance tools (Advanced → Tools‑like section)
@@ -949,8 +956,12 @@ public function render_licenses_tab(array $settings = []): void {
                 <?php esc_html_e('This option is disabled in Manual mode, as translations are performed via the editor.', 'yuz-tra'); ?>
             </p>
         </div>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleAutoTranslationField() {
                     var mode = $('#yuz_tra_translation_mode').val();
                     if (mode === 'manual') {
@@ -964,7 +975,10 @@ public function render_licenses_tab(array $settings = []): void {
                 $('#yuz_tra_translation_mode').on('change', toggleAutoTranslationField);
                 toggleAutoTranslationField();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'Enable auto translation field rendered successfully');
         $this->logger->log('success', 'Enable auto translation field rendered successfully');
@@ -1035,8 +1049,12 @@ public function render_licenses_tab(array $settings = []): void {
             </select>
             <p class="yuz-tra-description"><?php esc_html_e('Choose how translations are performed: manually via an editor, page-by-page, silently in the background, or all modes combined.', 'yuz-tra'); ?></p>
         </div>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleCronField() {
                     var mode = $('#yuz_tra_translation_mode').val();
                     if (mode === 'silent' || mode === 'all') {
@@ -1048,7 +1066,10 @@ public function render_licenses_tab(array $settings = []): void {
                 $('#yuz_tra_translation_mode').on('change', toggleCronField);
                 toggleCronField();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'Translation mode field rendered successfully');
         $this->logger->log('success', 'Translation mode field rendered successfully');
@@ -1119,16 +1140,23 @@ public function render_licenses_tab(array $settings = []): void {
             <td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ['provider_timeout'=>45,'num_ctx'=>2048,'num_predict'=>512,'num_thread'=>2,'daily_token_limit'=>100000][$key] ?? ''); ?>"></td>
         </tr>
         <?php endforeach; ?>
-        <?php foreach (['openai_url'=>'URL OpenAI (endpoint compatible)','openai_model'=>'Modèle OpenAI exact'] as $key=>$label): ?>
-        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ($key==='openai_url' ? 'https://api.openai.com/v1/chat/completions' : '')); ?>"></td></tr>
+        <?php // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- This admin-only field renders configuration for the explicitly selected OpenAI-compatible provider; rendering performs no network request.
+        foreach (['openai_url'=>'URL OpenAI (endpoint compatible)','openai_model'=>'Modèle OpenAI exact'] as $key=>$label): ?>
+        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php
+            // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-only provider configuration display; no provider call occurs here.
+            echo esc_attr($options_settings[$key] ?? ($key==='openai_url' ? 'https://api.openai.com/v1/chat/completions' : '')); ?>"></td></tr>
         <?php endforeach; ?>
         <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_openai_key">Clé API OpenAI</label></th><td><input type="password" id="yuz_tra_openai_key" name="yuz_tra_at_settings[openai_key]" value="" autocomplete="new-password" placeholder="Conservée si laissée vide"></td></tr>
         <tr class="yuz-cost-accounting"><th colspan="2"><h3>Comptabilité de rentabilité (USD, estimation administrateur)</h3><p class="description">Ces champs ne lisent pas la facturation OpenAI. Saisissez les tarifs réellement applicables ; aucun appel ne sera lancé par cette saisie.</p></th></tr>
         <?php foreach (['available_balance_usd'=>'Solde fournisseur disponible','minimum_balance_usd'=>'Réserve minimale à protéger','input_cost_usd_per_million'=>'Coût entrant / million de tokens','output_cost_usd_per_million'=>'Coût sortant / million de tokens','sale_price_usd_per_million'=>'Prix de vente / million de tokens','fixed_monthly_cost_usd'=>'Coûts fixes mensuels','pricing_source'=>'Source/version des tarifs'] as $key=>$label): ?>
         <tr class="yuz-cost-accounting"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ''); ?>" inputmode="decimal"></td></tr>
         <?php endforeach; ?>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZ_TRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleProviderFields() {
                     var provider = $('#yuz_tra_api_provider').val();
                     $('.yuz-tra-api-provider-field').hide();
@@ -1137,7 +1165,10 @@ public function render_licenses_tab(array $settings = []): void {
                 $('#yuz_tra_api_provider').on('change', toggleProviderFields);
                 toggleProviderFields();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'API provider field rendered successfully');
         $this->logger->log('success', 'API provider field rendered successfully');
@@ -1152,7 +1183,6 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering LibreTranslate fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
         $libre_url = (string) ($options_settings['libre_url'] ?? '');
-        $libre_key = (string) ($options_settings['libre_key'] ?? '');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-libretranslate" style="<?php echo ($provider === 'libretranslate') ? '' : 'display:none;'; ?>">
@@ -1165,8 +1195,8 @@ public function render_licenses_tab(array $settings = []): void {
         <tr class="yuz-tra-api-provider-field yuz-libretranslate" style="<?php echo ($provider === 'libretranslate') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="libre_key"><?php esc_html_e('LibreTranslate API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_libre_key" name="yuz_tra_at_settings[libre_key]" value="<?php echo esc_attr($libre_key); ?>" placeholder="<?php esc_attr_e('Enter API key (optional)', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('Optional API key for LibreTranslate.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_libre_key" name="yuz_tra_at_settings[libre_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('Optional API key for LibreTranslate. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <?php
@@ -1205,15 +1235,14 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering Google fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering Google fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
-        $google_key = (string) ($options_settings['google_key'] ?? '');
         $google_proj = (string) ($options_settings['google_project'] ?? '');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-google" style="<?php echo ($provider === 'google') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="google_key"><?php esc_html_e('Google API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_google_key" name="yuz_tra_at_settings[google_key]" value="<?php echo esc_attr($google_key); ?>" placeholder="<?php esc_attr_e('Enter Google API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for Google Translate.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_google_key" name="yuz_tra_at_settings[google_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for Google Translate. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-google" style="<?php echo ($provider === 'google') ? '' : 'display:none;'; ?>">
@@ -1236,15 +1265,14 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering DeepL fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering DeepL fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
-        $deepl_key = (string) ($options_settings['deepl_key'] ?? '');
         $deepl_free = (string) ($options_settings['deepl_free'] ?? '0');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-deepl" style="<?php echo ($provider === 'deepl') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="deepl_key"><?php esc_html_e('DeepL API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_deepl_key" name="yuz_tra_at_settings[deepl_key]" value="<?php echo esc_attr($deepl_key); ?>" placeholder="<?php esc_attr_e('Enter DeepL API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for DeepL.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_deepl_key" name="yuz_tra_at_settings[deepl_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for DeepL. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-deepl" style="<?php echo ($provider === 'deepl') ? '' : 'display:none;'; ?>">
@@ -1272,7 +1300,6 @@ public function render_licenses_tab(array $settings = []): void {
         $this->logger->log('info', 'Rendering custom fields');
         $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
         $custom_url = (string) ($options_settings['custom_url'] ?? '');
-        $custom_key = (string) ($options_settings['custom_key'] ?? '');
         $custom_auth = (string) ($options_settings['custom_auth'] ?? 'none');
         $custom_method = (string) ($options_settings['custom_method'] ?? 'POST');
         $custom_fmt = (string) ($options_settings['custom_format'] ?? 'JSON');
@@ -1288,8 +1315,8 @@ public function render_licenses_tab(array $settings = []): void {
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="custom_key"><?php esc_html_e('Custom API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_custom_key" name="yuz_tra_at_settings[custom_key]" value="<?php echo esc_attr($custom_key); ?>" placeholder="<?php esc_attr_e('Enter custom API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for the custom API.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuz_tra_custom_key" name="yuz_tra_at_settings[custom_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for the custom API. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
@@ -1614,7 +1641,9 @@ public function render_product_catalog_card(): void {
  *  - 'yuz/licenses/card_args' → ex: ['plans' => ['title' => 'Pro Plans']]
  */
 public function render_licenses_content(array $context = []): void {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $sections   = apply_filters('yuz/licenses/sections', ['account','ai','plans'], $context);
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $cards_args = (array) apply_filters('yuz/licenses/card_args', [], $context);
 
     if (isset($this->logger)) {
@@ -1680,7 +1709,9 @@ public function render_upgrade_link(array $args = []): void {
  *  - 'yuz/support/toolbar_args'     → ex: ['upgrade' => ['label' => 'Go Pro']]
  */
 public function render_support_toolbar(array $context = []): void {
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $sections = apply_filters('yuz/support/toolbar_sections', ['support','docs','upgrade'], $context);
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
     $args     = (array) apply_filters('yuz/support/toolbar_args', [], $context);
 
     if (isset($this->logger)) {

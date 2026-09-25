@@ -83,6 +83,7 @@ use YUZTRA\Fallbacks\NullLanguageManager;
 use YUZTRA\Fallbacks\NullTranslationManager;
 
 if (!class_exists('YUZ_Editor')) {
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
 class YUZ_Editor {
     private static $instance = null;
     private $languages;
@@ -278,7 +279,7 @@ class YUZ_Editor {
         check_ajax_referer('yuz_tra_nonce', 'nonce');
         $this->logger->log('info', 'Starting translation via AJAX');
 
-        $page_url   = isset($_POST['page_url']) ? esc_url_raw($_POST['page_url']) : home_url();
+        $page_url   = isset($_POST['page_url']) ? esc_url_raw(wp_unslash($_POST['page_url'])) : home_url();
         $editor_url = add_query_arg('yuz-edit-translation', '1', $page_url);
 
         wp_send_json_success(['editor_url' => $editor_url]);
@@ -300,14 +301,14 @@ class YUZ_Editor {
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (! $wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+        if (! $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_name))) {
             wp_send_json_error(['message' => "Languages table $table_name does not exist"], 500);
         }
 
         $languages = null;
         $attempts  = 3;
         while ($attempts > 0) {
-            $languages = $wpdb->get_results("SELECT language_code, language_name FROM {$table_name} WHERE is_translatable = 1");
+            $languages = $wpdb->get_results($wpdb->prepare('SELECT language_code, language_name FROM %i WHERE is_translatable = 1', $table_name));
             if ($languages !== null) {
                 break;
             }
@@ -332,7 +333,7 @@ class YUZ_Editor {
         $table_key = $table ?: 'default';
         if (!isset($cache[$table_key])) {
             global $wpdb;
-            $columns = $wpdb->get_col("DESCRIBE {$table}", 0);
+            $columns = $wpdb->get_col($wpdb->prepare('DESCRIBE %i', $table), 0);
             $cache[$table_key] = is_array($columns) ? array_map('strtolower', $columns) : [];
         }
 
@@ -352,9 +353,9 @@ class YUZ_Editor {
         check_ajax_referer('yuz_tra_nonce', 'nonce');
         $this->logger->log('info', 'Translating text via AJAX');
 
-        $text        = sanitize_text_field($_POST['text'] ?? '');
-        $source_lang = sanitize_text_field($_POST['source_lang'] ?? '');
-        $target_lang = sanitize_text_field($_POST['target_lang'] ?? '');
+        $text        = sanitize_text_field(wp_unslash($_POST['text'] ?? ''));
+        $source_lang = sanitize_text_field(wp_unslash($_POST['source_lang'] ?? ''));
+        $target_lang = sanitize_text_field(wp_unslash($_POST['target_lang'] ?? ''));
 
         if (empty($text) || empty($source_lang) || empty($target_lang)) {
             wp_send_json_error(['message' => 'Missing required parameters for translation'], 400);
@@ -389,12 +390,11 @@ class YUZ_Editor {
             'user_login'     => wp_get_current_user()->user_login ?? null,
             'has_cap'        => current_user_can('yuz_translate_content'),
             'cookie_present' => isset($_COOKIE['wordpress_logged_in_'.COOKIEHASH]),
-            'received_nonce' => $_POST['nonce'] ?? null,
-            'expected_nonce' => wp_create_nonce('yuz_tra_nonce'),
+            'nonce_valid'    => true,
             'headers'        => [
-                'ua'          => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'xrw'         => $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '',
-                'cfipcountry' => $_SERVER['HTTP_CF_IPCOUNTRY'] ?? '',
+                'ua'          => sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? '')),
+                'xrw'         => sanitize_text_field(wp_unslash($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')),
+                'cfipcountry' => sanitize_text_field(wp_unslash($_SERVER['HTTP_CF_IPCOUNTRY'] ?? '')),
             ],
         ]);
     }

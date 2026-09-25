@@ -188,7 +188,8 @@ if (!self::$debug) {
 return;
             }
 $prefix = self::$prefixes[$level] ?? self::$prefixes['info'];
-error_log(sprintf('%s %s: %s', $prefix, $message, print_r($context, true)));
+$encoded = wp_json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+yuztra_debug_log(sprintf('%s %s: %s', $prefix, $message, $encoded !== false ? $encoded : '[unencodable]'));
         }
     }
 }

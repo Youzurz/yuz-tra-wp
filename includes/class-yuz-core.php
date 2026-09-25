@@ -136,9 +136,13 @@ if (class_exists('YUZ_DB')) {
 $db = new YUZ_DB($logger, $health);
 if (method_exists($db, 'ensure_tables')) {
 // MODIF: Gate sur tables_ok pour éviter DDL runtime (Phase 4)
-if (!get_option('tables_ok', false) && self::can_run_runtime_maintenance()) {
-$db->ensure_tables();
-update_option('tables_ok', true); // Flag après succès
+if (!get_option('yuz_tra_tables_ok', false) && self::can_run_runtime_maintenance()) {
+// Le drapeau ne doit refléter que le succès réel de la création du schéma.
+$tables_ready = (bool) $db->ensure_tables();
+update_option('yuz_tra_tables_ok', $tables_ready);
+if (!$tables_ready) {
+self::flag_issue('DB ensure_tables: creation du schema incomplete. Nouvelle tentative au prochain chargement administrateur.');
+                        }
                     }
                 }
             }
@@ -181,7 +185,7 @@ try {
 }
 // Fallback propre depuis l’option consolidée (yuz_tra_all_settings -> general)
 if (empty($default_lang) || empty($source_lang)) {
-    $all = yuz_settings_get_all();
+    $all = yuztra_settings_get_all();
     $gen = is_array($all) && isset($all['yuz_tra_general']) ? (array)$all['yuz_tra_general'] : [];
     $detectedDef = (class_exists('YUZ_Environment') && method_exists('YUZ_Environment','get_detected_default')) ? YUZ_Environment::get_detected_default() : null;
     $default_lang = $default_lang ?: ($detectedDef ?: ($gen['yuz_tra_default_language'] ?? get_locale()));
@@ -230,6 +234,7 @@ self::log_colored('warning', 'CHECK exception: '.$e->getMessage());
 /* =======================
          * ACT — amélioration continue
          * ======================= */
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public lifecycle action
 do_action('yuz_core_boot_complete', [
 'viable' => self::$plan_state['viable'],
 'issues' => self::$plan_state['issues'],
@@ -315,7 +320,7 @@ return;
             // 'YUZ_PDCA_Manager', // optional module not present; suppress warnings
         ];
         // Gate IA: prefer consolidated storage, fallback to standalone legacy
-        $all_settings  = yuz_settings_get_all();
+        $all_settings  = yuztra_settings_get_all();
         $site_settings = is_array($all_settings) && isset($all_settings['yuz_tra_site_settings'])
             ? (array)$all_settings['yuz_tra_site_settings']
             : (array) get_option('yuz_tra_site_settings', ['enable_ai' => '0']);
@@ -496,9 +501,10 @@ self::log_colored('critical', $msg);
         $prefix = $prefixes[$requested] ?? '🟦 [INFO]';
         $log_message = "{$prefix} {$message}";
         if (!empty($context)) {
-            $log_message .= ' | Context: ' . (is_string($context) ? $context : print_r($context, true));
+            $encoded = wp_json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $log_message .= ' | Context: ' . (is_string($context) ? $context : ($encoded !== false ? $encoded : '[unencodable]'));
         }
-        error_log($log_message);
+        yuztra_debug_log($log_message);
     }
 /** N’écrase pas les valeurs déjà présentes */
     public static function ensure_default_settings(): void {
@@ -515,16 +521,16 @@ self::log_colored('critical', $msg);
             'source_language_id' => 0,
             'api_adapter' => 'libretranslate',
         ];
-        $all_settings = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
+        $all_settings = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
         $current = is_array($all_settings['yuz_tra_settings'] ?? null) ? $all_settings['yuz_tra_settings'] : [];
 
         if (empty($current)) {
-            yuz_settings_replace_section('yuz_tra_settings', $defaults);
+            yuztra_settings_replace_section('yuz_tra_settings', $defaults);
             self::log_colored('info', 'Default settings added (new option created).');
         } else {
             $updated = array_merge($defaults, $current);
             if ($updated !== $current) {
-                yuz_settings_replace_section('yuz_tra_settings', $updated); //
+                yuztra_settings_replace_section('yuz_tra_settings', $updated); //
                 $diffKeys = array_keys(array_diff_key($updated, $current));
                 self::log_colored('info', 'Defaults applied, new keys=' . (empty($diffKeys) ? 'none' : implode(', ', $diffKeys)));
             }
@@ -535,7 +541,7 @@ self::log_colored('critical', $msg);
         if (!get_option($migrate_flag)) {
             $legacy = get_option('yuz_tra_settings', []);
             if (is_array($legacy)) {
-                $sw_all = yuz_settings_get_all();
+                $sw_all = yuztra_settings_get_all();
                 $sw = isset($sw_all['yuz_tra_switcher']) && is_array($sw_all['yuz_tra_switcher']) ? $sw_all['yuz_tra_switcher'] : [];
 
                 $changed_sw = false;
@@ -580,7 +586,7 @@ self::log_colored('critical', $msg);
                 }
 
                 if ($changed_sw || $changed_legacy) {
-                    yuz_settings_update(function (array $currentAll) use ($sw, $legacy, $changed_sw, $changed_legacy) {
+                    yuztra_settings_update(function (array $currentAll) use ($sw, $legacy, $changed_sw, $changed_legacy) {
                         if ($changed_sw) {
                             $currentAll['yuz_tra_switcher'] = $sw;
                         }
@@ -619,7 +625,7 @@ self::log_colored('critical', $msg);
     }
 /** Config légère pour d’autres modules */
 public static function get_config(): array {
-$all = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
+$all = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
 $options = is_array($all['yuz_tra_settings'] ?? null) ? $all['yuz_tra_settings'] : [];
 $default_language = $options['yuz_tra_default_language'] ?? get_locale();
 $config = [
@@ -655,6 +661,7 @@ if ($result === null) {
 self::log_colored('warning','Translation failed, no result from manager.');
 return null;
         }
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public lifecycle action
 do_action('yuz_translation_complete', $result);
 return $result;
     }

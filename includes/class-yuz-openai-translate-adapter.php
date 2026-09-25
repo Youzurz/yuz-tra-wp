@@ -5,6 +5,7 @@ defined('ABSPATH') || exit;
 final class YUZ_OpenAI_Translate_Adapter implements \YUZTRA\Interfaces\TranslateAdapterInterface {
     public function translate(string $text, string $source_lang, string $target_lang, array $settings): ?string {
         $key = (string) ($settings['api_key'] ?? '');
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- This adapter is an explicit, administrator-configured provider boundary.
         $endpoint = (string) ($settings['endpoint'] ?? 'https://api.openai.com/v1/chat/completions');
         $model = (string) ($settings['model'] ?? '');
         if ($key === '' || $model === '' || !preg_match('#^https://#i', $endpoint)) throw new RuntimeException('openai_configuration_required');
@@ -31,7 +32,9 @@ final class YUZ_OpenAI_Translate_Adapter implements \YUZTRA\Interfaces\Translate
         return $decoded['translation'];
     }
     public function test_api_conn(array $settings): bool {
-        $key=(string)($settings['api_key']??''); $endpoint=(string)($settings['endpoint']??'https://api.openai.com/v1/chat/completions');
+        $key=(string)($settings['api_key']??'');
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Connection test runs only for the explicitly selected provider and never falls back silently.
+        $endpoint=(string)($settings['endpoint']??'https://api.openai.com/v1/chat/completions');
         if ($key==='' || !preg_match('#^https://#i',$endpoint)) return false;
         $base=preg_replace('#/chat/completions/?$#','',$endpoint);
         $response=wp_remote_get(rtrim($base,'/').'/models',['timeout'=>10,'redirection'=>0,'headers'=>['Authorization'=>'Bearer '.$key]]);

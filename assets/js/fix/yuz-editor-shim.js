@@ -3,7 +3,7 @@
 (function () {
   const Y = window.yuzTraSettings || {};
   const QUIET = (Y.silent_logs !== false) && !/\byuzdebug=1\b/.test(window.location.search || '');
-  const AJAX = Y.ajax_url || '/wp-admin/admin-ajax.php';
+  const AJAX = Y.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
   const NONCES = Y.nonces || {};
   const nonceFor = (action) =>
     NONCES[action] || NONCES.yuz_tra_nonce || NONCES.yuz_tra_ws_get_languages || Y.nonce || '';

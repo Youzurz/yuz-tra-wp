@@ -68,12 +68,11 @@
     try {
       const s = window.yuzTraSettings || {};
       const nn = s.nonces || {};
-      const nval = nn.ajax_nonce || nn.yuz_tra_nonce || nn.yuz_nonce || nn.nonce || '';
+      const nval = nn.yuz_log_nonce || '';
       return {
-        nonce: (nn.yuz_tra_nonce || nval),
+        nonce: nval,
         ajax_nonce: nval,
-        yuz_tra_nonce: nval,
-        yuz_nonce: nval
+        yuz_log_nonce: nval
       };
     } catch (_) {
       return {};
@@ -203,6 +202,7 @@
       if (candidateLang) payload.lang = candidateLang;
 
       Object.assign(payload, __yuzGetMultiNonce());
+      if (!payload.nonce) return;
       jQuery.post(s.ajax_url, payload).fail(function () {});
     } catch (_) { /* noop */ }
   }
@@ -848,7 +848,7 @@
             const skip = limitedStrings.map(() => true);
             const cid = 'dom-' + Math.random().toString(36).slice(2) + '-' + Date.now();
             const data = {
-              action: 'yuz_get_regular',
+              action: 'yuz_tra_public_lookup',
               nonce: (nn.yuz_tra_nonce || nval),
               ajax_nonce: nval, yuz_tra_nonce: nval, yuz_nonce: nval,
               all_languages: 'false',

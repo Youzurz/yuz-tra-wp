@@ -64,8 +64,18 @@
 
 defined('ABSPATH') || exit;
 
-if (!function_exists('yuz_tra_diag_enabled')) {
-    function yuz_tra_diag_enabled(): bool {
+/**
+ * Providers which may be selected explicitly by an administrator.
+ * No provider is contacted merely by loading or saving this option schema.
+ */
+if (!function_exists('yuztra_allowed_remote_providers')) {
+    function yuztra_allowed_remote_providers(): array {
+        return ['libretranslate', 'google', 'deepl', 'custom', 'ollama', 'openai'];
+    }
+}
+
+if (!function_exists('yuztra_diag_enabled')) {
+    function yuztra_diag_enabled(): bool {
         if (defined('YUZ_TRA_DIAG_FORCE')) {
             return (bool) YUZ_TRA_DIAG_FORCE;
         }
@@ -75,17 +85,73 @@ if (!function_exists('yuz_tra_diag_enabled')) {
         return defined('WP_DEBUG') && WP_DEBUG;
     }
 }
-if (!function_exists('yuz_tra_diag_log')) {
-    function yuz_tra_diag_log(string $message): void {
-        if (!yuz_tra_diag_enabled()) {
+if (!function_exists('yuztra_diag_log')) {
+    function yuztra_diag_log(string $message): void {
+        if (!yuztra_diag_enabled()) {
             return;
         }
-        error_log($message);
+        yuztra_debug_log($message);
+    }
+}
+
+if (!function_exists('yuztra_diag_shape')) {
+    /**
+     * Return structural diagnostics without ever serializing setting values.
+     * API credentials and customer configuration must not reach debug logs.
+     */
+    function yuztra_diag_shape($value): array {
+        if (!is_array($value)) {
+            return ['type' => gettype($value)];
+        }
+
+        return [
+            'type'  => 'array',
+            'count' => count($value),
+            'keys'  => array_map('sanitize_key', array_keys($value)),
+        ];
+    }
+}
+
+if (!function_exists('yuztra_request_text')) {
+    /**
+     * Read a scalar request field as normalized text.
+     */
+    function yuztra_request_text(string $key): string {
+        // FILTER_CALLBACK applique une fonction d'assainissement reelle (cf. exigence WordPress.org).
+        $value = filter_input(INPUT_POST, $key, FILTER_CALLBACK, ['options' => 'sanitize_text_field']);
+        $value = is_string($value) ? wp_unslash($value) : '';
+        return is_string($value) ? sanitize_text_field($value) : '';
+    }
+}
+
+if (!function_exists('yuztra_request_array')) {
+    /** Read an array payload only after its request boundary has been authorized. */
+    function yuztra_request_array(string $key): array {
+        // FILTER_DEFAULT n'assainit pas : on impose sanitize_text_field sur chaque element.
+        $value = filter_input(INPUT_POST, $key, FILTER_CALLBACK, [
+            'flags'   => FILTER_REQUIRE_ARRAY,
+            'options' => 'sanitize_text_field',
+        ]);
+        if (!is_array($value)) {
+            return [];
+        }
+        return map_deep(wp_unslash($value), 'sanitize_text_field');
+    }
+}
+
+if (!function_exists('yuztra_authorize_settings_request')) {
+    /** Require the Settings API capability and group nonce before any option write. */
+    function yuztra_authorize_settings_request(string $group): bool {
+        if (!current_user_can('manage_options')) {
+            return false;
+        }
+        $nonce = yuztra_request_text('_wpnonce');
+        return $group !== '' && $nonce !== '' && wp_verify_nonce($nonce, $group . '-options');
     }
 }
 
 // Autoriser l'action 'update' (submit Settings API via options.php)
-add_filter('yuz/canonical_write/allowed_actions', function(array $actions){
+add_filter('yuztra/canonical_write/allowed_actions', function(array $actions){
     if (!in_array('update', $actions, true)) {
         $actions[] = 'update';
     }
@@ -97,8 +163,8 @@ add_filter('yuz/canonical_write/allowed_actions', function(array $actions){
  * ========================================================================== */
 
 // Mappe un groupe Settings API -> options canoniques autorisées
-if (!function_exists('yuz_tra_allowed_group_map')) {
-    function yuz_tra_allowed_group_map(): array {
+if (!function_exists('yuztra_allowed_group_map')) {
+    function yuztra_allowed_group_map(): array {
         return [
             'yuz_tra_at_settings' => ['yuz_tra_at_settings'],
             'yuz_tra_general_settings_group'    => [
@@ -115,24 +181,24 @@ if (!function_exists('yuz_tra_allowed_group_map')) {
 }
 
 add_filter('allowed_options', function (array $allowed) {
-    foreach (yuz_tra_allowed_group_map() as $group => $opts) {
+    foreach (yuztra_allowed_group_map() as $group => $opts) {
         $allowed[$group] = array_unique(array_merge($allowed[$group] ?? [], $opts));
     }
     static $logged = false;
     if (!$logged && function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][ALLOWED_OPTIONS] merged canonical groups: ' . wp_json_encode(array_keys(yuz_tra_allowed_group_map())));
+        yuztra_diag_log('[YUZ-DIAG][ALLOWED_OPTIONS] merged canonical groups: ' . wp_json_encode(array_keys(yuztra_allowed_group_map())));
         $logged = true;
     }
     return $allowed;
 }, 1);
 
 add_filter('whitelist_options', function (array $allowed) {
-    foreach (yuz_tra_allowed_group_map() as $group => $opts) {
+    foreach (yuztra_allowed_group_map() as $group => $opts) {
         $allowed[$group] = array_unique(array_merge($allowed[$group] ?? [], $opts));
     }
     static $logged = false;
     if (!$logged && function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][WHITELIST_OPTIONS] merged canonical groups');
+        yuztra_diag_log('[YUZ-DIAG][WHITELIST_OPTIONS] merged canonical groups');
         $logged = true;
     }
     return $allowed;
@@ -146,7 +212,7 @@ add_filter('allowed_options', function (array $allowed) {
     ];
     static $logged = false;
     if (!$logged && function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][ALLOWED_OPTIONS] forced General group allowance');
+        yuztra_diag_log('[YUZ-DIAG][ALLOWED_OPTIONS] forced General group allowance');
         $logged = true;
     }
     return $allowed;
@@ -160,22 +226,25 @@ add_filter('whitelist_options', function (array $allowed) {
     ];
     static $logged = false;
     if (!$logged && function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][WHITELIST_OPTIONS] forced General group allowance');
+        yuztra_diag_log('[YUZ-DIAG][WHITELIST_OPTIONS] forced General group allowance');
         $logged = true;
     }
     return $allowed;
 }, PHP_INT_MAX);
 
-foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $opt) {
-    add_filter("pre_update_option_{$opt}", function ($new, $old) use ($opt) {
-        $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
-        $group  = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $yuztra_opt) {
+    add_filter("pre_update_option_{$yuztra_opt}", function ($new, $old) use ($yuztra_opt) {
+        $action = yuztra_request_text('action');
+        $group  = yuztra_request_text('option_page');
 
         if ($action === 'update' && $group === 'yuz_tra_general_settings_group') {
-            $raw = isset($_POST[$opt]) && is_array($_POST[$opt]) ? wp_unslash($_POST[$opt]) : [];
+            if (!yuztra_authorize_settings_request($group)) {
+                return $old;
+            }
+            $raw = yuztra_request_array($yuztra_opt);
             if (empty($raw)) {
                 if (function_exists('error_log')) {
-                    yuz_tra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $opt . '] general submit but payload empty -> keeping previous');
+                    yuztra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $yuztra_opt . '] general submit but payload empty -> keeping previous');
                 }
                 return $old;
             }
@@ -185,42 +254,44 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
             $base = is_array($old) ? $old : [];
             $merged = array_merge($base, $raw);
 
-            if ($opt === 'yuz_tra_ls_settings') {
+            if ($yuztra_opt === 'yuz_tra_ls_settings') {
                 foreach (['native_language_name', 'use_subdirectory', 'force_lang_in_links'] as $key) {
                     $merged[$key] = !empty($merged[$key]) ? '1' : '';
                 }
-            } elseif ($opt === 'yuz_tra_sw_settings') {
+            } elseif ($yuztra_opt === 'yuz_tra_sw_settings') {
                 foreach (['shortcode_enabled', 'menu_enabled', 'floating_enabled', 'show_poweredby'] as $key) {
                     $merged[$key] = !empty($merged[$key]) ? '1' : '';
                 }
-            } elseif ($opt === 'yuz_tra_ws_settings') {
+            } elseif ($yuztra_opt === 'yuz_tra_ws_settings') {
                 if (method_exists('YUZ_General', 'sanitize_ws_settings')) {
                     $merged = YUZ_General::sanitize_ws_settings($merged);
                 }
             }
 
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $opt . '] overriding with POST payload keys=' . implode(',', array_keys($merged)));
+                yuztra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $yuztra_opt . '] overriding with POST payload keys=' . implode(',', array_keys($merged)));
             }
 
+            $merged = yuztra_settings_sanitize_section($yuztra_opt, $merged);
+
             // Synchronize legacy containers used by canonical migration logic.
-            if ($opt === 'yuz_tra_ws_settings') {
+            if ($yuztra_opt === 'yuz_tra_ws_settings') {
                 update_option('yuz_tra_general', $merged, false);
                 update_option('yuz_tra_general_settings', $merged, false);
-            } elseif ($opt === 'yuz_tra_ls_settings') {
+            } elseif ($yuztra_opt === 'yuz_tra_ls_settings') {
                 $legacy = [
                     'native_language_name' => !empty($merged['native_language_name']) ? '1' : '',
                     'use_subdirectory'     => !empty($merged['use_subdirectory']) ? '1' : '',
                     'force_lang_in_links'  => !empty($merged['force_lang_in_links']) ? '1' : '',
                 ];
                 update_option('yuz_tra_settings', $legacy, false);
-            } elseif ($opt === 'yuz_tra_sw_settings') {
+            } elseif ($yuztra_opt === 'yuz_tra_sw_settings') {
                 update_option('yuz_tra_switcher', $merged, false);
                 update_option('yuz_tra_switcher_settings', $merged, false);
             }
 
-            if (function_exists('yuz_settings_runtime_flush')) {
-                yuz_settings_runtime_flush();
+            if (function_exists('yuztra_settings_runtime_flush')) {
+                yuztra_settings_runtime_flush();
             }
             return $merged;
         }
@@ -229,43 +300,43 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
             $decoded = is_string($new) ? json_decode($new, true) : null;
             if (is_array($decoded)) {
                 if (function_exists('error_log')) {
-                    yuz_tra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $opt . '] decoded JSON payload');
+                    yuztra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $yuztra_opt . '] decoded JSON payload');
                 }
                 return $decoded;
             }
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $opt . '] rejected non-array payload outside submit');
+                yuztra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $yuztra_opt . '] rejected non-array payload outside submit');
             }
             return $old;
         }
 
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $opt . '] passive accept keys=' . implode(',', array_keys($new)));
+            yuztra_diag_log('[YUZ-DIAG][PRE_UPDATE][' . $yuztra_opt . '] passive accept keys=' . implode(',', array_keys($new)));
         }
         return $new;
     }, 0, 2);
 }
 
-add_filter('option_yuz_tra_ls_settings', function ($opt) {
-    $opt = is_array($opt) ? $opt : [];
+add_filter('option_yuz_tra_ls_settings', function ($yuztra_opt) {
+    $yuztra_opt = is_array($yuztra_opt) ? $yuztra_opt : [];
     foreach (['native_language_name', 'use_subdirectory', 'force_lang_in_links'] as $k) {
-        $opt[$k] = !empty($opt[$k]) ? '1' : '';
+        $yuztra_opt[$k] = !empty($yuztra_opt[$k]) ? '1' : '';
     }
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][OPTION_READ][LS] normalized toggles=' . wp_json_encode($opt));
+        yuztra_diag_log('[YUZ-DIAG][OPTION_READ][LS] normalized toggles=' . wp_json_encode($yuztra_opt));
     }
-    return $opt;
+    return $yuztra_opt;
 }, 9);
 
-add_filter('option_yuz_tra_sw_settings', function ($opt) {
-    $opt = is_array($opt) ? $opt : [];
+add_filter('option_yuz_tra_sw_settings', function ($yuztra_opt) {
+    $yuztra_opt = is_array($yuztra_opt) ? $yuztra_opt : [];
     foreach (['shortcode_enabled', 'menu_enabled', 'floating_enabled', 'show_poweredby'] as $k) {
-        $opt[$k] = !empty($opt[$k]) ? '1' : '';
+        $yuztra_opt[$k] = !empty($yuztra_opt[$k]) ? '1' : '';
     }
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][OPTION_READ][SW] normalized toggles=' . wp_json_encode($opt));
+        yuztra_diag_log('[YUZ-DIAG][OPTION_READ][SW] normalized toggles=' . wp_json_encode($yuztra_opt));
     }
-    return $opt;
+    return $yuztra_opt;
 }, 9);
 
 
@@ -274,49 +345,59 @@ add_action('admin_init', function () {
     if ($logged) {
         return;
     }
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $request_method = isset($_SERVER['REQUEST_METHOD'])
+        ? sanitize_key(wp_unslash((string) $_SERVER['REQUEST_METHOD']))
+        : '';
+    if ($request_method !== 'post') {
         return;
     }
-    $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
-    $group  = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+    $action = yuztra_request_text('action');
+    $group  = yuztra_request_text('option_page');
     if ($action !== 'update' || $group !== 'yuz_tra_general_settings_group') {
         return;
     }
+    if (!yuztra_authorize_settings_request($group)) {
+        return;
+    }
+
+    // Verification explicite du nonce dans la portee meme de la lecture.
+    $wpnonce = yuztra_request_text('_wpnonce');
+    if ($wpnonce === '' || !wp_verify_nonce($wpnonce, $group . '-options')) {
+        return;
+    }
+    $posted = is_array($_POST) ? map_deep(wp_unslash($_POST), 'sanitize_text_field') : [];
 
     $snapshot = [
         'action' => $action,
         'option_page' => $group,
-        'root_keys' => array_keys($_POST),
+        'root_keys' => array_map('sanitize_key', array_keys($posted)),
         'payload' => [],
     ];
 
-    foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $opt) {
+    foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $yuztra_opt) {
         $entry = [
-            'isset' => array_key_exists($opt, $_POST),
-            'type'  => array_key_exists($opt, $_POST) ? gettype($_POST[$opt]) : 'missing',
+            'isset' => array_key_exists($yuztra_opt, $posted),
+            'type'  => array_key_exists($yuztra_opt, $posted) ? gettype($posted[$yuztra_opt]) : 'missing',
         ];
-        if (isset($_POST[$opt])) {
-            if (is_array($_POST[$opt])) {
-                $entry['keys'] = array_keys($_POST[$opt]);
-            } elseif (is_string($_POST[$opt])) {
-                $entry['length']  = strlen($_POST[$opt]);
-                $entry['preview'] = substr($_POST[$opt], 0, 200);
+        if (isset($posted[$yuztra_opt])) {
+            if (is_array($posted[$yuztra_opt])) {
+                $entry['keys'] = array_map('sanitize_key', array_keys($posted[$yuztra_opt]));
             } else {
-                $entry['repr'] = maybe_serialize($_POST[$opt]);
+                $entry['length'] = is_string($posted[$yuztra_opt]) ? strlen($posted[$yuztra_opt]) : null;
             }
         }
-        $snapshot['payload'][$opt] = $entry;
+        $snapshot['payload'][$yuztra_opt] = $entry;
     }
 
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][POST_SNAPSHOT] ' . wp_json_encode($snapshot));
+        yuztra_diag_log('[YUZ-DIAG][POST_SNAPSHOT] ' . wp_json_encode($snapshot));
     }
     $logged = true;
 }, 5);
 
-foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $opt) {
-    remove_all_filters("sanitize_option_{$opt}");
-    add_filter("sanitize_option_{$opt}", function ($value, $option, $original) use ($opt) {
+foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $yuztra_opt) {
+    remove_all_filters("sanitize_option_{$yuztra_opt}");
+    add_filter("sanitize_option_{$yuztra_opt}", function ($value, $option, $original) use ($yuztra_opt) {
         if (function_exists('error_log')) {
             $log = [
                 'value_type'    => gettype($value),
@@ -324,17 +405,9 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
                 'filters'       => [],
                 'stack'         => [],
             ];
-            if (is_array($value)) {
-                $log['value_keys'] = array_keys($value);
-            } elseif (is_string($value)) {
-                $log['value_preview'] = substr($value, 0, 200);
-            }
-            if (is_array($original)) {
-                $log['original_keys'] = array_keys($original);
-            } elseif (is_string($original)) {
-                $log['original_preview'] = substr($original, 0, 200);
-            }
-            $filters = $GLOBALS['wp_filter']["sanitize_option_{$opt}"] ?? null;
+            $log['value_shape']    = yuztra_diag_shape($value);
+            $log['original_shape'] = yuztra_diag_shape($original);
+            $filters = $GLOBALS['wp_filter']["sanitize_option_{$yuztra_opt}"] ?? null;
             if ($filters instanceof WP_Hook && !empty($filters->callbacks)) {
                 foreach ($filters->callbacks as $priority => $callbacks) {
                     foreach ($callbacks as $id => $cb) {
@@ -382,7 +455,8 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
                 }
             }
             if ($value === null || $original === null) {
-                $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 12);
+                $trace = (new \RuntimeException())->getTrace();
+                $trace = array_slice($trace, 0, 12);
                 foreach ($trace as $step) {
                     $frame = [];
                     $frame['function'] = $step['function'] ?? '';
@@ -395,21 +469,23 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
                     $log['stack'][] = $frame;
                 }
             }
-            yuz_tra_diag_log('[YUZ-DIAG][SANITIZE][' . $opt . "]\n" . print_r($log, true));
+            $encoded_log = wp_json_encode($log, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            yuztra_diag_log('[YUZ-DIAG][SANITIZE][' . $yuztra_opt . '] ' . ($encoded_log !== false ? $encoded_log : '[unencodable]'));
         }
 
-        $is_general_post = isset($_POST['option_page']) && $_POST['option_page'] === 'yuz_tra_general_settings_group';
+        $is_general_post = yuztra_request_text('option_page') === 'yuz_tra_general_settings_group';
         if (!$is_general_post) {
-            $existing = get_option($opt, []);
+            $existing = get_option($yuztra_opt, []);
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-DIAG][SANITIZE][' . $opt . '] bypassed (no general POST) keeping existing payload');
+                yuztra_diag_log('[YUZ-DIAG][SANITIZE][' . $yuztra_opt . '] bypassed (no general POST) keeping existing payload');
             }
             return is_array($existing) ? $existing : [];
         }
 
         if (!is_array($value)) {
-            if (isset($_POST[$opt]) && is_array($_POST[$opt])) {
-                $value = wp_unslash($_POST[$opt]);
+            $posted_value = yuztra_request_array($yuztra_opt);
+            if (!empty($posted_value)) {
+                $value = $posted_value;
             } elseif (is_string($value)) {
                 $decoded = json_decode($value, true);
                 $value = is_array($decoded) ? $decoded : [];
@@ -418,11 +494,11 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
             }
         }
 
-        if ($opt === 'yuz_tra_ls_settings') {
+        if ($yuztra_opt === 'yuz_tra_ls_settings') {
             foreach (['native_language_name', 'use_subdirectory', 'force_lang_in_links'] as $key) {
                 $value[$key] = !empty($value[$key]) ? '1' : '';
             }
-        } elseif ($opt === 'yuz_tra_sw_settings') {
+        } elseif ($yuztra_opt === 'yuz_tra_sw_settings') {
             foreach (['shortcode_enabled', 'menu_enabled', 'floating_enabled', 'show_poweredby'] as $key) {
                 $value[$key] = !empty($value[$key]) ? '1' : '';
             }
@@ -434,8 +510,8 @@ foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] a
 }
 
 
-if (!function_exists('yuz_settings_registry')) {
-    function yuz_settings_registry(): array {
+if (!function_exists('yuztra_settings_registry')) {
+    function yuztra_settings_registry(): array {
         static $registry = null;
         if ($registry !== null) {
             return $registry;
@@ -505,6 +581,7 @@ if (!function_exists('yuz_settings_registry')) {
                     'enable_auto_translate' => ['type' => 'bool',   'default' => false],
                     'api_provider'          => ['type' => 'string', 'default' => 'libretranslate'],
                     'ollama_url'            => ['type' => 'url', 'default' => ''],
+                    // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Explicit administrator-selected provider endpoint; no request occurs in the schema.
                     'openai_url'            => ['type' => 'url', 'default' => 'https://api.openai.com/v1/chat/completions'],
                     'openai_key'            => ['type' => 'string', 'default' => ''],
                     'openai_model'          => ['type' => 'string', 'default' => ''],
@@ -575,15 +652,15 @@ if (!function_exists('yuz_settings_registry')) {
     }
 }
 
-if (!function_exists('yuz_settings_registry_lookup')) {
-    function yuz_settings_registry_lookup(): array {
+if (!function_exists('yuztra_settings_registry_lookup')) {
+    function yuztra_settings_registry_lookup(): array {
         static $lookup = null;
         if ($lookup !== null) {
             return $lookup;
         }
 
         $lookup = [];
-        foreach (yuz_settings_registry() as $canonical => $config) {
+        foreach (yuztra_settings_registry() as $canonical => $config) {
             $alias = $config['alias'];
             $lookup[$canonical] = ['canonical' => $canonical, 'alias' => $alias, 'config' => $config];
             $lookup[$alias]     = ['canonical' => $canonical, 'alias' => $alias, 'config' => $config];
@@ -592,25 +669,24 @@ if (!function_exists('yuz_settings_registry_lookup')) {
     }
 }
 
-if (!function_exists('yuz_settings_meta_key')) {
-    function yuz_settings_meta_key(): string {
+if (!function_exists('yuztra_settings_meta_key')) {
+    function yuztra_settings_meta_key(): string {
         return 'yuz_settings_meta';
     }
 }
 
-if (!function_exists('yuz_is_cli_ctx')) {
-    function yuz_is_cli_ctx(): bool {
+if (!function_exists('yuztra_is_cli_ctx')) {
+    function yuztra_is_cli_ctx(): bool {
         return (defined('WP_CLI') && WP_CLI) || PHP_SAPI === 'cli';
     }
 }
 
-if (!function_exists('yuz_is_at_save_ctx')) {
-    function yuz_is_at_save_ctx(): bool {
-        $p    = $_POST ?? [];
-        $act  = isset($p['action']) ? (string) $p['action'] : '';
-        $page = isset($p['option_page']) ? (string) $p['option_page'] : '';
+if (!function_exists('yuztra_is_at_save_ctx')) {
+    function yuztra_is_at_save_ctx(): bool {
+        $act  = sanitize_key(yuztra_request_text('action'));
+        $page = sanitize_key(yuztra_request_text('option_page'));
 
-        if (!empty($p['yuz_tra_at_settings']) && is_array($p['yuz_tra_at_settings'])) {
+        if (!empty(yuztra_request_array('yuz_tra_at_settings'))) {
             return true;
         }
         if (in_array($act, ['yuz_tra_at_upd_settings', 'yuz_tra_at_upd_api_settings', 'update'], true)) {
@@ -623,20 +699,20 @@ if (!function_exists('yuz_is_at_save_ctx')) {
     }
 }
 
-if (!function_exists('yuz_is_publish_flow_action')) {
-    function yuz_is_publish_flow_action(string $action): bool {
+if (!function_exists('yuztra_is_publish_flow_action')) {
+    function yuztra_is_publish_flow_action(string $action): bool {
         return in_array($action, ['yuz_save_translation', 'yuz_publish_translations', 'yuz_mass_publish'], true);
     }
 }
 
 // --- Helper : détection d'un submit Settings API de YUZ ---
-if (!function_exists('yuz_is_settings_api_submit')) {
-    function yuz_is_settings_api_submit(): bool {
-        if (empty($_POST)) return false;
-        $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
+if (!function_exists('yuztra_is_settings_api_submit')) {
+    function yuztra_is_settings_api_submit(): bool {
+        $action = sanitize_key(yuztra_request_text('action'));
+        if ($action === '') return false;
         if ($action !== 'update') return false;
 
-        $option_page = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+        $option_page = sanitize_key(yuztra_request_text('option_page'));
         if ($option_page === '') return false;
 
         // Groupes connus (au cas où tu en as plusieurs)
@@ -650,7 +726,7 @@ if (!function_exists('yuz_is_settings_api_submit')) {
         ];
         if (in_array($option_page, $allowed_groups, true)) {
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-DIAG][SETTINGS_API_SUBMIT] recognized allowed group ' . $option_page);
+                yuztra_diag_log('[YUZ-DIAG][SETTINGS_API_SUBMIT] recognized allowed group ' . $option_page);
             }
             return true;
         }
@@ -658,17 +734,17 @@ if (!function_exists('yuz_is_settings_api_submit')) {
         // Filet de sécurité : tout groupe au format yuz_tra_*_settings(_group)
         $match = (bool) preg_match('/^yuz_tra_[a-z0-9_]+_settings(_group)?$/i', $option_page);
         if ($match && function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][SETTINGS_API_SUBMIT] matched fallback pattern for group ' . $option_page);
+            yuztra_diag_log('[YUZ-DIAG][SETTINGS_API_SUBMIT] matched fallback pattern for group ' . $option_page);
         }
         return $match;
     }
 }
 
 
-if (!function_exists('yuz_bridge_allowed_actions')) {
-    function yuz_bridge_allowed_actions(): array {
+if (!function_exists('yuztra_bridge_allowed_actions')) {
+    function yuztra_bridge_allowed_actions(): array {
         return apply_filters(
-            'yuz/canonical_write/allowed_actions',
+            'yuztra/canonical_write/allowed_actions',
             [
                 'update', // << essentiel pour la Settings API (options.php)
                 'yuz_tra_ws_upd_settings',
@@ -690,24 +766,27 @@ if (!function_exists('yuz_bridge_allowed_actions')) {
 }
 
 // --- Garde principale : quand autoriser l'écriture canonique ---
-if (!function_exists('yuz_should_allow_canonical_write')) {
-    function yuz_should_allow_canonical_write(string $canonical): bool {
+if (!function_exists('yuztra_should_allow_canonical_write')) {
+    function yuztra_should_allow_canonical_write(string $canonical): bool {
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][GUARD] evaluating canonical=' . $canonical . ' action=' . ($_POST['action'] ?? ''));
+            yuztra_diag_log('[YUZ-DIAG][GUARD] evaluating canonical=' . $canonical . ' action=' . yuztra_request_text('action'));
         }
         if (defined('WP_CLI') && WP_CLI) {
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-GUARD] Blocked canonical write in CLI for ' . $canonical);
+                yuztra_diag_log('[YUZ-GUARD] Blocked canonical write in CLI for ' . $canonical);
             }
             return false;
         }
 
-        $action = isset($_POST['action']) ? (string) $_POST['action'] : '';
-        $group  = isset($_POST['option_page']) ? (string) $_POST['option_page'] : '';
+        $action = sanitize_key(yuztra_request_text('action'));
+        $group  = sanitize_key(yuztra_request_text('option_page'));
 
         if ($action === 'update' && $group === 'yuz_tra_general_settings_group') {
+            if (!yuztra_authorize_settings_request($group)) {
+                return false;
+            }
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-DIAG][GUARD] General submit detected, canonical=' . $canonical . ' group=' . $group);
+                yuztra_diag_log('[YUZ-DIAG][GUARD] General submit detected, canonical=' . $canonical . ' group=' . $group);
             }
             return in_array($canonical, [
                 'yuz_tra_ws_settings',
@@ -718,84 +797,97 @@ if (!function_exists('yuz_should_allow_canonical_write')) {
 
         if (defined('DOING_AJAX') && DOING_AJAX && $action === 'heartbeat') {
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-GUARD] Blocked canonical write during heartbeat for ' . $canonical);
+                yuztra_diag_log('[YUZ-GUARD] Blocked canonical write during heartbeat for ' . $canonical);
             }
             return false;
         }
 
         if ($action === 'update' && $group !== '') {
-            $map = yuz_tra_allowed_group_map();
+            if (!yuztra_authorize_settings_request($group)) {
+                return false;
+            }
+            $map = yuztra_allowed_group_map();
             if (isset($map[$group]) && in_array($canonical, $map[$group], true)) {
                 if (function_exists('error_log')) {
-                    yuz_tra_diag_log('[YUZ-GUARD] Allow canonical write via options.php for ' . $canonical . ' (group=' . $group . ')');
+                    yuztra_diag_log('[YUZ-GUARD] Allow canonical write via options.php for ' . $canonical . ' (group=' . $group . ')');
                 }
                 return true;
             }
         }
 
-        $allowed    = yuz_bridge_allowed_actions();
+        $allowed    = yuztra_bridge_allowed_actions();
         $doing_ajax = defined('DOING_AJAX') && DOING_AJAX;
         $is_admin   = function_exists('is_admin') && is_admin();
         $is_rest    = defined('REST_REQUEST') && REST_REQUEST;
         if (($doing_ajax || $is_admin || $is_rest) && $action && !in_array($action, $allowed, true)) {
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-GUARD] Blocked canonical write (action=' . $action . ') for ' . $canonical);
+                yuztra_diag_log('[YUZ-GUARD] Blocked canonical write (action=' . $action . ') for ' . $canonical);
             }
             return false;
         }
 
-        if ($canonical === 'yuz_tra_at_settings' && !yuz_is_at_save_ctx()) {
-            if ($action && yuz_is_publish_flow_action($action)) {
+        if ($canonical === 'yuz_tra_at_settings' && !yuztra_is_at_save_ctx()) {
+            if ($action && yuztra_is_publish_flow_action($action)) {
                 if (function_exists('error_log')) {
-                    yuz_tra_diag_log('[YUZ-GUARD] Allow AT canonical write during publish action ' . $action);
+                    yuztra_diag_log('[YUZ-GUARD] Allow AT canonical write during publish action ' . $action);
                 }
             } else {
                 if (function_exists('error_log')) {
-                    yuz_tra_diag_log('[YUZ-GUARD] Skipped canonical write (not AT submit) for ' . $canonical);
+                    yuztra_diag_log('[YUZ-GUARD] Skipped canonical write (not AT submit) for ' . $canonical);
                 }
                 return false;
             }
         }
 
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][GUARD] default allow for canonical=' . $canonical);
+            yuztra_diag_log('[YUZ-DIAG][GUARD] default allow for canonical=' . $canonical);
         }
         return true;
     }
 }
 
 add_action('admin_init', function () {
-    foreach (yuz_tra_allowed_group_map() as $group => $opts) {
-        foreach ($opts as $opt) {
+    foreach (yuztra_allowed_group_map() as $group => $opts) {
+        foreach ($opts as $yuztra_opt) {
             register_setting(
                 $group,
-                $opt,
+                $yuztra_opt,
                 [
                     'type'              => 'array',
-                    'sanitize_callback' => null,
+                    'sanitize_callback' => static function ($value) use ($yuztra_opt) {
+                        return yuztra_settings_sanitize_section($yuztra_opt, $value);
+                    },
                     'default'           => [],
                 ]
             );
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-DIAG][REGISTER_SETTING] bound ' . $opt . ' to group ' . $group);
+                yuztra_diag_log('[YUZ-DIAG][REGISTER_SETTING] bound ' . $yuztra_opt . ' to group ' . $group);
             }
         }
     }
 }, 0);
 
 add_action('admin_init', function () {
-    foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $opt) {
-        $sanitize = null;
-        if ($opt === 'yuz_tra_ws_settings' && method_exists('YUZ_General', 'sanitize_ws_settings')) {
-            $sanitize = ['YUZ_General', 'sanitize_ws_settings'];
+    foreach (['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'] as $yuztra_opt) {
+        $sanitize = static function ($value) use ($yuztra_opt) {
+            return yuztra_settings_sanitize_section($yuztra_opt, $value);
+        };
+        if ($yuztra_opt === 'yuz_tra_ws_settings' && method_exists('YUZ_General', 'sanitize_ws_settings')) {
+            // YUZ_General::sanitize_ws_settings ne fait que normaliser : on assainit ensuite.
+            $sanitize = static function ($value) use ($yuztra_opt) {
+                return yuztra_settings_sanitize_section(
+                    $yuztra_opt,
+                    YUZ_General::sanitize_ws_settings($value)
+                );
+            };
         }
-        register_setting('yuz_tra_general_settings_group', $opt, [
+        register_setting('yuz_tra_general_settings_group', $yuztra_opt, [
             'type'              => 'array',
             'sanitize_callback' => $sanitize,
             'default'           => [],
         ]);
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][REGISTER_SETTING] enforced General group registration for ' . $opt);
+            yuztra_diag_log('[YUZ-DIAG][REGISTER_SETTING] enforced General group registration for ' . $yuztra_opt);
         }
     }
 }, 0);
@@ -805,16 +897,17 @@ remove_all_filters('sanitize_option_yuz_tra_at_settings');
 add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = null, $original = null) {
     if (is_array($original) && !empty($original)) {
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] using original payload from options.php');
+            yuztra_diag_log('[YUZ-DIAG][SANITIZE_AT] using original payload from options.php');
         }
         $value = $original;
     }
 
-    if ((!is_array($value) || empty($value)) && isset($_POST['yuz_tra_at_settings']) && is_array($_POST['yuz_tra_at_settings'])) {
+    $posted_at = yuztra_request_array('yuz_tra_at_settings');
+    if ((!is_array($value) || empty($value)) && !empty($posted_at)) {
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] fallback to POST data');
+            yuztra_diag_log('[YUZ-DIAG][SANITIZE_AT] fallback to POST data');
         }
-        $value = wp_unslash($_POST['yuz_tra_at_settings']);
+        $value = $posted_at;
     }
 
     $value = is_array($value) ? $value : [];
@@ -865,6 +958,7 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
         'enable_auto_translate' => 0,
         'api_provider'          => 'libretranslate',
         'libre_url'             => '',
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Explicit administrator-selected provider endpoint; no request occurs while normalizing options.
         'openai_url'            => 'https://api.openai.com/v1/chat/completions',
         'openai_key'            => '',
         'openai_model'          => '',
@@ -895,7 +989,7 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
     $value = array_merge($defaults, $base, $value);
 
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] final=' . wp_json_encode($value));
+        yuztra_diag_log('[YUZ-DIAG][SANITIZE_AT] final_shape=' . wp_json_encode(yuztra_diag_shape($value)));
     }
     return $value;
 }, 9999, 3);
@@ -903,29 +997,29 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value, $option = nu
 add_filter('pre_update_option_yuz_tra_at_settings', function ($new_value, $old_value, $option) {
     if (!is_array($new_value) || empty($new_value)) {
         $src = null;
-        if (isset($_POST['yuz_tra_at_settings']) && is_array($_POST['yuz_tra_at_settings'])) {
-            $src = wp_unslash($_POST['yuz_tra_at_settings']);
-        }
+        $posted_at = yuztra_request_array('yuz_tra_at_settings');
+        $src = !empty($posted_at) ? $posted_at : null;
         if (is_array($src) && !empty($src)) {
             if (function_exists('error_log')) {
-                yuz_tra_diag_log('[YUZ-DIAG][UPDATED_AT] recovering from empty value via pre_update');
+                yuztra_diag_log('[YUZ-DIAG][UPDATED_AT] recovering from empty value via pre_update');
             }
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress Settings API dynamic filter
             return apply_filters('sanitize_option_yuz_tra_at_settings', $src, 'yuz_tra_at_settings', $src);
         }
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][UPDATED_AT] empty payload, keeping previous option');
+            yuztra_diag_log('[YUZ-DIAG][UPDATED_AT] empty payload, keeping previous option');
         }
         return $old_value;
     }
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][UPDATED_AT] accepting non-empty payload keys=' . implode(',', array_keys($new_value)));
+        yuztra_diag_log('[YUZ-DIAG][UPDATED_AT] accepting non-empty payload keys=' . implode(',', array_keys($new_value)));
     }
     return $new_value;
 }, 9999, 3);
 
-if (!function_exists('yuz_settings_get_meta')) {
-    function yuz_settings_get_meta(): array {
-        $raw  = get_option(yuz_settings_meta_key(), []);
+if (!function_exists('yuztra_settings_get_meta')) {
+    function yuztra_settings_get_meta(): array {
+        $raw  = get_option(yuztra_settings_meta_key(), []);
         $meta = is_array($raw) ? $raw : [];
         $version = (int) ($meta['version'] ?? 1);
         if ($version < 1) {
@@ -936,18 +1030,18 @@ if (!function_exists('yuz_settings_get_meta')) {
             $last = time();
         }
         if ($meta !== ['version' => $version, 'last_changed' => $last]) {
-            update_option(yuz_settings_meta_key(), ['version' => $version, 'last_changed' => $last], false);
+            update_option(yuztra_settings_meta_key(), ['version' => $version, 'last_changed' => $last], false);
         }
         return ['version' => $version, 'last_changed' => $last];
     }
 }
 
-if (!function_exists('yuz_settings_bump_meta')) {
-    function yuz_settings_bump_meta(): array {
-        $meta = yuz_settings_get_meta();
+if (!function_exists('yuztra_settings_bump_meta')) {
+    function yuztra_settings_bump_meta(): array {
+        $meta = yuztra_settings_get_meta();
         $meta['version'] = max(1, (int) $meta['version']) + 1;
         $meta['last_changed'] = time();
-        update_option(yuz_settings_meta_key(), $meta, false);
+        update_option(yuztra_settings_meta_key(), $meta, false);
         return $meta;
     }
 }
@@ -956,22 +1050,22 @@ if (!function_exists('yuz_settings_bump_meta')) {
  * SSOT HELPERS — LECTURE/ÉCRITURE CONSOLIDÉE AVEC VERROUS
  * ========================================================================== */
 
-if (!function_exists('yuz_settings_runtime_flush')) {
-    function yuz_settings_runtime_flush(): void {
-        unset($GLOBALS['yuz_settings_runtime_cache']);
+if (!function_exists('yuztra_settings_runtime_flush')) {
+    function yuztra_settings_runtime_flush(): void {
+        unset($GLOBALS['yuztra_settings_runtime_cache']);
     }
 }
 
-if (!function_exists('yuz_settings_get_all')) {
+if (!function_exists('yuztra_settings_get_all')) {
 
-    if (!function_exists('yuz_settings_should_skip_canonical_write')) {
-        function yuz_settings_should_skip_canonical_write(string $canonical = ''): bool {
+    if (!function_exists('yuztra_settings_should_skip_canonical_write')) {
+        function yuztra_settings_should_skip_canonical_write(string $canonical = ''): bool {
             if (defined('WP_CLI') && WP_CLI) {
                 return false;
             }
 
-            $action  = is_string($_POST['action'] ?? null) ? (string) $_POST['action'] : '';
-            $allowed = apply_filters('yuz/canonical_write/allowed_actions', [
+            $action  = sanitize_key(yuztra_request_text('action'));
+            $allowed = apply_filters('yuztra/canonical_write/allowed_actions', [
                 'yuz_tra_ws_upd_settings',
                 'yuz_tra_ws_upd_deflang',
                 'yuz_tra_ws_upd_srclang',
@@ -998,7 +1092,7 @@ if (!function_exists('yuz_settings_get_all')) {
             }
 
             $legacy_sensitive = apply_filters(
-                'yuz/canonical_write/sensitive_actions',
+                'yuztra/canonical_write/sensitive_actions',
                 [
                     'yuz_tra_ls_upd_settings',
                     'yuz_tra_sw_upd_settings',
@@ -1019,30 +1113,30 @@ if (!function_exists('yuz_settings_get_all')) {
      * - Verrou de profondeur pour casser toute ré-entrance
      * - Normalisation SANS autres get_option()
      */
-    function yuz_settings_get_all(bool $force_refresh = false): array {
+    function yuztra_settings_get_all(bool $force_refresh = false): array {
         static $depth = 0;
         if ($depth > 0) {
             // Déjà en cours : renvoyer cache ou squelette minimal
-            return is_array($GLOBALS['yuz_settings_runtime_cache'] ?? null)
-                ? $GLOBALS['yuz_settings_runtime_cache']
+            return is_array($GLOBALS['yuztra_settings_runtime_cache'] ?? null)
+                ? $GLOBALS['yuztra_settings_runtime_cache']
                 : ['__meta' => ['version' => 1, 'last_changed' => time()]];
         }
         $depth++;
 
         try {
-            if (!$force_refresh && is_array($GLOBALS['yuz_settings_runtime_cache'] ?? null)) {
-                return $GLOBALS['yuz_settings_runtime_cache'];
+            if (!$force_refresh && is_array($GLOBALS['yuztra_settings_runtime_cache'] ?? null)) {
+                return $GLOBALS['yuztra_settings_runtime_cache'];
             }
 
-            $registry = yuz_settings_registry();
+            $registry = yuztra_settings_registry();
             $cache    = [];
             foreach ($registry as $canonical => $config) {
                 $raw        = get_option($canonical, null);
-                $sanitized  = yuz_settings_sanitize_section($canonical, $raw);
+                $sanitized  = yuztra_settings_sanitize_section($canonical, $raw);
                 $needs_sync = !is_array($raw) || $sanitized !== $raw;
 
                 if (!is_array($raw)) {
-                    $defaults = yuz_settings_section_default($canonical);
+                    $defaults = yuztra_settings_section_default($canonical);
                     if ($sanitized !== $defaults) {
                         $needs_sync = true;
                     }
@@ -1052,8 +1146,8 @@ if (!function_exists('yuz_settings_get_all')) {
                     $skip = false;
                     if (
                         $canonical === 'yuz_tra_all_settings'
-                        && function_exists('yuz_settings_should_skip_canonical_write')
-                        && yuz_settings_should_skip_canonical_write($canonical)
+                        && function_exists('yuztra_settings_should_skip_canonical_write')
+                        && yuztra_settings_should_skip_canonical_write($canonical)
                     ) {
                         $skip = true;
                     }
@@ -1067,7 +1161,7 @@ if (!function_exists('yuz_settings_get_all')) {
                         $cache[$alias] =& $cache[$canonical];
                         continue;
                     }
-                    if (!yuz_should_allow_canonical_write($canonical)) {
+                    if (!yuztra_should_allow_canonical_write($canonical)) {
                         $cache[$canonical] = $sanitized;
                         $alias = $config['alias'];
                         unset($cache[$alias]);
@@ -1080,9 +1174,8 @@ if (!function_exists('yuz_settings_get_all')) {
 
                     if ($canonical === 'yuz_tra_at_settings') {
                         if (function_exists('error_log')) {
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_KEYS=' . json_encode(array_keys($_POST['yuz_tra_at_settings'] ?? [])));
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_RAW='  . json_encode($_POST['yuz_tra_at_settings'] ?? []));
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] ACTION='    . ($_POST['action'] ?? ''));
+                            yuztra_diag_log('[YUZ-DIAG][AT] POST_SHAPE=' . wp_json_encode(yuztra_diag_shape(yuztra_request_array('yuz_tra_at_settings'))));
+                            yuztra_diag_log('[YUZ-DIAG][AT] ACTION=' . yuztra_request_text('action'));
                         }
                     }
 
@@ -1098,8 +1191,8 @@ if (!function_exists('yuz_settings_get_all')) {
                 $cache[$alias] =& $cache[$canonical];
             }
 
-            $cache['__meta'] = yuz_settings_get_meta();
-            $GLOBALS['yuz_settings_runtime_cache'] = $cache;
+            $cache['__meta'] = yuztra_settings_get_meta();
+            $GLOBALS['yuztra_settings_runtime_cache'] = $cache;
             return $cache;
         } finally {
             $depth--;
@@ -1107,12 +1200,12 @@ if (!function_exists('yuz_settings_get_all')) {
     }
 }
 
-if (!function_exists('yuz_settings_update_all')) {
+if (!function_exists('yuztra_settings_update_all')) {
     /**
      * Écriture atomique du SSOT + mise à jour du cache runtime.
      * Verrou de profondeur pour éviter les cycles via hooks.
      */
-    function yuz_settings_update_all(array $desired): bool {
+    function yuztra_settings_update_all(array $desired): bool {
         static $depth = 0;
         if ($depth > 0) {
             // Refus de la ré-entrance écriture
@@ -1121,8 +1214,8 @@ if (!function_exists('yuz_settings_update_all')) {
         $depth++;
 
         try {
-            $registry = yuz_settings_registry();
-            $current  = yuz_settings_get_all();
+            $registry = yuztra_settings_registry();
+            $current  = yuztra_settings_get_all();
             $writes   = [];
 
             foreach ($registry as $canonical => $config) {
@@ -1132,9 +1225,9 @@ if (!function_exists('yuz_settings_update_all')) {
                 } elseif (array_key_exists($alias, $desired)) {
                     $candidate = $desired[$alias];
                 } else {
-                    $candidate = $current[$canonical] ?? yuz_settings_section_default($canonical);
+                    $candidate = $current[$canonical] ?? yuztra_settings_section_default($canonical);
                 }
-                $writes[$canonical] = yuz_settings_sanitize_section($canonical, $candidate);
+                $writes[$canonical] = yuztra_settings_sanitize_section($canonical, $candidate);
             }
 
             $dirty = false;
@@ -1144,8 +1237,8 @@ if (!function_exists('yuz_settings_update_all')) {
                     $skip = false;
                     if (
                         $canonical === 'yuz_tra_all_settings'
-                        && function_exists('yuz_settings_should_skip_canonical_write')
-                        && yuz_settings_should_skip_canonical_write($canonical)
+                        && function_exists('yuztra_settings_should_skip_canonical_write')
+                        && yuztra_settings_should_skip_canonical_write($canonical)
                     ) {
                         $skip = true;
                     }
@@ -1157,21 +1250,20 @@ if (!function_exists('yuz_settings_update_all')) {
                     }
                     if ($canonical === 'yuz_tra_at_settings') {
                         if (function_exists('error_log')) {
-                            $posted = isset($_POST['yuz_tra_at_settings']) ? $_POST['yuz_tra_at_settings'] : [];
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_KEYS=' . json_encode(array_keys((array) $posted)));
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] POST_RAW=' . json_encode($posted));
+                            $posted = yuztra_request_array('yuz_tra_at_settings');
+                            yuztra_diag_log('[YUZ-DIAG][AT] POST_SHAPE=' . wp_json_encode(yuztra_diag_shape($posted)));
                         }
                         $old_at = get_option('yuz_tra_at_settings', []);
                         if (function_exists('error_log')) {
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] OLD=' . json_encode($old_at));
+                            yuztra_diag_log('[YUZ-DIAG][AT] OLD_SHAPE=' . wp_json_encode(yuztra_diag_shape($old_at)));
                             if (function_exists('has_filter')) {
-                                yuz_tra_diag_log('[YUZ-DIAG][AT] HAS_SANITIZE=' . (int) has_filter('sanitize_option_yuz_tra_at_settings'));
+                                yuztra_diag_log('[YUZ-DIAG][AT] HAS_SANITIZE=' . (int) has_filter('sanitize_option_yuz_tra_at_settings'));
                             }
                         }
                         if (function_exists('sanitize_option')) {
                             $value = sanitize_option('yuz_tra_at_settings', $value);
                             if (function_exists('error_log')) {
-                                yuz_tra_diag_log('[YUZ-DIAG][AT] AFTER_SAN=' . json_encode($value));
+                                yuztra_diag_log('[YUZ-DIAG][AT] AFTER_SAN_SHAPE=' . wp_json_encode(yuztra_diag_shape($value)));
                             }
                         }
                         if (empty($value['api_provider']) && !empty($value['api_adapter'])) {
@@ -1191,10 +1283,10 @@ if (!function_exists('yuz_settings_update_all')) {
                                 $ov = $old_at[$k] ?? null;
                                 if ($ov !== $v) { $changed[] = $k; }
                             }
-                            yuz_tra_diag_log('[YUZ-DIAG][AT] CHANGED_KEYS=' . json_encode($changed));
+                            yuztra_diag_log('[YUZ-DIAG][AT] CHANGED_KEYS=' . json_encode($changed));
                         }
                     }
-                    if (!yuz_should_allow_canonical_write($canonical)) {
+                    if (!yuztra_should_allow_canonical_write($canonical)) {
                         continue;
                     }
                     if (function_exists('clar_log')) {
@@ -1208,7 +1300,7 @@ if (!function_exists('yuz_settings_update_all')) {
                 }
             }
 
-            $meta = $dirty ? yuz_settings_bump_meta() : yuz_settings_get_meta();
+            $meta = $dirty ? yuztra_settings_bump_meta() : yuztra_settings_get_meta();
             $cache = [];
             foreach ($writes as $canonical => $value) {
                 $alias = $registry[$canonical]['alias'];
@@ -1217,10 +1309,10 @@ if (!function_exists('yuz_settings_update_all')) {
                 $cache[$alias] =& $cache[$canonical];
             }
             $cache['__meta'] = $meta;
-            $GLOBALS['yuz_settings_runtime_cache'] = $cache;
+            $GLOBALS['yuztra_settings_runtime_cache'] = $cache;
 
             if ($dirty && function_exists('do_action')) {
-                do_action('yuz_settings_sections_updated', array_keys($writes));
+                do_action('yuztra_settings_sections_updated', array_keys($writes));
             }
             return true;
         } finally {
@@ -1229,26 +1321,26 @@ if (!function_exists('yuz_settings_update_all')) {
     }
 }
 
-if (!function_exists('yuz_settings_update')) {
+if (!function_exists('yuztra_settings_update')) {
     /**
      * Mutateur fonctionnel : lit -> mutateur($current) -> écrit
      */
-    function yuz_settings_update(callable $mutator): bool {
-        $current = yuz_settings_get_all();
+    function yuztra_settings_update(callable $mutator): bool {
+        $current = yuztra_settings_get_all();
         $next    = $mutator($current);
         if (!is_array($next)) {
             return false;
         }
-        return yuz_settings_update_all($next);
+        return yuztra_settings_update_all($next);
     }
 }
 
 add_filter('sanitize_option_yuz_tra_at_settings', function ($value) {
     $value = is_array($value) ? $value : [];
     $old   = get_option('yuz_tra_at_settings', []);
-    $context = isset($_POST['action']) ? (string) $_POST['action'] : 'none';
+    $context = yuztra_request_text('action');
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][SANITIZE_AT] context=' . $context . ' payload=' . wp_json_encode($value));
+        yuztra_diag_log('[YUZ-DIAG][SANITIZE_AT] context=' . ($context !== '' ? $context : 'none') . ' payload_shape=' . wp_json_encode(yuztra_diag_shape($value)));
     }
 
     foreach (['url_to_load', 'libre_url', 'custom_url'] as $key) {
@@ -1290,15 +1382,15 @@ add_filter('sanitize_option_yuz_tra_at_settings', function ($value) {
         $value[$key] = !empty($value[$key]) ? 1 : 0;
     }
 
-    $defaults = yuz_settings_section_default('yuz_tra_at_settings');
+    $defaults = yuztra_settings_section_default('yuz_tra_at_settings');
     $base     = is_array($old) ? $old : [];
 
     return array_merge($defaults, $base, $value);
 }, 5);
 
-add_filter('option_yuz_tra_at_settings', function ($opt) {
+add_filter('option_yuz_tra_at_settings', function ($yuztra_opt) {
     if (function_exists('error_log')) {
-        yuz_tra_diag_log('[YUZ-DIAG][READ] ' . wp_json_encode($opt));
+        yuztra_diag_log('[YUZ-DIAG][READ] ' . wp_json_encode(yuztra_diag_shape($yuztra_opt)));
     }
     $defaults = [
         'source_language_id'    => 0,
@@ -1309,6 +1401,7 @@ add_filter('option_yuz_tra_at_settings', function ($opt) {
         'enable_auto_translate' => 0,
         'api_provider'          => 'libretranslate',
         'libre_url'             => '',
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Explicit administrator-selected provider endpoint; no request occurs while reading options.
         'openai_url'            => 'https://api.openai.com/v1/chat/completions',
         'openai_key'            => '',
         'openai_model'          => '',
@@ -1335,7 +1428,7 @@ add_filter('option_yuz_tra_at_settings', function ($opt) {
         'block_crawlers'        => 0,
         'log_queries'           => 0,
     ];
-    return wp_parse_args(is_array($opt) ? $opt : [], $defaults);
+    return wp_parse_args(is_array($yuztra_opt) ? $yuztra_opt : [], $defaults);
 }, 9);
 
 /* ========================================================================== *
@@ -1405,7 +1498,7 @@ if (!class_exists('YUZ_Options_Bridge')) {
             if (!$canonical) {
                 return [];
             }
-            return yuz_settings_section_default($canonical);
+            return yuztra_settings_section_default($canonical);
         }
 
          private static function alias_map(): array {
@@ -1431,7 +1524,7 @@ if (!class_exists('YUZ_Options_Bridge')) {
 
 
         private static function canonical_from(string $name): ?string {
-            $registry = yuz_settings_registry();
+            $registry = yuztra_settings_registry();
             if (isset($registry[$name])) {
                 return $name;
             }
@@ -1441,7 +1534,7 @@ if (!class_exists('YUZ_Options_Bridge')) {
 
         private static function filter_alias(string $alias, string $canonical) {
             if (function_exists('clar_log') && in_array($alias, ['yuz_translation_site_settings', 'yuz_tra_site_settings'], true)) {
-                clar_log('LEGACY ACCESS', $alias, debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2));
+                clar_log('LEGACY ACCESS', $alias);
             }
             return self::build_alias_payload($alias, $canonical);
         }
@@ -1453,7 +1546,7 @@ if (!class_exists('YUZ_Options_Bridge')) {
             }
             $canonical = self::canonical_from($alias);
             if ($canonical) {
-                $sanitized = yuz_settings_sanitize_section($canonical, is_array($new_value) ? $new_value : (array) $new_value);
+                $sanitized = yuztra_settings_sanitize_section($canonical, is_array($new_value) ? $new_value : (array) $new_value);
                 if (function_exists('clar_log')) {
                     clar_log('CANONICAL WRITE', __FUNCTION__, $canonical, array_keys(is_array($sanitized) ? $sanitized : []));
                 }
@@ -1461,8 +1554,8 @@ if (!class_exists('YUZ_Options_Bridge')) {
                 if (function_exists('clar_log')) {
                     clar_log('CANONICAL WRITE', __FUNCTION__ . '_done', $canonical, array_keys(is_array($sanitized) ? $sanitized : []));
                 }
-                if (function_exists('yuz_settings_runtime_flush')) {
-                    yuz_settings_runtime_flush();
+                if (function_exists('yuztra_settings_runtime_flush')) {
+                    yuztra_settings_runtime_flush();
                 }
             }
             self::log_blocked($alias);
@@ -1484,7 +1577,7 @@ if (!class_exists('YUZ_Options_Bridge')) {
                     if (!array_key_exists($alias, $new_value)) {
                         continue;
                     }
-                    $sanitized = yuz_settings_sanitize_section($canonical, $new_value[$alias]);
+                    $sanitized = yuztra_settings_sanitize_section($canonical, $new_value[$alias]);
                     if (function_exists('clar_log')) {
                         clar_log('CANONICAL WRITE', __FUNCTION__, $canonical, array_keys(is_array($sanitized) ? $sanitized : []));
                     }
@@ -1494,8 +1587,8 @@ if (!class_exists('YUZ_Options_Bridge')) {
                     }
                     $did_update = true;
                 }
-                if ($did_update && function_exists('yuz_settings_runtime_flush')) {
-                    yuz_settings_runtime_flush();
+                if ($did_update && function_exists('yuztra_settings_runtime_flush')) {
+                    yuztra_settings_runtime_flush();
                 }
             }
             self::log_blocked('yuz_tra_all_settings');
@@ -1507,7 +1600,7 @@ if (!class_exists('YUZ_Options_Bridge')) {
             foreach (self::alias_map() as $alias => $canonical) {
                 $payload[$alias] = self::build_alias_payload($alias, $canonical);
             }
-            $payload['__meta'] = yuz_settings_get_meta();
+            $payload['__meta'] = yuztra_settings_get_meta();
             return $payload;
         }
 
@@ -1547,11 +1640,11 @@ if (!class_exists('YUZ_Options_Bridge')) {
         }
 
         private static function get_section(string $canonical): array {
-            $all = yuz_settings_get_all();
+            $all = yuztra_settings_get_all();
             if (isset($all[$canonical]) && is_array($all[$canonical])) {
                 return $all[$canonical];
             }
-            return yuz_settings_section_default($canonical);
+            return yuztra_settings_section_default($canonical);
         }
 
         private static function legacy_switcher_patch(array $switcher): array {
@@ -1610,7 +1703,7 @@ if (!class_exists('YUZ_Options_Bridge')) {
 
 add_action('updated_option', function($option, $old_value, $value){
   if ($option === 'yuz_tra_at_settings') {
-    if (function_exists('error_log')) yuz_tra_diag_log('UPDATED_AT=1');
+    if (function_exists('error_log')) yuztra_diag_log('UPDATED_AT=1');
   }
 }, 10, 3);
 
@@ -1670,12 +1763,12 @@ add_action('init', function(){
     $merged = [];
     foreach ($candidates as $src) { $merged = array_merge($merged, (array) $src); }
     // Sanitize against the canonical schema
-    if (!function_exists('yuz_settings_sanitize_section')) { return; }
-    $clean = yuz_settings_sanitize_section('yuz_tra_at_settings', $merged);
+    if (!function_exists('yuztra_settings_sanitize_section')) { return; }
+    $clean = yuztra_settings_sanitize_section('yuz_tra_at_settings', $merged);
     if (is_array($clean) && array_filter($clean)) {
         update_option('yuz_tra_at_settings', $clean, false);
         if (function_exists('error_log')) {
-            yuz_tra_diag_log('[YUZ-DIAG][AT-MIGRATE] canonical hydrated from legacy sources');
+            yuztra_diag_log('[YUZ-DIAG][AT-MIGRATE] canonical hydrated from legacy sources');
         }
     }
 }, 20);

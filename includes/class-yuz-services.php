@@ -165,10 +165,16 @@ public static function tm(): YUZ_API_Manager {
 public static function init(): void {
 // Job registration is owned by YUZ_Cron.
 // Valeurs par défaut exposées aux filtres (permet aux devs d’ajuster sans toucher DB)
+// Public QoS filters are a stable extension API; each legacy hook is ignored narrowly below.
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 add_filter('yuz_tra_qos_max_ajax_payload', fn($v)=> $v ?: self::MAX_AJAX_PAYLOAD_DEFAULT);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 add_filter('yuz_tra_qos_max_direct_chars', fn($v)=> $v ?: self::MAX_DIRECT_CHARS_DEFAULT);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 add_filter('yuz_tra_qos_max_chunk_chars', fn($v)=> $v ?: self::MAX_CHUNK_CHARS_DEFAULT);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 add_filter('yuz_tra_qos_max_chunks_per_run', fn($v)=> $v ?: self::MAX_CHUNKS_PER_RUN_DEFAULT);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 add_filter('yuz_tra_qos_max_retries', fn($v)=> $v ?: self::MAX_RETRIES_PER_CHUNK_DEFAULT);
         }
 /* =========================
@@ -314,10 +320,15 @@ $qos[$k] = (int)$stored[$k];
                 }
             }
 // 4) Filtres (per-mettre aux adapters PHP d’imposer des caps dynamiques)
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 $qos['max_ajax_payload'] = (int) apply_filters('yuz_tra_qos_max_ajax_payload', $qos['max_ajax_payload'], $adapter, $stored);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 $qos['max_direct_chars'] = (int) apply_filters('yuz_tra_qos_max_direct_chars', $qos['max_direct_chars'], $adapter, $stored);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 $qos['max_chunk_chars'] = (int) apply_filters('yuz_tra_qos_max_chunk_chars', $qos['max_chunk_chars'], $adapter, $stored);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 $qos['max_chunks_per_run'] = (int) apply_filters('yuz_tra_qos_max_chunks_per_run', $qos['max_chunks_per_run'], $adapter, $stored);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public QoS filter compatibility
 $qos['max_retries'] = (int) apply_filters('yuz_tra_qos_max_retries', $qos['max_retries'], $adapter, $stored);
 // 5) Clamp & types (sécurité)
 $qos['max_ajax_payload'] = max(1000, min(1000000, $qos['max_ajax_payload']));

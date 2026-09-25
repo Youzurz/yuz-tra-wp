@@ -76,6 +76,7 @@ use YUZTRA\Fallbacks\NullLanguageManager;
 require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
 require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
 if (!class_exists('YUZ_Addons')) {
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
 class YUZ_Addons implements AddonsInterface {
 private RendererInterface $renderer;
 private LoggerInterface $logger;
@@ -131,6 +132,7 @@ $instance->logger->log('info', 'Initializing YUZ_Addons at ' . (function_exists(
 // LEGACY→YUZ_Assets: add_action('admin_enqueue_scripts', [$instance, 'enqueue_scripts']);
 add_action('wp_ajax_yuz_activate_addon', [$instance, 'ajax_activate_addon']);
 add_action('wp_ajax_yuz_deactivate_addon', [$instance, 'ajax_deactivate_addon']);
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
 $instance->register_addons((array) apply_filters('yuz_tra_addons', []));
 $instance->logger->log('success', 'YUZ_Addons initialized successfully');
     }
@@ -192,7 +194,7 @@ $this->logger->log('critical', 'User lacks manage_options capability in YUZ_Addo
 wp_die(esc_html__('Unauthorized', 'yuz-tra'));
         }
 // POST → passer par l’AjaxInterface::handleRequest
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+if (sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')) === 'POST') {
 $this->ajax->handleRequest(
 'yuz_con_nonce',
                 [],
@@ -261,7 +263,7 @@ public function ajax_activate_addon(): void {
 check_ajax_referer('yuz_con_nonce', 'nonce');
 if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Activating addon via AJAX');
-$addon_slug = sanitize_text_field($_POST['addon'] ?? '');
+$addon_slug = sanitize_text_field(wp_unslash($_POST['addon'] ?? ''));
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 // Charge l’addon si possible
 $loaded = $this->loadAddon($addon_slug);
@@ -279,7 +281,7 @@ public function ajax_deactivate_addon(): void {
 check_ajax_referer('yuz_con_nonce', 'nonce');
 if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Deactivating addon via AJAX');
-$addon_slug = sanitize_text_field($_POST['addon'] ?? '');
+$addon_slug = sanitize_text_field(wp_unslash($_POST['addon'] ?? ''));
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 update_option("yuz_addon_{$addon_slug}", 0);
 if ((int)get_option("yuz_addon_{$addon_slug}") !== 0) wp_send_json_error(['message'=>'addon_save_failed'],500);

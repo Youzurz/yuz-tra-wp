@@ -1,6 +1,7 @@
 <?php
 defined('ABSPATH') || exit;
 /** Compatibility service. AJAX registration, authorization and responses live in YUZ_Ajax. */
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- public legacy class name
 final class YUZ_AI {
     private static $instance;
     public static function instance(): self { return self::$instance ??= new self(); }

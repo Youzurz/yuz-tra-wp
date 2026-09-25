@@ -208,7 +208,7 @@ if (!class_exists('NullSettings')) {
 class NullSettings implements SettingsInterface {
 
     public function get_option(string $option_name) {
-        $all = function_exists('yuz_settings_get_all') ? (array) yuz_settings_get_all() : [];
+        $all = function_exists('yuztra_settings_get_all') ? (array) yuztra_settings_get_all() : [];
         if ($option_name === 'yuz_tra_all_settings') {
             return $all;
         }
@@ -216,25 +216,25 @@ class NullSettings implements SettingsInterface {
     }
 
     public function sanitize_option(string $option_name, $value) {
-        if (!function_exists('yuz_settings_sanitize_section')) {
+        if (!function_exists('yuztra_settings_sanitize_section')) {
             return is_array($value) ? $value : [];
         }
-        return yuz_settings_sanitize_section($option_name, is_array($value) ? $value : []);
+        return yuztra_settings_sanitize_section($option_name, is_array($value) ? $value : []);
     }
 
     public function update_option(string $option_name, $value): bool {
-        if (!function_exists('yuz_settings_replace_section')) {
+        if (!function_exists('yuztra_settings_replace_section')) {
             return false;
         }
         $payload = is_array($value) ? $value : [];
-        return yuz_settings_replace_section($option_name, $payload);
+        return yuztra_settings_replace_section($option_name, $payload);
     }
 
     public function get_js_config(): array {
         if (class_exists('YUZ_Translation_Manager') && method_exists('YUZ_Translation_Manager', 'build_frontend_settings')) {
             return (array) YUZ_Translation_Manager::build_frontend_settings();
         }
-        return function_exists('yuz_settings_get_all') ? (array) yuz_settings_get_all() : [];
+        return function_exists('yuztra_settings_get_all') ? (array) yuztra_settings_get_all() : [];
     }
 
     public function get(string $key): mixed {
@@ -268,7 +268,7 @@ class NullSettings implements SettingsInterface {
             'mode_semi_enabled'       => false,
             'mode_background_enabled' => false,
         ];
-        $stored = function_exists('yuz_settings_get_all') ? (array) yuz_settings_get_all() : [];
+        $stored = function_exists('yuztra_settings_get_all') ? (array) yuztra_settings_get_all() : [];
         return array_replace_recursive($defaults, $stored);
     }
 }
@@ -351,7 +351,7 @@ class NullLogger implements LoggerInterface {
         if (!$enabled) {
             return;
         }
-        error_log(sprintf('[%s] %s: %s', $level, __CLASS__, $message));
+        yuztra_debug_log(sprintf('[%s] %s: %s', $level, __CLASS__, $message));
     }
     public function setLevel(string $level): void {
         // no-op
@@ -394,7 +394,7 @@ class FallbackTranslateProvider {
 
         if (!$is_canonical($source) || !$is_canonical($target)) {
             $msg = sprintf('[YUZ][FALLBACK] non-canonical req=%s src=%s tgt=%s', $req_id, $source, $target);
-            error_log($msg);
+            yuztra_debug_log($msg);
             return new \WP_Error('yuz_non_canonical', $msg);
         }
 
@@ -416,7 +416,7 @@ class FallbackTranslateProvider {
         }
 
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log(sprintf('[YUZ][FALLBACK] req=%s src=%s tgt=%s count=%d RAW=%s',
+            yuztra_debug_log(sprintf('[YUZ][FALLBACK] req=%s src=%s tgt=%s count=%d RAW=%s',
                 $req_id,
                 $source,
                 $target,
@@ -467,10 +467,10 @@ class NullDB implements DBInterface {
 }
 
 /** ---------------------------
- *  NullEnvironment
+ *  YUZTRA_NullEnvironment
  *  --------------------------- */
-if (!class_exists('NullEnvironment')) {
-class NullEnvironment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_NullEnvironment')) {
+class YUZTRA_NullEnvironment implements EnvironmentInterface {
     public static function init(LanguagesInterface $lang_manager = null): void { /* no-op */ }
     public static function detect_user_environment(): void { /* no-op */ }
     public function getEnv(string $key): mixed {
@@ -750,5 +750,5 @@ class YUZ_Google_Translate_Adapter extends NullTranslateAdapter {}
  *  Alias YUZ_Environment to fallback
  *  --------------------------- */
 if (!class_exists('YUZ_Environment')) {
-class YUZ_Environment extends NullEnvironment {}
+class YUZ_Environment extends YUZTRA_NullEnvironment {}
 }

@@ -99,7 +99,7 @@ if (!check_ajax_referer('yuz_tra_nonce', 'nonce', false)) {
 wp_send_json_error(['message' => __('Invalid nonce', 'yuz-tra')]);
             }
 // Préférences du navigateur
-$accept = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+$accept = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_ACCEPT_LANGUAGE'])) : '';
 $browser_pref = [];
 foreach (explode(',', $accept) as $segment) {
 if (preg_match('/^([a-zA-Z\-]+)/', $segment, $m)) {
@@ -107,6 +107,7 @@ $browser_pref[] = str_replace('-', '_', $m[1]);
                 }
             }
 // No visitor IP is sent to an external service by default.
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
 $country = (string) apply_filters('yuz_tra_detected_country', '');
 // Liste des langues activées
 $all = self::$lang_manager ? self::$lang_manager->get_translatable_languages() : [];
@@ -137,7 +138,7 @@ break;
 // Fallback
 $detected = !empty($matches)
                 ? $matches[0]
-                : apply_filters('yuz_tra_default_language', get_locale());
+                : apply_filters('yuz_tra_default_language', get_locale()); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- public compatibility filter
 wp_send_json_success([
 'language' => $detected,
 'browser_lang' => $browser_pref,
@@ -165,15 +166,15 @@ return false;
     }
 }
 // Fallback si l'interface manque
-if (!class_exists('NullEnvironment')) {
-class NullEnvironment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_NullEnvironment')) {
+class YUZTRA_NullEnvironment implements EnvironmentInterface {
 public static function init(LanguagesInterface $lang_manager = null): void {}
 public static function detect_user_environment(): void {
 wp_send_json_success([
 'language' => get_locale(),
 'browser_lang' => [],
 'country' => '',
-'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+'ip' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
             ]);
         }
 public function getEnv(string $key): mixed { return null; }

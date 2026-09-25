@@ -19,7 +19,11 @@ while IFS= read -r file; do node --input-type=module --check < "$file"; done < <
 find "$stage/yuz-tra" -exec touch -t 198001010000 {} +
 (cd "$stage" && find yuz-tra -type f | LC_ALL=C sort | zip -q -X "yuz-tra-$version.zip" -@)
 unzip -tq "$stage/yuz-tra-$version.zip"
-cp "$stage/yuz-tra-$version.zip" "dist/yuz-tra-$version.zip"
+if [[ -e "dist/yuz-tra-$version.zip" ]]; then
+  cmp "$stage/yuz-tra-$version.zip" "dist/yuz-tra-$version.zip" || { echo 'Refusing to overwrite a different versioned artifact; bump version or use isolated candidate staging.' >&2; exit 1; }
+else
+  cp "$stage/yuz-tra-$version.zip" "dist/yuz-tra-$version.zip"
+fi
 (cd dist && sha256sum "yuz-tra-$version.zip" > "yuz-tra-$version.zip.sha256")
 node tools/release-integrity.cjs --manifest "dist/yuz-tra-$version.zip"
 node tools/release-integrity.cjs --verify-archive "dist/yuz-tra-$version.zip" "dist/yuz-tra-$version.manifest.json"

@@ -10,10 +10,10 @@ if (defined('WP_CLI') && WP_CLI) {
      *   wp yuz front:doctor --id=3155
      *   wp yuz front:doctor --lang=en
      */
-    $yuz_front_doctor = function( $args, $assoc_args ) {
+    $yuztra_front_doctor = function( $yuztra_args, $yuztra_assoc_args ) {
 
-        $page_id = isset($assoc_args['id']) ? (int)$assoc_args['id'] : (int)get_option('page_on_front');
-        $lang    = isset($assoc_args['lang']) ? sanitize_text_field($assoc_args['lang']) : get_locale();
+        $page_id = isset($yuztra_assoc_args['id']) ? (int)$yuztra_assoc_args['id'] : (int)get_option('page_on_front');
+        $lang    = isset($yuztra_assoc_args['lang']) ? sanitize_text_field($yuztra_assoc_args['lang']) : get_locale();
 
         // --- Options de lecture (accueil)
         $show_on_front = get_option('show_on_front', 'posts');
@@ -91,6 +91,6 @@ if (defined('WP_CLI') && WP_CLI) {
     };
 
     // On tolère deux syntaxes: `wp yuz front:doctor` et `wp yuz front-doctor`
-    WP_CLI::add_command('yuz front:doctor', $yuz_front_doctor);
-    WP_CLI::add_command('yuz front-doctor', $yuz_front_doctor);
+    WP_CLI::add_command('yuz front:doctor', $yuztra_front_doctor);
+    WP_CLI::add_command('yuz front-doctor', $yuztra_front_doctor);
 }

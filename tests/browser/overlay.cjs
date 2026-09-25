@@ -17,8 +17,8 @@ const path=require('node:path');
       });
       await page.goto('https://overlay.example/editor');
       await page.evaluate(()=>{window.yuzStrings={nonce:'fixture-only',ajax_url:'/wp-admin/admin-ajax.php',languages:[{code:'fr_FR',name:'French'}],defaultLang:'fr_FR'};});
-      await page.addStyleTag({path:path.resolve(__dirname,'../../release/yuz-tra/assets/css/yuz-string-catalog.css')});
-      await page.addScriptTag({path:path.resolve(__dirname,'../../release/yuz-tra/assets/js/yuz-strings-dock.js')});
+      await page.addStyleTag({path:path.resolve(__dirname,'../../assets/css/yuz-string-catalog.css')});
+      await page.addScriptTag({path:path.resolve(__dirname,'../../assets/js/yuz-strings-dock.js')});
       if(inline) {
         await page.locator('[data-status]').filter({hasText:'Catalogue chargé'}).waitFor();
         assert.equal(await page.locator('#yuz-dock').evaluate(e=>e.tagName),'SECTION');

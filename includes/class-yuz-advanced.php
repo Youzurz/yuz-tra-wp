@@ -83,6 +83,7 @@ use YUZTRA\Fallbacks\NullLanguages;
 
 if ( ! class_exists('YUZ_Advanced') ) {
 
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- legacy public YUZ-TRA class name retained for backward compatibility
 class YUZ_Advanced implements AdvancedInterface {
 
     private RendererInterface $renderer;
@@ -113,7 +114,7 @@ class YUZ_Advanced implements AdvancedInterface {
         self::$booted = true;
 
         if ( ! defined('YUZ_TRA_INCLUDES') || ! defined('YUZ_TRA_PLUGIN_FILE') ) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZ_Advanced::init');
+            yuztra_debug_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZ_Advanced::init');
             return;
         }
 
@@ -149,6 +150,7 @@ class YUZ_Advanced implements AdvancedInterface {
             $tabs['diagnostics'] = __('Diagnostics', 'yuz-tra');
         }
         // Hook 1 : permettre d’ajouter/enlever des sous-onglets
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- established public filter
         $tabs = apply_filters('yuz_advanced_tabs', $tabs);
 
         // sécurité : garder l’ordre stable, filtrer les clés/labels vides
@@ -163,7 +165,7 @@ class YUZ_Advanced implements AdvancedInterface {
 
     private function get_active_tab(string $fallback): string
     {
-        $active = isset($_GET['subtab']) ? sanitize_key($_GET['subtab']) : $fallback;
+        $active = isset($_GET['subtab']) ? sanitize_key(wp_unslash($_GET['subtab'])) : $fallback;
         $tabs   = $this->get_tabs();
         return array_key_exists($active, $tabs) ? $active : $fallback;
     }
@@ -236,6 +238,7 @@ class YUZ_Advanced implements AdvancedInterface {
                  * Hook 2 : sous-onglet fourni par un module externe (ex: sidecar)
                  * Le module doit écho son HTML.
                  */
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- dynamic public action namespace
                 do_action('yuz_advanced_render_tab_'.$active, $this);
 
                 if ( ! has_action('yuz_advanced_render_tab_'.$active) ) {
@@ -251,7 +254,7 @@ class YUZ_Advanced implements AdvancedInterface {
     private function render_troubleshooting(): void
     {
         // POST d’abord pour refléter l’état
-        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'],'yuz_con_nonce') ) {
+        if ( 'POST' === sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')) && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])),'yuz_con_nonce') ) {
             $fix  = isset($_POST['yuz_fix_dynamic']) ? 1 : 0;
             $stop = isset($_POST['yuz_disable_dynamic']) ? 1 : 0;
 
@@ -321,7 +324,7 @@ class YUZ_Advanced implements AdvancedInterface {
     private function render_debug(): void
     {
         // POST d’abord
-        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'],'yuz_con_nonce') ) {
+        if ( 'POST' === sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')) && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])),'yuz_con_nonce') ) {
             update_option('yuz_debug_mode', isset($_POST['debug_mode']) ? 1 : 0);
             // Log level select
             $level = isset($_POST['yuz_tra_log_level']) ? sanitize_text_field(wp_unslash($_POST['yuz_tra_log_level'])) : '';
