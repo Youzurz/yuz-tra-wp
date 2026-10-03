@@ -4,9 +4,9 @@ defined('ABSPATH') || exit;
 /**
  * Util: noms de langue simples (à raffiner si besoin)
  */
-function yuz_lang_names(array $codes): array {
+function yuztra_lang_names(array $codes): array {
     $out = [];
-    $index = function_exists('yuz_get_languages_index') ? (array) yuz_get_languages_index() : [];
+    $index = function_exists('yuztra_get_languages_index') ? (array) yuztra_get_languages_index() : [];
 
     foreach ($codes as $c) {
         $code = (string) $c;
@@ -26,10 +26,10 @@ function yuz_lang_names(array $codes): array {
 
         if ($label !== '') {
             $out[$code] = $label;
-        } elseif (function_exists('yuz_lang_label')) {
-            $out[$code] = yuz_lang_label($code);
-        } elseif (function_exists('yuz_human_label_from_locale')) {
-            $fallback = yuz_human_label_from_locale($code);
+        } elseif (function_exists('yuztra_lang_label')) {
+            $out[$code] = yuztra_lang_label($code);
+        } elseif (function_exists('yuztra_human_label_from_locale')) {
+            $fallback = yuztra_human_label_from_locale($code);
             $out[$code] = $fallback !== '' ? $fallback : $code;
         } else {
             $out[$code] = $code;
@@ -39,14 +39,14 @@ function yuz_lang_names(array $codes): array {
 }
 
 /**
- * SWITCHER: fournit window.yuzSW (ajax_url, langues, flags…)
+ * SWITCHER: fournit window.yuztraSW (ajax_url, langues, flags…)
  * Le JS du switcher attend au moins: ajax_url, languages, flags_path, flags_file_name
  */
-add_filter('yuz/assets/payload/switcher', function($payload){
-    $cfg      = get_option('yuz_tra_settings', []);
+add_filter('yuztra/assets/payload/switcher', function($payload){
+    $cfg      = get_option('yuztra_settings', []);
     $langs    = is_array($cfg) && !empty($cfg['translation-languages']) ? (array)$cfg['translation-languages'] : ['fr_FR','en_US'];
-    $flags_dir = plugin_dir_path(defined('YUZ_TRA_PLUGIN_FILE') ? YUZ_TRA_PLUGIN_FILE : __FILE__) . 'assets/flags/';
-    $flags_url = plugins_url('assets/flags/', defined('YUZ_TRA_PLUGIN_FILE') ? YUZ_TRA_PLUGIN_FILE : __FILE__);
+    $flags_dir = plugin_dir_path(defined('YUZTRA_PLUGIN_FILE') ? YUZTRA_PLUGIN_FILE : __FILE__) . 'assets/flags/';
+    $flags_url = plugins_url('assets/flags/', defined('YUZTRA_PLUGIN_FILE') ? YUZTRA_PLUGIN_FILE : __FILE__);
 
     $flags_map = [];
     foreach ($langs as $code) {
@@ -73,20 +73,20 @@ add_filter('yuz/assets/payload/switcher', function($payload){
 
         // Nonces normalisés (CIA)
         'nonces' => [
-            'yuz_tra_sw_get_settings'    => wp_create_nonce('yuz_tra_nonce'),
-            'yuz_tra_sw_upd_settings'    => wp_create_nonce('yuz_con_nonce'),
-            'yuz_tra_sw_switch_language' => wp_create_nonce('yuz_tra_nonce'),
-            'yuz_tra_sw_resolve_url'     => wp_create_nonce('yuz_tra_nonce'),
+            'yuztra_sw_get_settings'    => wp_create_nonce('yuztra_nonce'),
+            'yuztra_sw_upd_settings'    => wp_create_nonce('yuztra_con_nonce'),
+            'yuztra_sw_switch_language' => wp_create_nonce('yuztra_nonce'),
+            'yuztra_sw_resolve_url'     => wp_create_nonce('yuztra_nonce'),
         ],
 
         // Données fonctionnelles
         'languages'         => $langs,
         'translation_langs' => $langs,                 // alias compat
-        'langNames'         => yuz_lang_names($langs),
-        'language_names'    => yuz_lang_names($langs), // alias compat
+        'langNames'         => yuztra_lang_names($langs),
+        'language_names'    => yuztra_lang_names($langs), // alias compat
 
         'endpoints' => [
-            'resolve_url' => 'yuz_tra_sw_resolve_url',
+            'resolve_url' => 'yuztra_sw_resolve_url',
         ],
 
         'flags_path'        => trailingslashit($flags_url),
@@ -103,10 +103,10 @@ add_filter('yuz/assets/payload/switcher', function($payload){
 });
 
 /**
- * ÉDITEUR: fournit window.yuzTE (ajax_url, nonces, site_settings…)
+ * ÉDITEUR: fournit window.yuztraTE (ajax_url, nonces, site_settings…)
  * Le JS attend: ajax_url, nonces{actions…}, site_settings{url_to_load,use_subdirectory,force_lang_in_links,slugs}
  */
-add_filter('yuz/assets/payload/translation-editor', function($payload){
+add_filter('yuztra/assets/payload/translation-editor', function($payload){
     // Slugs par défaut (à reprendre depuis vos réglages)
     $slugs = [
         'fr_FR' => 'fr',
@@ -116,20 +116,20 @@ add_filter('yuz/assets/payload/translation-editor', function($payload){
     // Nonces par groupe d’usage (CIA): tra/int/hvy/del/api
     $nonces = [
         // Lecture / fetch / search
-        'yuz_tra_tm_get_translations' => wp_create_nonce('yuz_tra_nonce'),
+        'yuztra_tm_get_translations' => wp_create_nonce('yuztra_nonce'),
         // Écriture / modifications
-        'yuz_tra_te_upd_manual'       => wp_create_nonce('yuz_int_nonce'),
-        'yuz_tra_te_upd_publish'      => wp_create_nonce('yuz_int_nonce'),
-        'yuz_tra_te_cre_translation'  => wp_create_nonce('yuz_int_nonce'),
-        'yuz_save_translation'        => wp_create_nonce('yuz_tra_nonce'),
-        'yuz_tra_tm_cre_page'         => wp_create_nonce('yuz_int_nonce'),
+        'yuztra_te_upd_manual'       => wp_create_nonce('yuztra_int_nonce'),
+        'yuztra_te_upd_publish'      => wp_create_nonce('yuztra_int_nonce'),
+        'yuztra_te_cre_translation'  => wp_create_nonce('yuztra_int_nonce'),
+        'yuztra_save_translation'        => wp_create_nonce('yuztra_nonce'),
+        'yuztra_tm_cre_page'         => wp_create_nonce('yuztra_int_nonce'),
         // Suppression explicite
-        'yuz_tra_tm_del_translation'  => wp_create_nonce('yuz_del_nonce'),
-        'yuz_tra_delete_translation'  => wp_create_nonce('yuz_del_nonce'),
+        'yuztra_tm_del_translation'  => wp_create_nonce('yuztra_del_nonce'),
+        'yuztra_delete_translation'  => wp_create_nonce('yuztra_del_nonce'),
         // Tests/connexions externes
-        'yuz_tra_tm_test_api'         => wp_create_nonce('yuz_api_nonce'),
+        'yuztra_tm_test_api'         => wp_create_nonce('yuztra_api_nonce'),
         // Opérations lourdes (batch)
-        'yuz_ai_batch_translate'      => wp_create_nonce('yuz_hvy_nonce'),
+        'yuztra_ai_batch_translate'      => wp_create_nonce('yuztra_hvy_nonce'),
     ];
 
     return [
@@ -146,19 +146,19 @@ add_filter('yuz/assets/payload/translation-editor', function($payload){
 });
 
 /**
- * STRING EDITOR (optionnel) : fournit window.yuzSE uniquement si activé.
+ * STRING EDITOR (optionnel) : fournit window.yuztraSE uniquement si activé.
  * Par défaut -> [] donc PAS d'objet global (voir YUZ_Assets::maybe_inject_editor_se_payload()).
  *
  * Activez via :
  *   - define('YUZ_SE_PAYLOAD', true);            // ex. dans wp-config.php (DEV only)
  *   - ou update_option('yuz_se_payload_enable', 1);
  */
-add_filter('yuz/assets/editor_se_payload', function(array $payload){
-    $enabled = (defined('YUZ_SE_PAYLOAD') && YUZ_SE_PAYLOAD)
-            || (bool) get_option('yuz_se_payload_enable', 0);
+add_filter('yuztra/assets/editor_se_payload', function(array $payload){
+    $enabled = (defined('YUZTRA_SE_PAYLOAD') && YUZTRA_SE_PAYLOAD)
+            || (bool) get_option('yuztra_se_payload_enable', 0);
 
     if (!$enabled) {
-        return []; // => aucun yuzSE injecté (comportement par défaut)
+        return []; // => aucun yuztraSE injecté (comportement par défaut)
     }
 
     // >>> ICI: données strictement spécifiques à la page "String Translation Editor"

@@ -11,30 +11,30 @@
  * Discipline (refactor)
  * ---------------------
  * - ACT-01  : Strict whitelist by tab (no cross-load).
- * - ACT-02/11 : The General tab consumes only `yuzGS` (optional legacy shim in DEV).
+ * - ACT-02/11 : The General tab consumes only `yuztraGS` (optional legacy shim in DEV).
  * - ACT-03  : Localization PER ACTION, only once, **in `before`**.
  * - ACT-04  : Guards/Freeze to prevent crashes/overwrites.
  * - ACT-05  : Never load scripts from other tabs.
  * - ACT-06  : Service helper (`yuz-translation-service`) without internal UI localization.
  * - ACT-07  : Dom-watch localized **only** if enqueued.
- * - ACT-12..15 : AI tab isolated (`yuzAI`), job pattern, quotas/confidentiality handled by JS/PHP.
+ * - ACT-12..15 : AI tab isolated (`yuztraAI`), job pattern, quotas/confidentiality handled by JS/PHP.
  *
  * Transversal Contract (canonical)
  * --------------------------------
  * RULE T-01:
  *   Any TRANSVERSAL script (network/services/maintenance) ONLY READS:
- *     - window.yuzTraSettings.ajax_url  (string)
- *     - window.yuzTraSettings.nonces    (object)
- *   No UI data transits through `yuzTraSettings`.
+ *     - window.yuztraSettings.ajax_url  (string)
+ *     - window.yuztraSettings.nonces    (object)
+ *   No UI data transits through `yuztraSettings`.
  *
  * RULE T-02:
  *   As soon as a transversal script is registered/enqueued, this file injects **inline `before`**
- *   `var/assign yuzTraSettings = { ajax_url, nonces(min) };` on its handle.
+ *   `var/assign yuztraSettings = { ajax_url, nonces(min) };` on its handle.
  *
  *
- * UI Payloads (dedicated, never via yuzTraSettings)
+ * UI Payloads (dedicated, never via yuztraSettings)
  * -------------------------------------------------
- * - `yuzGS`, `yuzTS`, `yuzTE`, `yuzAT`, `yuzSW`, `yuzAB`, … are localized on their respective handles,
+ * - `yuztraGS`, `yuztraTS`, `yuztraTE`, `yuztraAT`, `yuztraSW`, `yuztraAB`, … are localized on their respective handles,
  *   **only** when the bundle/tab requires it.
  *
  * Public API & interface compliance
@@ -68,7 +68,7 @@
  * - Register/enqueue/localize assets *outside* of this file.
  * - Wire AJAX hooks/admin menus *outside* their dedicated files.
  * - Alter <script>/<link> tags anywhere else than via this file.
- * - Transit UI data through `yuzTraSettings`.
+ * - Transit UI data through `yuztraSettings`.
 * -------------------------------------------
 * • INLINE SCRIPTS are **forbidden** across the entire YUZ-TRA scope.
 * • Transition phase: controlled tolerance via nonce  hashes until the plugin
@@ -111,16 +111,40 @@
 
 defined('ABSPATH') || exit;
 
-// Debug plugin: silencieux par défaut en prod.
-// Active si YUZ_DEBUG=true ou WP_DEBUG=true.
-if (!defined('YUZ_DEBUG')) {
-    define('YUZ_DEBUG', false);
+if (!function_exists('yuztra_assets_query_text')) {
+    /** Read-only query input used to select an asset context. */
+    function yuztra_assets_query_text(string $key): string {
+        if (!isset($_GET[$key]) || !is_scalar($_GET[$key])) {
+            return '';
+        }
+        return sanitize_text_field(wp_unslash((string) $_GET[$key]));
+    }
 }
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
-if (!class_exists('YUZ_Translation_Manager')) {
-    require_once YUZ_TRA_INCLUDES . 'class-yuz-translation-manager.php';
+if (!function_exists('yuztra_assets_server_text')) {
+    /** Normalize server metadata before diagnostics or URL resolution. */
+    function yuztra_assets_server_text(string $key): string {
+        if (!isset($_SERVER[$key]) || !is_scalar($_SERVER[$key])) {
+            return '';
+        }
+        return sanitize_text_field(wp_unslash((string) $_SERVER[$key]));
+    }
+}
+
+/* Narrow compatibility shims for integrations that used the pre-1.5 helpers. */
+
+
+
+// Debug plugin: silencieux par défaut en prod.
+// Active si YUZ_DEBUG=true ou WP_DEBUG=true.
+if (!defined('YUZTRA_ASSETS_DEBUG')) {
+    define('YUZTRA_ASSETS_DEBUG', false);
+}
+
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
+if (!class_exists('YUZTRA_Translation_Manager')) {
+    require_once YUZTRA_INCLUDES . 'class-yuz-translation-manager.php';
 }
 
 use YUZTRA\Interfaces\{AssetsInterface, LanguagesInterface, SettingsInterface};
@@ -130,73 +154,74 @@ use YUZTRA\Fallbacks\{NullSettings, NullLanguages};
  * Zone: Helpers globaux (compat)
  * ====================================================================== */
 /** ========= Helpers ========= */
-if (!function_exists('yuz__is_string_editor_screen')) {
-    function yuz__is_string_editor_screen(): bool {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_is_string_editor_screen')) {
+    function yuztra_is_string_editor_screen(): bool {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->guard_is_string_editor_screen();
         }
-        return is_admin() && isset($_GET['page']) && $_GET['page'] === 'yuz-string-translation-editor';
+        return is_admin() && yuztra_assets_query_text('page') === 'yuz-string-translation-editor';
     }
 }
-if (!function_exists('yuz__plugin_base_url')) {
-    function yuz__plugin_base_url(): string {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_plugin_base_url')) {
+    function yuztra_plugin_base_url(): string {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->cfg_base_url();
         }
-        return defined('YUZ_TRA_PLUGIN_FILE')
-            ? trailingslashit(plugin_dir_url(YUZ_TRA_PLUGIN_FILE))
-            : trailingslashit(dirname(plugins_url('yuz-tra/yuz-tra.php')));
+        $plugin_file = defined('YUZTRA_PLUGIN_FILE')
+            ? YUZTRA_PLUGIN_FILE
+            : dirname(__DIR__) . '/yuz-tra.php';
+        return trailingslashit(plugins_url('', $plugin_file));
     }
 }
-if (!function_exists('yuz__plugin_base_path')) {
-    function yuz__plugin_base_path(): string {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_plugin_base_path')) {
+    function yuztra_plugin_base_path(): string {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->cfg_base_path();
         }
-        return defined('YUZ_TRA_PLUGIN_FILE')
-            ? trailingslashit(plugin_dir_path(YUZ_TRA_PLUGIN_FILE))
+        return defined('YUZTRA_PLUGIN_FILE')
+            ? trailingslashit(plugin_dir_path(YUZTRA_PLUGIN_FILE))
             : trailingslashit(dirname(__DIR__));
     }
 }
-if (!function_exists('yuz__plugin_asset_url')) {
-    function yuz__plugin_asset_url(string $rel): string {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_plugin_asset_url')) {
+    function yuztra_plugin_asset_url(string $rel): string {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->cfg_asset_url($rel);
         }
-        return yuz__plugin_base_url() . 'assets/' . ltrim($rel, '/');
+        return yuztra_plugin_base_url() . 'assets/' . ltrim($rel, '/');
     }
 }
-if (!function_exists('yuz__plugin_asset_path')) {
-    function yuz__plugin_asset_path(string $rel): string {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_plugin_asset_path')) {
+    function yuztra_plugin_asset_path(string $rel): string {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->cfg_asset_path($rel);
         }
-        return yuz__plugin_base_path() . 'assets/' . ltrim($rel, '/');
+        return yuztra_plugin_base_path() . 'assets/' . ltrim($rel, '/');
     }
 }
 
-if (!function_exists('yuz_json_safe')) {
-    function yuz_json_safe($value) {
+if (!function_exists('yuztra_json_safe')) {
+    function yuztra_json_safe($value) {
         $json = wp_json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         return str_replace('</script', '<\/script', $json);
     }
 }
 
 /** === Flags (partials/switcher) === */
-if (!function_exists('yuz_locale_to_flag_code')) {
-    function yuz_locale_to_flag_code(string $locale): string {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_locale_to_flag_code')) {
+    function yuztra_locale_to_flag_code(string $locale): string {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->flag_code($locale);
         }
@@ -209,21 +234,21 @@ if (!function_exists('yuz_locale_to_flag_code')) {
         return $lang2flag[$l] ?? 'xx';
     }
 }
-if (!function_exists('yuz_flag_url')) {
-    function yuz_flag_url(string $locale_or_code): string {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_flag_url')) {
+    function yuztra_flag_url(string $locale_or_code): string {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->flag_url($locale_or_code);
         }
         $lc = strtolower($locale_or_code);
-        $code = (strpos($lc, '-') !== false || strpos($lc, '_') !== false) ? yuz_locale_to_flag_code($lc) : $lc;
-        $base_url = trailingslashit(defined('YUZ_TRA_FLAGS_URL')
-            ? YUZ_TRA_FLAGS_URL
-            : yuz__plugin_asset_url('flags/'));
-        $base_dir = trailingslashit(defined('YUZ_TRA_ASSETS_DIR')
-            ? YUZ_TRA_ASSETS_DIR . 'flags/'
-            : yuz__plugin_asset_path('flags/'));
+        $code = (strpos($lc, '-') !== false || strpos($lc, '_') !== false) ? yuztra_locale_to_flag_code($lc) : $lc;
+        $base_url = trailingslashit(defined('YUZTRA_FLAGS_URL')
+            ? YUZTRA_FLAGS_URL
+            : yuztra_plugin_asset_url('flags/'));
+        $base_dir = trailingslashit(defined('YUZTRA_ASSETS_DIR')
+            ? YUZTRA_ASSETS_DIR . 'flags/'
+            : yuztra_plugin_asset_path('flags/'));
         $svg = $code . '.svg'; $png = $code . '.png';
         if (@file_exists($base_dir . $svg)) return $base_url . $svg;
         if (@file_exists($base_dir . $png)) return $base_url . $png;
@@ -231,17 +256,17 @@ if (!function_exists('yuz_flag_url')) {
     }
 }
 
-if (!function_exists('yuz_get_languages_index')) {
-    function yuz_get_languages_index(): array {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_get_languages_index')) {
+    function yuztra_get_languages_index(): array {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->lang_index();
         }
         global $wpdb;
         $tbl = $wpdb->prefix . 'yuz_tra_languages';
         $rows = (array) $wpdb->get_results(
-            "SELECT language_code, language_name, native_name, slug, browser_slug FROM `{$tbl}`",
+            $wpdb->prepare('SELECT language_code, language_name, native_name, slug, browser_slug FROM %i', $tbl),
             ARRAY_A
         );
         $index = [];
@@ -255,8 +280,8 @@ if (!function_exists('yuz_get_languages_index')) {
             $native = (string) ($r['native_name'] ?? '');
 
             $label = $name !== '' ? $name : $native;
-            if ($label === '' && function_exists('yuz_human_label_from_locale')) {
-                $label = yuz_human_label_from_locale($code);
+            if ($label === '' && function_exists('yuztra_human_label_from_locale')) {
+                $label = yuztra_human_label_from_locale($code);
             }
             if ($label === '') {
                 $label = strtoupper(str_replace('_', '-', $code));
@@ -272,41 +297,41 @@ if (!function_exists('yuz_get_languages_index')) {
                 'native'       => $native,
                 'slug'         => (string) ($r['slug'] ?? ''),
                 'browser_slug' => (string) ($r['browser_slug'] ?? ''),
-                'flag'         => function_exists('yuz_flag_url') ? yuz_flag_url($code) : '',
+                'flag'         => function_exists('yuztra_flag_url') ? yuztra_flag_url($code) : '',
             ];
         }
         return $index;
     }
 }
-if (!function_exists('yuz_lang_label')) {
-    function yuz_lang_label(string $code): string {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_lang_label')) {
+    function yuztra_lang_label(string $code): string {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->lang_label($code);
         }
         static $idx;
         if ($idx === null) {
-            $idx = yuz_get_languages_index();
+            $idx = yuztra_get_languages_index();
         }
 
         if (isset($idx[$code]['name']) && $idx[$code]['name'] !== '') {
             return (string) $idx[$code]['name'];
         }
 
-        return function_exists('yuz_human_label_from_locale')
-            ? (yuz_human_label_from_locale($code) ?: $code)
+        return function_exists('yuztra_human_label_from_locale')
+            ? (yuztra_human_label_from_locale($code) ?: $code)
             : $code;
     }
 }
-if (!function_exists('yuz_lang_choices')) {
-    function yuz_lang_choices(array $codes): array {
-        if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-            $assets = YUZ_Assets::get();
+if (!function_exists('yuztra_lang_choices')) {
+    function yuztra_lang_choices(array $codes): array {
+        if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->lang_choices($codes);
         }
-        $idx = yuz_get_languages_index();
+        $idx = yuztra_get_languages_index();
         $out = [];
         foreach ($codes as $c) {
             $c = (string) $c;
@@ -317,7 +342,7 @@ if (!function_exists('yuz_lang_choices')) {
             $row = $idx[$c] ?? [];
             $out[] = [
                 'value' => $c,
-                'label' => $row['name'] ?? yuz_lang_label($c),
+                'label' => $row['name'] ?? yuztra_lang_label($c),
                 'flag'  => $row['flag'] ?? '',
             ];
         }
@@ -326,13 +351,13 @@ if (!function_exists('yuz_lang_choices')) {
 }
 
 // === helpers diag ===
-if (!function_exists('yuz_diag_log')) {
-    function yuz_diag_log(string $tag, array $ctx = []): void {
+if (!function_exists('yuztra_diag_log')) {
+    function yuztra_diag_log(string $tag, array $ctx = []): void {
         try {
-            $trace = $ctx['trace'] ?? ($_REQUEST['yuz_trace'] ?? '');
+            $trace = $ctx['trace'] ?? yuztra_assets_query_text('yuztra_trace');
             $ctx['trace'] = $trace;
-            if (class_exists(__NAMESPACE__ . '\\YUZ_Assets')) {
-                $logger = YUZ_Assets::get();
+            if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets')) {
+                $logger = YUZTRA_Assets::get();
                 $logger->log_debug('diag_' . $tag, $ctx);
             }
         } catch (\Throwable $e) {
@@ -341,9 +366,28 @@ if (!function_exists('yuz_diag_log')) {
     }
 }
 
-if (!class_exists('YUZ_Assets')):
 
-final class YUZ_Assets implements AssetsInterface {
+
+/*
+ * Backward-compatible asset helper aliases. These names were part of the
+ * public helper surface before the prefix hardening; keep them as thin,
+ * one-way delegates so existing themes and extensions continue to work.
+ */
+
+
+
+
+
+
+
+
+
+
+
+
+if (!class_exists('YUZTRA_Assets')):
+
+final class YUZTRA_Assets implements AssetsInterface {
 
     /** ======================================================================
      * Zone: État & Contexte (state)
@@ -374,11 +418,11 @@ final class YUZ_Assets implements AssetsInterface {
     public static function get(): self
     {
         if (!self::$inst) {
-            $languages = class_exists('YUZ_Languages')
-                ? new \YUZ_Languages(\YUZ_Services::settings(), \YUZ_Services::db())
+            $languages = class_exists('YUZTRA_Languages')
+                ? new \YUZTRA_Languages(\YUZTRA_Services::settings(), \YUZTRA_Services::db())
                 : new NullLanguages();
-            $settings  = class_exists('YUZ_Settings')
-                ? \YUZ_Services::settings()
+            $settings  = class_exists('YUZTRA_Settings')
+                ? \YUZTRA_Services::settings()
                 : new NullSettings();
             self::$inst = new self($languages, $settings);
         }
@@ -440,58 +484,58 @@ final class YUZ_Assets implements AssetsInterface {
 
     /** Canonical nonce buckets */
     private const OFFICIAL_NONCES = [
-        'yuz_tra_nonce',
-        'yuz_con_nonce',
-        'yuz_int_nonce',
-        'yuz_del_nonce',
-        'yuz_log_nonce',
-        'yuz_hvy_nonce',
-        'yuz_api_nonce',
+        'yuztra_nonce',
+        'yuztra_con_nonce',
+        'yuztra_int_nonce',
+        'yuztra_del_nonce',
+        'yuztra_log_nonce',
+        'yuztra_hvy_nonce',
+        'yuztra_api_nonce',
     ];
     private const NONCE_ALIASES = [
-        'tra' => 'yuz_tra_nonce',
-        'con' => 'yuz_con_nonce',
-        'int' => 'yuz_int_nonce',
-        'del' => 'yuz_del_nonce',
-        'log' => 'yuz_log_nonce',
-        'hvy' => 'yuz_hvy_nonce',
-        'api' => 'yuz_api_nonce',
+        'tra' => 'yuztra_nonce',
+        'con' => 'yuztra_con_nonce',
+        'int' => 'yuztra_int_nonce',
+        'del' => 'yuztra_del_nonce',
+        'log' => 'yuztra_log_nonce',
+        'hvy' => 'yuztra_hvy_nonce',
+        'api' => 'yuztra_api_nonce',
     ];
     private const ACTION_NONCE_MATRIX = [
-        'yuz_get_pending_translations' => 'yuz_int_nonce',
-        'yuz_publish_translations'     => 'yuz_con_nonce',
-        'yuz_mass_publish'             => 'yuz_con_nonce',
-        'yuz_get_publish_review'       => 'yuz_int_nonce',
-        'yuz_tra_te_cre_tstart'        => 'yuz_tra_nonce',
-        'yuz_tra_te_cre_translation'   => 'yuz_int_nonce',
-        'yuz_tra_te_upd_manual'        => 'yuz_int_nonce',
-        'yuz_tra_te_upd_publish'       => 'yuz_int_nonce',
-        'yuz_save_translation'         => 'yuz_tra_nonce',
-        'yuz_translate'                => 'yuz_hvy_nonce',
-        'yuz_tra_tm_translate'         => 'yuz_hvy_nonce',
-        'yuz_tra_tm_cre_translation'   => 'yuz_int_nonce',
-        'yuz_tra_tm_cre_page'          => 'yuz_int_nonce',
-        'yuz_tra_tm_get_translations'  => 'yuz_tra_nonce',
-        'yuz_tra_tm_search'            => 'yuz_tra_nonce',
-        'yuz_tra_delete_translation'   => 'yuz_del_nonce',
-        'yuz_tra_tm_del_translation'   => 'yuz_del_nonce',
-        'yuz_ai_test_connection'       => 'yuz_api_nonce',
-        'yuz_ai_save_settings'         => 'yuz_con_nonce',
-        'yuz_ai_translate_text'        => 'yuz_int_nonce',
-        'yuz_ai_batch_translate'       => 'yuz_hvy_nonce',
-        'yuz_ai_glossary_upload'       => 'yuz_con_nonce',
-        'yuz_ai_job_status'            => 'yuz_int_nonce',
-        'yuz_tra_tm_test_api'          => 'yuz_api_nonce',
-        'yuz_tra_ws_get_languages'     => 'yuz_tra_nonce',
-        'yuz_tra_maintenance'          => 'yuz_hvy_nonce',
-        'yuz_tra_js_get_gtxtscan'      => 'yuz_log_nonce',
-        'yuz_tra_js_get_regular'       => 'yuz_tra_nonce',
-        'yuz_trace_beacon'             => 'yuz_log_nonce',
-        'yuz_tra_js_upd_database'      => 'yuz_hvy_nonce',
-        'yuz_tra_js_upd_bulkedit'      => 'yuz_hvy_nonce',
-        'yuz_tra_js_upd_auto'          => 'yuz_con_nonce',
-        'yuz_tra_js_upd_manual'        => 'yuz_int_nonce',
-        'yuz_tra_js_upd_publish'       => 'yuz_int_nonce',
+        'yuztra_get_pending_translations' => 'yuztra_int_nonce',
+        'yuztra_publish_translations'     => 'yuztra_con_nonce',
+        'yuztra_mass_publish'             => 'yuztra_con_nonce',
+        'yuztra_get_publish_review'       => 'yuztra_int_nonce',
+        'yuztra_te_cre_tstart'        => 'yuztra_nonce',
+        'yuztra_te_cre_translation'   => 'yuztra_int_nonce',
+        'yuztra_te_upd_manual'        => 'yuztra_int_nonce',
+        'yuztra_te_upd_publish'       => 'yuztra_int_nonce',
+        'yuztra_save_translation'         => 'yuztra_nonce',
+        'yuztra_translate'                => 'yuztra_hvy_nonce',
+        'yuztra_tm_translate'         => 'yuztra_hvy_nonce',
+        'yuztra_tm_cre_translation'   => 'yuztra_int_nonce',
+        'yuztra_tm_cre_page'          => 'yuztra_int_nonce',
+        'yuztra_tm_get_translations'  => 'yuztra_nonce',
+        'yuztra_tm_search'            => 'yuztra_nonce',
+        'yuztra_delete_translation'   => 'yuztra_del_nonce',
+        'yuztra_tm_del_translation'   => 'yuztra_del_nonce',
+        'yuztra_ai_test_connection'       => 'yuztra_api_nonce',
+        'yuztra_ai_save_settings'         => 'yuztra_con_nonce',
+        'yuztra_ai_translate_text'        => 'yuztra_int_nonce',
+        'yuztra_ai_batch_translate'       => 'yuztra_hvy_nonce',
+        'yuztra_ai_glossary_upload'       => 'yuztra_con_nonce',
+        'yuztra_ai_job_status'            => 'yuztra_int_nonce',
+        'yuztra_tm_test_api'          => 'yuztra_api_nonce',
+        'yuztra_ws_get_languages'     => 'yuztra_nonce',
+        'yuztra_maintenance'          => 'yuztra_hvy_nonce',
+        'yuztra_js_get_gtxtscan'      => 'yuztra_log_nonce',
+        'yuztra_js_get_regular'       => 'yuztra_nonce',
+        'yuztra_trace_beacon'             => 'yuztra_log_nonce',
+        'yuztra_js_upd_database'      => 'yuztra_hvy_nonce',
+        'yuztra_js_upd_bulkedit'      => 'yuztra_hvy_nonce',
+        'yuztra_js_upd_auto'          => 'yuztra_con_nonce',
+        'yuztra_js_upd_manual'        => 'yuztra_int_nonce',
+        'yuztra_js_upd_publish'       => 'yuztra_int_nonce',
     ];
 
     /** Shims/Compat — public pour être lisible hors classe */
@@ -511,16 +555,19 @@ final class YUZ_Assets implements AssetsInterface {
      * ====================================================================== */
     /** Centralised plugin base URL */
     public function cfg_base_url(): string {
-        if (defined('YUZ_TRA_PLUGIN_FILE')) {
-            return trailingslashit(plugin_dir_url(YUZ_TRA_PLUGIN_FILE));
+        if (defined('YUZTRA_PLUGIN_FILE')) {
+            return trailingslashit(plugin_dir_url(YUZTRA_PLUGIN_FILE));
         }
-        return trailingslashit(dirname(plugins_url('yuz-tra/yuz-tra.php')));
+        $plugin_file = defined('YUZTRA_PLUGIN_FILE')
+            ? YUZTRA_PLUGIN_FILE
+            : dirname(__DIR__) . '/yuz-tra.php';
+        return trailingslashit(plugins_url('', $plugin_file));
     }
 
     /** Centralised plugin base path */
     public function cfg_base_path(): string {
-        if (defined('YUZ_TRA_PLUGIN_FILE')) {
-            return trailingslashit(plugin_dir_path(YUZ_TRA_PLUGIN_FILE));
+        if (defined('YUZTRA_PLUGIN_FILE')) {
+            return trailingslashit(plugin_dir_path(YUZTRA_PLUGIN_FILE));
         }
         return trailingslashit(dirname(__DIR__));
     }
@@ -585,7 +632,7 @@ final class YUZ_Assets implements AssetsInterface {
     {
         if (!$this->debug_on()) { return; }
         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log(sprintf('[YUZ][%s] %s', $tag, wp_json_encode($ctx, JSON_UNESCAPED_SLASHES)));
+        yuztra_debug_log(sprintf('[YUZ][%s] %s', $tag, wp_json_encode($ctx, JSON_UNESCAPED_SLASHES)));
     }
 
     /** Deprecated helper logger */
@@ -621,12 +668,12 @@ final class YUZ_Assets implements AssetsInterface {
             $code = $this->flag_code($code);
         }
 
-        $base_url = trailingslashit(defined('YUZ_TRA_FLAGS_URL')
-            ? YUZ_TRA_FLAGS_URL
+        $base_url = trailingslashit(defined('YUZTRA_FLAGS_URL')
+            ? YUZTRA_FLAGS_URL
             : $this->cfg_asset_url('flags/'));
 
-        $base_dir = trailingslashit(defined('YUZ_TRA_ASSETS_DIR')
-            ? YUZ_TRA_ASSETS_DIR . 'flags/'
+        $base_dir = trailingslashit(defined('YUZTRA_ASSETS_DIR')
+            ? YUZTRA_ASSETS_DIR . 'flags/'
             : $this->cfg_asset_path('flags/'));
 
         $svg = $code . '.svg';
@@ -652,7 +699,7 @@ final class YUZ_Assets implements AssetsInterface {
         global $wpdb;
         $table = $wpdb->prefix . 'yuz_tra_languages';
         $rows  = (array) $wpdb->get_results(
-            "SELECT language_code, language_name, native_name, slug, browser_slug FROM `{$table}`",
+            $wpdb->prepare('SELECT language_code, language_name, native_name, slug, browser_slug FROM %i', $table),
             ARRAY_A
         );
 
@@ -667,8 +714,8 @@ final class YUZ_Assets implements AssetsInterface {
             $native = (string) ($row['native_name'] ?? '');
 
             $label = $name !== '' ? $name : $native;
-            if ($label === '' && function_exists('yuz_human_label_from_locale')) {
-                $label = (string) yuz_human_label_from_locale($code);
+            if ($label === '' && function_exists('yuztra_human_label_from_locale')) {
+                $label = (string) yuztra_human_label_from_locale($code);
             }
             if ($label === '') {
                 $label = strtoupper(str_replace('_', '-', $code));
@@ -697,8 +744,8 @@ final class YUZ_Assets implements AssetsInterface {
             return (string) $index[$code]['name'];
         }
 
-        if (function_exists('yuz_human_label_from_locale')) {
-            $fallback = (string) yuz_human_label_from_locale($code);
+        if (function_exists('yuztra_human_label_from_locale')) {
+            $fallback = (string) yuztra_human_label_from_locale($code);
             if ($fallback !== '') {
                 return $fallback;
             }
@@ -808,7 +855,8 @@ final class YUZ_Assets implements AssetsInterface {
         }
 
         if (!$nonce) {
-            $nonce = apply_filters('yuz/csp_nonce', '');
+
+            $nonce = apply_filters('yuztra/csp_nonce', '');
         }
 
         if (!$nonce && class_exists('Clar_Script_Manager') && method_exists('Clar_Script_Manager', 'get_nonce')) {
@@ -830,11 +878,11 @@ final class YUZ_Assets implements AssetsInterface {
      * Zone: Guards.Front (guard)
      * ====================================================================== */
     public function guard_is_front_edit(): bool {
-        $param  = isset($_GET['yuz-edit-translation']) && $_GET['yuz-edit-translation'] === '1'; // phpcs:ignore
-        $dbg    = isset($_GET['yuzdebug']); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-        $can_edit = class_exists('YUZ_Capabilities')
-            ? \YUZ_Capabilities::user_is_translator()
-            : ( current_user_can('manage_options') || current_user_can('yuz_translate_content') || current_user_can('edit_posts') );
+        $param  = yuztra_assets_query_text('yuz-edit-translation') === '1';
+        $dbg    = yuztra_assets_query_text('yuzdebug') !== '';
+        $can_edit = class_exists('YUZTRA_Capabilities')
+            ? \YUZTRA_Capabilities::user_is_translator()
+            : ( current_user_can('manage_options') || current_user_can('yuztra_translate_content') || current_user_can('edit_posts') );
 
         $ok = !is_admin()
             && is_user_logged_in()
@@ -854,7 +902,7 @@ final class YUZ_Assets implements AssetsInterface {
     }
 
     public function guard_is_string_editor_screen(): bool {
-        return is_admin() && isset($_GET['page']) && $_GET['page'] === 'yuz-string-translation-editor';
+        return is_admin() && yuztra_assets_query_text('page') === 'yuz-string-translation-editor';
     }
 
     public function guard_strip_legacy_string_editor(): void {
@@ -958,12 +1006,12 @@ final class YUZ_Assets implements AssetsInterface {
         $wp_scripts = function_exists('wp_scripts') ? wp_scripts() : null;
         $already_localized = false;
         if ($wp_scripts && method_exists($wp_scripts, 'get_data')) {
-            $flag = $wp_scripts->get_data($handle, 'yuz_te_localized');
+            $flag = $wp_scripts->get_data($handle, 'yuztra_te_localized');
             if ($flag) {
                 $already_localized = true;
             } else {
                 $inline = $wp_scripts->get_data($handle, 'data');
-                if (is_string($inline) && strpos($inline, 'var yuzTE') !== false) {
+                if (is_string($inline) && strpos($inline, 'var yuztraTE') !== false) {
                     $already_localized = true;
                 }
             }
@@ -972,12 +1020,12 @@ final class YUZ_Assets implements AssetsInterface {
         if (!$already_localized) {
             $payload = $this->pay_te();
             if (!empty($payload)) {
-                $this->localize($handle, 'yuzTE', $payload);
+                $this->localize($handle, 'yuztraTE', $payload);
             }
             if ($wp_scripts && method_exists($wp_scripts, 'add_data')) {
-                $wp_scripts->add_data($handle, 'yuz_te_localized', true);
+                $wp_scripts->add_data($handle, 'yuztra_te_localized', true);
             } else {
-                wp_script_add_data($handle, 'yuz_te_localized', true);
+                wp_script_add_data($handle, 'yuztra_te_localized', true);
             }
         }
     }
@@ -995,12 +1043,13 @@ final class YUZ_Assets implements AssetsInterface {
         self::add_hooks($instance);
         $instance->dbg_boot();
 
-        $GLOBALS['yuz_assets_singleton'] = $instance;
+
+        $GLOBALS['yuztra_assets_singleton'] = $instance;
     }
 
     private static function add_hooks(self $instance): void {
-        add_filter('load_script_translations', ['YUZ_String_Catalog','script_translations'], 20, 4);
-        add_filter('pre_load_script_translations', ['YUZ_String_Catalog','missing_script_translations'], 20, 4);
+        add_filter('load_script_translations', ['YUZTRA_String_Catalog','script_translations'], 20, 4);
+        add_filter('pre_load_script_translations', ['YUZTRA_String_Catalog','missing_script_translations'], 20, 4);
         add_action('admin_enqueue_scripts', [$instance, 'enqueue_admin'], 100);
         add_action('wp_enqueue_scripts',    [$instance, 'enqueue_front'], 100);
         add_action('wp_enqueue_scripts',    [$instance, 'hook_editor_assets'], 110);
@@ -1012,10 +1061,10 @@ final class YUZ_Assets implements AssetsInterface {
                 return;
             }
             $done = true;
-            if (class_exists('\YUZ\YUZ_Assets')) {
-                \YUZ\YUZ_Assets::get()->enq_editor_if_needed();
-            } elseif (class_exists('YUZ_Assets')) {
-                YUZ_Assets::get()->enq_editor_if_needed();
+            if (class_exists('\YUZ\YUZTRA_Assets')) {
+                \YUZ\YUZTRA_Assets::get()->enq_editor_if_needed();
+            } elseif (class_exists('YUZTRA_Assets')) {
+                YUZTRA_Assets::get()->enq_editor_if_needed();
             }
         }, 100);
 
@@ -1035,9 +1084,9 @@ final class YUZ_Assets implements AssetsInterface {
 
         add_action('wp_print_footer_scripts', [$instance, 'ovl_footer_state_probe'], -1);
         add_action('wp_head', [$instance, 'ovl_print_te_module_tag'], 0);
-        add_action('yuz/footer/frontend', [$instance, 'ovl_print_overlay_root'], 5);
-        add_action('yuz/footer/frontend', [$instance, 'ovl_print_te_bootstrap'], 6);
-        add_action('yuz/footer/frontend', [$instance, 'print_editor_settings_fallback'], 999);
+        add_action('yuztra/footer/frontend', [$instance, 'ovl_print_overlay_root'], 5);
+        add_action('yuztra/footer/frontend', [$instance, 'ovl_print_te_bootstrap'], 6);
+        add_action('yuztra/footer/frontend', [$instance, 'print_editor_settings_fallback'], 999);
         add_action('wp_print_footer_scripts', [$instance, 'ovl_print_overlay_root'], 0);
         add_action('wp_body_open', [$instance, 'ovl_print_overlay_root'], 1);
         add_action('admin_print_footer_scripts', [$instance, 'blk_print_missing_bundle_notice'], 999);
@@ -1110,7 +1159,7 @@ public static function bun_handle_customize_preview_init(): void {
     private function reg_register_vendors(): void {
         $this->reg_register_vendor('yuz-vue',        'vendor/vue/vue.min.js',               [], '2.7.16');
         $this->reg_register_vendor('yuz-vue-router', 'vendor/vue-router/vue-router.min.js', ['yuz-vue'], '3.5.3');
-        $this->reg_register_vendor('yuz-axios',      'vendor/axios.min.js',                 [], '1.11.0');
+        $this->reg_register_vendor('yuz-axios',      'vendor/axios.min.js',                 [], '1.20.0');
         $this->reg_register_vendor('yuz-he',         'vendor/he.min.js',                    [], '1.2.0');
     }
 
@@ -1206,7 +1255,7 @@ public static function bun_handle_customize_preview_init(): void {
         
     public function enq_editor_if_needed(): void {
         // 0) Conditions: overlay demandé + user loggé
-        if ( empty($_GET['yuz-edit-translation']) || !is_user_logged_in() ) {
+        if (yuztra_assets_query_text('yuz-edit-translation') === '' || !is_user_logged_in()) {
             return;
         }
 
@@ -1230,8 +1279,8 @@ public static function bun_handle_customize_preview_init(): void {
         }
 
         // 4) Settings = DB -> fallback options (aucune autre logique ajoutée)
-        $opt = get_option('yuz_tra_general', []);
-        $db  = (class_exists('YUZ_Languages') && method_exists('YUZ_Languages','get_all')) ? \YUZ_Languages::get_all() : [];
+        $opt = get_option('yuztra_general', []);
+        $db  = (class_exists('YUZTRA_Languages') && method_exists('YUZTRA_Languages','get_all')) ? \YUZTRA_Languages::get_all() : [];
 
         $trans = array_values(array_map(
             fn($r)=> (is_array($r) && !empty($r['language_code'])) ? $r['language_code'] : null,
@@ -1239,21 +1288,21 @@ public static function bun_handle_customize_preview_init(): void {
         ));
         $trans = array_values(array_filter($trans));
         if (!$trans) {
-            $trans = array_values((array)($opt['yuz_tra_translatable_languages'] ?? []));
+            $trans = array_values((array)($opt['yuztra_translatable_languages'] ?? []));
         }
 
         $settings = [
             'ajax_url' => $this->ajax(),
             'general'  => [
-                'yuz_tra_default_language'        => $opt['yuz_tra_default_language'] ?? null,
-                'yuz_tra_source_language'         => $opt['yuz_tra_source_language'] ?? null,
-                'yuz_tra_translatable_languages'  => $trans,
+                'yuztra_default_language'        => $opt['yuztra_default_language'] ?? null,
+                'yuztra_source_language'         => $opt['yuztra_source_language'] ?? null,
+                'yuztra_translatable_languages'  => $trans,
             ],
         ];
 
         // 5) Localiser sur la DÉPENDANCE (yuz-assets) → garantit l'ordre
         if ( wp_script_is('yuz-assets', 'enqueued') ) {
-            wp_localize_script('yuz-assets', 'yuzTraSettings', $settings);
+            wp_localize_script('yuz-assets', 'yuztraSettings', $settings);
         }
 
         // 6) CSP : ajoute le nonce sur ces scripts (respecte ton système)
@@ -1278,7 +1327,7 @@ public static function bun_handle_customize_preview_init(): void {
                 'enq_assets'  => wp_script_is('yuz-assets','enqueued') ? 1 : 0,
                 'enq_editor'  => wp_script_is('yuz-translation-editor','enqueued') ? 1 : 0,
                 'has_loc'     => 1,
-                'langs_count' => count($settings['general']['yuz_tra_translatable_languages']),
+                'langs_count' => count($settings['general']['yuztra_translatable_languages']),
             ]);
         }
     }
@@ -1297,7 +1346,7 @@ public static function bun_handle_customize_preview_init(): void {
         // The catalog is a standalone admin screen, not the legacy visual editor.
         // Do not boot two competing interfaces (Vue, overlays and selection tools).
         if ($tab === 'strings' || $this->guard_is_string_editor_screen()) {
-            $this->localize('yuz-strings-dock', 'yuzStrings', $this->pay_strings());
+            $this->localize('yuz-strings-dock', 'yuztraStrings', $this->pay_strings());
             $this->enqueue_script('yuz-strings-dock');
             $this->enqueue_style('yuz-strings-dock');
             return;
@@ -1307,14 +1356,14 @@ public static function bun_handle_customize_preview_init(): void {
 
         if ($this->is_script_ready('yuz-assets')) {
             $this->prepare_transverse('yuz-assets');
-            $this->localize('yuz-assets', 'yuzAS', $this->pay_js_settings());
+            $this->localize('yuz-assets', 'yuztraAS', $this->pay_js_settings());
             $this->enqueue_script('yuz-assets');
         }
 
         if ($tab === 'general') {
             wp_enqueue_script('jquery-ui-sortable');
             if ($this->is_script_ready('yuz-general-settings')) {
-                $this->localize('yuz-general-settings', 'yuzGS', $this->pay_general());
+                $this->localize('yuz-general-settings', 'yuztraGS', $this->pay_general());
                 $this->enqueue_script('yuz-general-settings');
             }
             $this->enqueue_style('yuz-general-settings');
@@ -1331,7 +1380,7 @@ public static function bun_handle_customize_preview_init(): void {
             }
 
             if ($this->is_script_ready('yuz-translation-site')) {
-                $this->localize('yuz-translation-site', 'yuzTS', $this->pay_ts());
+                $this->localize('yuz-translation-site', 'yuztraTS', $this->pay_ts());
                 $this->enqueue_script('yuz-translation-site');
                 // Fallback inline bootstrap (CSP-safe via nonce/hash) if wp_localize_script is blocked
                 add_action('admin_print_footer_scripts', function () {
@@ -1344,7 +1393,7 @@ public static function bun_handle_customize_preview_init(): void {
                     if ($nonce) {
                         $attrs['nonce'] = $nonce;
                     }
-                    $script = "(function(w){try{if(!w.yuzTS||!w.yuzTS.ajax_url){w.yuzTS=" . $json . ";console.log('[YUZ][SITE] inline bootstrap yuzTS', {nonceKeys:Object.keys(w.yuzTS.nonces||{})});}}catch(e){console.error('[YUZ][SITE] inline bootstrap failed', e);}})(window);";
+                    $script = "(function(w){try{if(!w.yuztraTS||!w.yuztraTS.ajax_url){w.yuztraTS=" . $json . ";console.log('[YUZ][SITE] inline bootstrap yuztraTS', {nonceKeys:Object.keys(w.yuztraTS.nonces||{})});}}catch(e){console.error('[YUZ][SITE] inline bootstrap failed', e);}})(window);";
                     // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_inline_script_tag returns a safely generated script tag.
                     echo "\n" . wp_get_inline_script_tag($script, $attrs) . "\n";
                 }, 5);
@@ -1354,13 +1403,13 @@ public static function bun_handle_customize_preview_init(): void {
             }
         } elseif ($tab === 'automatic-translation') {
             if ($this->is_script_ready('yuz-automatic-translation')) {
-                $this->localize('yuz-automatic-translation', 'yuzAT', $this->pay_automatic_translation());
+                $this->localize('yuz-automatic-translation', 'yuztraAT', $this->pay_automatic_translation());
                 $this->enqueue_script('yuz-automatic-translation');
             }
             $this->enqueue_style('yuz-general-settings');
         } elseif ($tab === 'strings') {
             if ($this->is_script_ready('yuz-strings-dock')) {
-                $this->localize('yuz-strings-dock', 'yuzStrings', $this->pay_strings());
+                $this->localize('yuz-strings-dock', 'yuztraStrings', $this->pay_strings());
                 $this->enqueue_script('yuz-strings-dock');
             }
             $this->enqueue_style('yuz-strings-dock');
@@ -1375,25 +1424,25 @@ public static function bun_handle_customize_preview_init(): void {
             $engine_handle = $this->is_script_ready('yuz-translation-engine') ? 'yuz-translation-engine' : 'yuz-dom-watch';
             if ($engine_handle && $this->is_script_ready($engine_handle)) {
                 $this->prepare_transverse($engine_handle);
-                $this->localize($engine_handle, 'yuzJS', $this->pay_dom_watch());
+                $this->localize($engine_handle, 'yuztraJS', $this->pay_dom_watch());
                 $this->enqueue_script($engine_handle);
             }
             $this->enqueue_style('yuz-general-settings');
         } elseif ($tab === 'ad') {
             if ($this->is_script_ready('yuz-addons-js')) {
-                $this->localize('yuz-addons-js', 'yuzAO', $this->pay_addons());
+                $this->localize('yuz-addons-js', 'yuztraAO', $this->pay_addons());
                 $this->enqueue_script('yuz-addons-js');
             }
             $this->enqueue_style('yuz-general-settings');
         } elseif ($tab === 'licenses') {
             if ($this->is_script_ready('yuz-licenses')) {
-                $this->localize('yuz-licenses', 'yuzLC', $this->pay_licenses());
+                $this->localize('yuz-licenses', 'yuztraLC', $this->pay_licenses());
                 $this->enqueue_script('yuz-licenses');
             }
             $this->enqueue_style('yuz-general-settings');
         } elseif ($tab === 'ai-translation') {
             if ($this->is_script_ready('yuz-ai-translation')) {
-                $this->localize('yuz-ai-translation', 'yuzAI', $this->pay_ai());
+                $this->localize('yuz-ai-translation', 'yuztraAI', $this->pay_ai());
                 $this->enqueue_script('yuz-ai-translation');
             }
             $this->enqueue_style('yuz-general-settings');
@@ -1403,7 +1452,7 @@ public static function bun_handle_customize_preview_init(): void {
 
         if ($tab === 'translate-site') {
             if ($this->is_script_ready('yuz-admin-bar')) {
-                $this->localize('yuz-admin-bar', 'yuzAB', $this->pay_admin_bar());
+                $this->localize('yuz-admin-bar', 'yuztraAB', $this->pay_admin_bar());
                 $this->enqueue_script('yuz-admin-bar');
             }
         } else {
@@ -1424,11 +1473,11 @@ public static function bun_handle_customize_preview_init(): void {
             return;
         }
 
-        $base_url = defined('YUZ_TRA_PLUGIN_FILE')
-            ? trailingslashit(plugins_url('assets/js/', YUZ_TRA_PLUGIN_FILE))
-            : trailingslashit(plugins_url('yuz-tra/assets/js/'));
-        $base_path = defined('YUZ_TRA_PLUGIN_FILE')
-            ? trailingslashit(plugin_dir_path(YUZ_TRA_PLUGIN_FILE) . 'assets/js')
+        $base_url = defined('YUZTRA_PLUGIN_FILE')
+            ? trailingslashit(plugins_url('assets/js/', YUZTRA_PLUGIN_FILE))
+            : trailingslashit(plugins_url('assets/js/', dirname(__DIR__) . '/yuz-tra.php'));
+        $base_path = defined('YUZTRA_PLUGIN_FILE')
+            ? trailingslashit(plugin_dir_path(YUZTRA_PLUGIN_FILE) . 'assets/js')
             : trailingslashit(dirname(__FILE__, 2) . '/assets/js');
 
         $modules = [
@@ -1440,7 +1489,7 @@ public static function bun_handle_customize_preview_init(): void {
          foreach ($modules as $handle => $file) {
             $absolute = $base_path . $file;
             if (!file_exists($absolute)) {
-                error_log("[YUZ_TRA] Module manquant : {$file}");
+                yuztra_debug_log("[YUZTRA_TRA] Module manquant : {$file}");
                 continue;
             }
             wp_register_script(
@@ -1465,7 +1514,7 @@ public static function bun_handle_customize_preview_init(): void {
 
     if ($this->is_script_ready('yuz-translation-engine')) {
         // Localisation idempotente des settings
-        try { $this->localize('yuz-translation-engine', 'yuzTraSettings', $this->build_frontend_settings()); } catch (\Throwable $e) {}
+        try { $this->localize('yuz-translation-engine', 'yuztraSettings', $this->build_frontend_settings()); } catch (\Throwable $e) {}
         // Transverses éventuels (ajax/nonces, etc.)
         try { $this->prepare_transverse('yuz-translation-engine'); } catch (\Throwable $e) {}
         wp_enqueue_script('yuz-translation-engine');
@@ -1480,7 +1529,7 @@ private function enqueue_dom_v8_engine(): void
     if ($done) return;
 
     if ($this->is_script_ready('yuz-translation-engine')) {
-        try { $this->localize('yuz-translation-engine', 'yuzTraSettings', $this->build_frontend_settings()); } catch (\Throwable $e) {}
+        try { $this->localize('yuz-translation-engine', 'yuztraSettings', $this->build_frontend_settings()); } catch (\Throwable $e) {}
         try { $this->prepare_transverse('yuz-translation-engine'); } catch (\Throwable $e) {}
         wp_enqueue_script('yuz-translation-engine');
     }
@@ -1493,22 +1542,22 @@ private function enqueue_dom_v8_engine(): void
         if (!is_user_logged_in()) {
             return;
         }
-        if (empty($_GET['yuz-edit-translation'])) {
+        if (yuztra_assets_query_text('yuz-edit-translation') === '') {
             return;
         }
 
-        $ver  = defined('YUZ_TRA_VERSION') ? YUZ_TRA_VERSION : time();
-        $base = defined('YUZ_TRA_PLUGIN_FILE')
-            ? plugins_url('assets/js/', YUZ_TRA_PLUGIN_FILE)
-            : plugins_url('yuz-tra/assets/js/');
+        $ver  = defined('YUZTRA_VERSION') ? YUZTRA_VERSION : time();
+        $base = defined('YUZTRA_PLUGIN_FILE')
+            ? plugins_url('assets/js/', YUZTRA_PLUGIN_FILE)
+            : plugins_url('assets/js/', dirname(__DIR__) . '/yuz-tra.php');
 
         $base_js = trailingslashit($base);
         wp_register_script('yuz-editor-shim', $base_js . 'fix/yuz-editor-shim.js', [], $ver, true);
         wp_register_script('yuz-translation-editor', $base_js . 'widgets/yuz-translation-editor.js', ['yuz-editor-shim'], $ver, true);
         wp_script_add_data('yuz-translation-editor', 'type', 'module');
         $integrity = null;
-        if (defined('YUZ_TRA_SRI_HASH') && YUZ_TRA_SRI_HASH) {
-            $integrity = YUZ_TRA_SRI_HASH;
+        if (defined('YUZTRA_SRI_HASH') && YUZTRA_SRI_HASH) {
+            $integrity = YUZTRA_SRI_HASH;
         } else {
             $integrity = $this->asset_sri('js/widgets/yuz-translation-editor.js');
         }
@@ -1522,12 +1571,11 @@ private function enqueue_dom_v8_engine(): void
         wp_enqueue_script('yuz-translation-editor');
         wp_enqueue_script('yuz-inspector');
 
-        $can_edit = class_exists('YUZ_Capabilities')
-            ? \YUZ_Capabilities::user_is_translator()
-            : ( current_user_can('manage_options') || current_user_can('yuz_translate_content') );
-        if (class_exists('YUZ_Logger')) {
-            (new \YUZ_Logger())->log('info', 'YUZ editor enqueue guard', [
-                'param'         => isset($_GET['yuz-edit-translation']) ? $_GET['yuz-edit-translation'] : '(none)', // phpcs:ignore
+        $can_edit = class_exists('YUZTRA_Capabilities')
+            ? \YUZTRA_Capabilities::user_is_translator()
+            : ( current_user_can('manage_options') || current_user_can('yuztra_translate_content') );
+        if (class_exists('YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('info', 'YUZ editor enqueue guard', [
                 'user_id'       => get_current_user_id(),
                 'roles'         => function_exists('wp_get_current_user') ? (wp_get_current_user()->roles ?? []) : [],
                 'can_edit'      => $can_edit,
@@ -1539,7 +1587,7 @@ private function enqueue_dom_v8_engine(): void
         if ($params !== false) {
             wp_add_inline_script(
                 'yuz-translation-editor',
-                'window.YUZ_PARAMS = window.YUZ_PARAMS || ' . $params . ';',
+                'window.YUZTRA_PARAMS = window.YUZTRA_PARAMS || ' . $params . ';',
                 'before'
             );
         }
@@ -1548,10 +1596,10 @@ private function enqueue_dom_v8_engine(): void
         if (!empty($settings['permissions'])) {
             $perms = wp_json_encode($settings['permissions']);
             if ($perms !== false) {
-                wp_add_inline_script('yuz-editor-shim', 'window.yuzPermissions = ' . $perms . ';', 'before');
+                wp_add_inline_script('yuz-editor-shim', 'window.yuztraPermissions = ' . $perms . ';', 'before');
                 wp_add_inline_script(
                     'yuz-editor-shim',
-                    'if (typeof window !== "undefined" && window.yuzPermissions && !window.__YUZ_PERM_LOGGED__) { try { console.log("YUZ PERM:", window.yuzPermissions); } catch (e) {} window.__YUZ_PERM_LOGGED__ = true; }',
+                    'if (typeof window !== "undefined" && window.yuztraPermissions && !window.__YUZ_PERM_LOGGED__) { try { console.log("YUZ PERM:", window.yuztraPermissions); } catch (e) {} window.__YUZ_PERM_LOGGED__ = true; }',
                     'after'
                 );
             }
@@ -1559,7 +1607,7 @@ private function enqueue_dom_v8_engine(): void
         if (defined('WP_DEBUG') && WP_DEBUG) {
             $langs = isset($settings['translation_langs']) && is_array($settings['translation_langs']) ? $settings['translation_langs'] : [];
             $meta  = isset($settings['language_meta']) && is_array($settings['language_meta']) ? $settings['language_meta'] : [];
-            error_log(
+            yuztra_debug_log(
                 sprintf(
                     '[YUZ][front_enqueue_editor] langs_count=%d meta_keys=%s',
                     count($langs),
@@ -1567,7 +1615,7 @@ private function enqueue_dom_v8_engine(): void
                 )
             );
         }
-        wp_localize_script('yuz-editor-shim', 'yuzTraSettings', $settings);
+        wp_localize_script('yuz-editor-shim', 'yuztraSettings', $settings);
 
         $nonce = $this->sec_csp_nonce();
         if (!$nonce && function_exists('clar_get_current_nonce')) {
@@ -1588,7 +1636,7 @@ private function enqueue_dom_v8_engine(): void
     }
 
     public function print_editor_settings_fallback(): void {
-        if (empty($_GET['yuz-edit-translation']) || !is_user_logged_in()) {
+        if (yuztra_assets_query_text('yuz-edit-translation') === '' || !is_user_logged_in()) {
             return;
         }
         if (wp_script_is('yuz-translation-editor', 'enqueued')) {
@@ -1615,7 +1663,7 @@ private function enqueue_dom_v8_engine(): void
             $attrs['nonce'] = $nonce;
         }
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_get_inline_script_tag returns a safely generated script tag.
-        echo wp_get_inline_script_tag('window.yuzTraSettings=' . $json . ';', $attrs) . PHP_EOL;
+        echo wp_get_inline_script_tag('window.yuztraSettings=' . $json . ';', $attrs) . PHP_EOL;
     }
 
     private function build_editor_settings_payload(): array {
@@ -1623,14 +1671,14 @@ private function enqueue_dom_v8_engine(): void
             return $this->editor_settings_payload;
         }
 
-        $opt_general = get_option('yuz_tra_general', []);
+        $opt_general = get_option('yuztra_general', []);
         $opt_general = is_array($opt_general) ? $opt_general : [];
         $lang_cfg = $this->language_runtime_config();
 
         $payload = [];
-        if (class_exists('YUZ_Translation_Manager') && method_exists('YUZ_Translation_Manager', 'get_langs_payload')) {
+        if (class_exists('YUZTRA_Translation_Manager') && method_exists('YUZTRA_Translation_Manager', 'get_langs_payload')) {
             try {
-                $payload = \YUZ_Translation_Manager::get_langs_payload();
+                $payload = \YUZTRA_Translation_Manager::get_langs_payload();
             } catch (\Throwable $e) {
                 $payload = [];
             }
@@ -1662,10 +1710,10 @@ private function enqueue_dom_v8_engine(): void
         }
         $language_meta = $normalized_meta;
 
-        if (empty($translation_langs) && !empty($opt_general['yuz_tra_translatable_languages'])) {
+        if (empty($translation_langs) && !empty($opt_general['yuztra_translatable_languages'])) {
             $translation_langs = array_values(
                 array_filter(
-                    array_map([$this, 'normalize_locale_code'], (array) $opt_general['yuz_tra_translatable_languages']),
+                    array_map([$this, 'normalize_locale_code'], (array) $opt_general['yuztra_translatable_languages']),
                     static fn ($code) => $code !== ''
                 )
             );
@@ -1691,7 +1739,8 @@ private function enqueue_dom_v8_engine(): void
         }
         unset($meta);
 
-        $rest_root = function_exists('rest_url') ? trailingslashit(rest_url()) : home_url('/wp-json/');
+        // rest_url() couvre les prefixes REST personnalises ; aucun repli code en dur.
+        $rest_root = trailingslashit(rest_url());
 
         $nonce_registry = [];
         foreach (self::OFFICIAL_NONCES as $nonce_key) {
@@ -1711,20 +1760,20 @@ private function enqueue_dom_v8_engine(): void
             'from_options'      => (array) $lang_cfg['from_options'],
             'default_target'    => (string) $lang_cfg['default_target'],
             'general' => [
-                'yuz_tra_default_language'       => $default_language,
-                'yuz_tra_source_language'        => $source_language,
-                'yuz_tra_translatable_languages' => $translation_langs,
+                'yuztra_default_language'       => $default_language,
+                'yuztra_source_language'        => $source_language,
+                'yuztra_translatable_languages' => $translation_langs,
             ],
             'settings' => [
                 'general' => [
-                    'yuz_tra_translatable_languages' => $translation_langs,
+                    'yuztra_translatable_languages' => $translation_langs,
                 ],
             ],
             'lang_index' => $this->lang_index(),
             'from_choices' => $this->lang_choices((array) $lang_cfg['from_options']),
             'to_choices'   => $this->lang_choices($translation_langs),
-            'permissions' => (class_exists('YUZ_Capabilities') && method_exists('YUZ_Capabilities', 'permissions_payload'))
-                ? \YUZ_Capabilities::permissions_payload()
+            'permissions' => (class_exists('YUZTRA_Capabilities') && method_exists('YUZTRA_Capabilities', 'permissions_payload'))
+                ? \YUZTRA_Capabilities::permissions_payload()
                 : [],
         ];
 
@@ -1737,7 +1786,7 @@ private function enqueue_dom_v8_engine(): void
  * ====================================================================== */
 public function enqueue_front(): void {
 
-    $ver = defined('YUZ_TRANSLATION_VERSION') ? YUZ_TRANSLATION_VERSION : time();
+    $ver = defined('YUZTRA_TRANSLATION_VERSION') ? YUZTRA_TRANSLATION_VERSION : time();
     $base_url = plugin_dir_url(__FILE__) . '../assets/';
 
     // ------------------------------------------------------------
@@ -1765,14 +1814,14 @@ public function enqueue_front(): void {
         );
     }
 
-    $cap_source = class_exists('YUZ_Capabilities') ? 'cap_class' : 'wp_caps';
-    $can_review = class_exists('YUZ_Capabilities')
-        ? \YUZ_Capabilities::user_can_publish()
-        : ( current_user_can('manage_options') || current_user_can('yuz_translate_content') );
+    $cap_source = class_exists('YUZTRA_Capabilities') ? 'cap_class' : 'wp_caps';
+    $can_review = class_exists('YUZTRA_Capabilities')
+        ? \YUZTRA_Capabilities::user_can_publish()
+        : ( current_user_can('manage_options') || current_user_can('yuztra_translate_content') );
 
     if (defined('WP_DEBUG') && WP_DEBUG) {
         try {
-            error_log('[YUZ][enqueue_front] reviewer capability check: ' . wp_json_encode([
+            yuztra_debug_log('[YUZ][enqueue_front] reviewer capability check: ' . wp_json_encode([
                 'can_review' => $can_review,
                 'source'     => $cap_source,
                 'is_admin'   => is_admin(),
@@ -1786,20 +1835,20 @@ public function enqueue_front(): void {
         $this->ensure_review_dock_style_filter();
         wp_enqueue_style($review_style);
         if (wp_script_is($review_script, 'registered')) {
-            if (defined('WP_DEBUG') && WP_DEBUG && class_exists('YUZ_Capabilities') && method_exists('YUZ_Capabilities', 'permissions_payload')) {
+            if (defined('WP_DEBUG') && WP_DEBUG && class_exists('YUZTRA_Capabilities') && method_exists('YUZTRA_Capabilities', 'permissions_payload')) {
                 try {
-                    error_log(wp_json_encode(\YUZ_Capabilities::permissions_payload()));
+                    yuztra_debug_log(wp_json_encode(\YUZTRA_Capabilities::permissions_payload()));
                 } catch (\Throwable $ignored) {}
             }
             $settings = $this->build_editor_settings_payload();
-            wp_localize_script($review_script, 'yuzTraSettings', $settings);
+            wp_localize_script($review_script, 'yuztraSettings', $settings);
             if (!empty($settings['permissions'])) {
                 $perms = wp_json_encode($settings['permissions']);
                 if ($perms !== false) {
-                    wp_add_inline_script($review_script, 'window.yuzPermissions = ' . $perms . ';', 'before');
+                    wp_add_inline_script($review_script, 'window.yuztraPermissions = ' . $perms . ';', 'before');
                     wp_add_inline_script(
                         $review_script,
-                        'if (typeof window !== "undefined" && window.yuzPermissions && !window.__YUZ_PERM_LOGGED__) { try { console.log("YUZ PERM:", window.yuzPermissions); } catch (e) {} window.__YUZ_PERM_LOGGED__ = true; }',
+                        'if (typeof window !== "undefined" && window.yuztraPermissions && !window.__YUZ_PERM_LOGGED__) { try { console.log("YUZ PERM:", window.yuztraPermissions); } catch (e) {} window.__YUZ_PERM_LOGGED__ = true; }',
                         'after'
                     );
                 }
@@ -1808,17 +1857,18 @@ public function enqueue_front(): void {
         }
     } elseif (defined('WP_DEBUG') && WP_DEBUG) {
         try {
-            error_log('[YUZ][enqueue_front] reviewer assets not enqueued (missing capability).');
-            if (class_exists('YUZ_Capabilities') && method_exists('YUZ_Capabilities', 'permissions_payload')) {
-                $perms_payload = (array) \YUZ_Capabilities::permissions_payload();
-                do_action('yuz/front_permissions_payload', $perms_payload, [
+            yuztra_debug_log('[YUZ][enqueue_front] reviewer assets not enqueued (missing capability).');
+            if (class_exists('YUZTRA_Capabilities') && method_exists('YUZTRA_Capabilities', 'permissions_payload')) {
+                $perms_payload = (array) \YUZTRA_Capabilities::permissions_payload();
+
+                do_action('yuztra/front_permissions_payload', $perms_payload, [
                     'can_review' => false,
                     'source'     => $cap_source,
                     'user_id'    => function_exists('get_current_user_id') ? get_current_user_id() : 0,
                 ]);
                 $encoded = wp_json_encode($perms_payload);
                 if ($encoded !== false) {
-                    error_log('[YUZ][enqueue_front] front permissions payload ' . $encoded);
+                    yuztra_debug_log('[YUZ][enqueue_front] front permissions payload ' . $encoded);
                 }
             }
         } catch (\Throwable $ignored) {}
@@ -1827,32 +1877,33 @@ public function enqueue_front(): void {
     // ------------------------------------------------------------
     // Language context
     // ------------------------------------------------------------
-    $ws = (array) get_option('yuz_tra_ws_settings', []);
-    $ls = (array) get_option('yuz_tra_ls_settings', []);
-    $sw = (array) get_option('yuz_tra_sw_settings', []);
+    $ws = (array) get_option('yuztra_ws_settings', []);
+    $ls = (array) get_option('yuztra_ls_settings', []);
+    $sw = (array) get_option('yuztra_sw_settings', []);
 
-    $default_lang = (string) ($ws['yuz_tra_default_language'] ?? '');
-    $source_lang  = (string) ($ws['yuz_tra_source_language'] ?? '');
-    $codes        = (array) ($ws['yuz_tra_code'] ?? $ws['yuz_tra_translatable_languages'] ?? []);
+    $default_lang = (string) ($ws['yuztra_default_language'] ?? '');
+    $source_lang  = (string) ($ws['yuztra_source_language'] ?? '');
+    $codes        = (array) ($ws['yuztra_code'] ?? $ws['yuztra_translatable_languages'] ?? []);
 
     $site_locale  = function_exists('get_locale') ? (string) get_locale() : 'en_US';
     if ($default_lang === '') { $default_lang = $site_locale; }
     if ($source_lang  === '') { $source_lang  = $default_lang; }
 
-    $current_lang = apply_filters('yuz_current_language', $site_locale);
 
-    $language_meta = (class_exists('YUZ_Language') && method_exists('YUZ_Language', 'get_all_meta'))
-        ? (array) YUZ_Language::get_all_meta()
+    $current_lang = apply_filters('yuztra_current_language', $site_locale);
+
+    $language_meta = (class_exists('YUZTRA_Language') && method_exists('YUZTRA_Language', 'get_all_meta'))
+        ? (array) YUZTRA_Language::get_all_meta()
         : [];
 
-    if (class_exists('YUZ_Translation_Manager') && method_exists('YUZ_Translation_Manager', 'init')) {
-        YUZ_Translation_Manager::init();
+    if (class_exists('YUZTRA_Translation_Manager') && method_exists('YUZTRA_Translation_Manager', 'init')) {
+        YUZTRA_Translation_Manager::init();
     }
 
     $translations = [];
-    if (class_exists('YUZ_Translation_Manager') &&
-        method_exists('YUZ_Translation_Manager', 'get_frontend_translations')) {
-        $translations = (array) YUZ_Translation_Manager::get_frontend_translations();
+    if (class_exists('YUZTRA_Translation_Manager') &&
+        method_exists('YUZTRA_Translation_Manager', 'get_frontend_translations')) {
+        $translations = (array) YUZTRA_Translation_Manager::get_frontend_translations();
     }
 
     foreach ($translations as $code => &$entry) {
@@ -1916,17 +1967,17 @@ public function enqueue_front(): void {
                 'show_poweredby'    => !empty($sw['show_poweredby']),
             ];
 
-            if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-                error_log('[YUZ_TRA][LOCALIZE] ' . wp_json_encode([
+            if (defined('YUZTRA_DEBUG_FRONT') && YUZTRA_DEBUG_FRONT) {
+                yuztra_debug_log('[YUZTRA_TRA][LOCALIZE] ' . wp_json_encode([
                     'handle'            => $engine_handle,
-                    'request_uri'       => $_SERVER['REQUEST_URI'] ?? '',
+                    'request_uri'       => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'has_settings'      => !empty($settings),
                     'keys'              => array_keys($settings ?? []),
                     'translations_keys' => array_keys($settings['translations'] ?? []),
                 ]));
             }
 
-            wp_localize_script($engine_handle, 'yuzTraSettings', $settings);
+            wp_localize_script($engine_handle, 'yuztraSettings', $settings);
             wp_enqueue_script($engine_handle);
         }
     }
@@ -1938,14 +1989,14 @@ public function enqueue_front(): void {
     $cfg = is_array($cfg) ? $cfg : [];
     $sw  = is_array($cfg['switcher'] ?? []) ? $cfg['switcher'] : [];
 
-    $has_shortcode = function_exists('shortcode_exists') && shortcode_exists('yuz_language_switcher');
-    $has_block     = function_exists('has_block') && has_block('yuz/language-switcher');
+    $has_shortcode = function_exists('shortcode_exists') && shortcode_exists('yuztra_language_switcher');
+    $has_block     = function_exists('has_block') && has_block('yuztra/language-switcher');
 
-    $need = !empty($sw['yuz_shortcode_enabled'])
-         || !empty($sw['yuz_floating_enabled'])
-         || !empty($sw['yuz_menu_enabled'])
+    $need = !empty($sw['yuztra_shortcode_enabled'])
+         || !empty($sw['yuztra_floating_enabled'])
+         || !empty($sw['yuztra_menu_enabled'])
          || $has_shortcode || $has_block
-         || isset($_GET['yuz-edit-translation']);
+         || yuztra_assets_query_text('yuz-edit-translation') !== '';
 
     if (!$need) {
         return;
@@ -1953,25 +2004,25 @@ public function enqueue_front(): void {
 
         if ($this->is_script_ready('yuz-assets')) {
             $this->prepare_transverse('yuz-assets');
-            $this->localize('yuz-assets', 'yuzAS', $this->pay_js_settings());
+            $this->localize('yuz-assets', 'yuztraAS', $this->pay_js_settings());
             $this->enqueue_script('yuz-assets');
         }
 
     if ($this->is_script_ready('yuz-language-switcher')) {
-        $this->localize('yuz-language-switcher', 'yuzSW', $this->pay_switcher());
+        $this->localize('yuz-language-switcher', 'yuztraSW', $this->pay_switcher());
         $this->enqueue_script('yuz-language-switcher');
         $this->enqueue_style('yuz-language-switcher');
     }
 
-    $can_edit = class_exists('YUZ_Capabilities')
-        ? \YUZ_Capabilities::user_is_translator()
-        : ( current_user_can('manage_options') || current_user_can('yuz_translate_content') );
+    $can_edit = class_exists('YUZTRA_Capabilities')
+        ? \YUZTRA_Capabilities::user_is_translator()
+        : ( current_user_can('manage_options') || current_user_can('yuztra_translate_content') );
     $can_edit = is_user_logged_in() && $can_edit;
 
-    if (isset($_GET['yuz-edit-translation']) && $can_edit) {
+    if (yuztra_assets_query_text('yuz-edit-translation') !== '' && $can_edit) {
         if (defined('WP_DEBUG') && WP_DEBUG) {
             try {
-                error_log('[YUZ][front_edit] enqueue editor stack (can_edit=' . ($can_edit ? '1' : '0') . ', user=' . get_current_user_id() . ')');
+                yuztra_debug_log('[YUZ][front_edit] enqueue editor stack (can_edit=' . ($can_edit ? '1' : '0') . ', user=' . get_current_user_id() . ')');
             } catch (\Throwable $ignored) {}
         }
         $this->enqueue_script('yuz-vue');
@@ -1985,15 +2036,15 @@ public function enqueue_front(): void {
             }
 
         if ($this->is_script_ready('yuz-translation-site')) {
-            $this->localize('yuz-translation-site', 'yuzTS', $this->pay_ts());
+            $this->localize('yuz-translation-site', 'yuztraTS', $this->pay_ts());
             $this->enqueue_script('yuz-translation-site');
         }
 
-        $force_mini = isset($_GET['yuz-mini']) && current_user_can('edit_posts');
+        $force_mini = yuztra_assets_query_text('yuz-mini') !== '' && current_user_can('edit_posts');
 
         if (!$force_mini) {
             if ($this->is_script_ready('yuz-strings-dock')) {
-                $this->localize('yuz-strings-dock', 'yuzStrings', $this->pay_strings());
+                $this->localize('yuz-strings-dock', 'yuztraStrings', $this->pay_strings());
                 $this->enqueue_script('yuz-strings-dock');
             }
             $this->enqueue_style('yuz-strings-dock');
@@ -2006,13 +2057,13 @@ public function enqueue_front(): void {
             if ($this->is_script_ready('yuz-translation-editor')) {
                 // Inject minimal yzTraSettings for editor in case upstream bundles skipped it.
                 $this->prepare_transverse('yuz-translation-editor');
-                wp_localize_script('yuz-translation-editor', 'yuzTraSettings', $this->pay_transverse_min());
-                $this->localize('yuz-translation-editor', 'yuzTE', $this->pay_te());
+                wp_localize_script('yuz-translation-editor', 'yuztraSettings', $this->pay_transverse_min());
+                $this->localize('yuz-translation-editor', 'yuztraTE', $this->pay_te());
                 $this->enqueue_style('yuz-translation-editor');
                 $this->enqueue_script('yuz-translation-editor');
                 if (defined('WP_DEBUG') && WP_DEBUG) {
                     try {
-                        error_log('[YUZ][front_edit] enqueued yuz-translation-editor + style');
+                        yuztra_debug_log('[YUZ][front_edit] enqueued yuz-translation-editor + style');
                     } catch (\Throwable $ignored) {}
                 }
             }
@@ -2022,14 +2073,14 @@ public function enqueue_front(): void {
         } else {
             if ($this->is_script_ready('yuz-string-editor')) {
                 $this->prepare_transverse('yuz-string-editor');
-                $this->localize('yuz-string-editor', 'yuzSE', $this->pay_js_settings());
-                $this->localize('yuz-string-editor', 'yuzTE', $this->pay_te());
+                $this->localize('yuz-string-editor', 'yuztraSE', $this->pay_js_settings());
+                $this->localize('yuz-string-editor', 'yuztraTE', $this->pay_te());
                 $this->enqueue_script('yuz-string-editor');
             }
         }
 
         if ($this->is_script_ready('yuz-admin-bar')) {
-            $this->localize('yuz-admin-bar', 'yuzAB', $this->pay_admin_bar());
+            $this->localize('yuz-admin-bar', 'yuztraAB', $this->pay_admin_bar());
             $this->enqueue_script('yuz-admin-bar');
         }
     } else {
@@ -2041,9 +2092,9 @@ public function enqueue_front(): void {
         if (function_exists('has_shortcode')) {
             $pid = function_exists('get_queried_object_id') ? (int) get_queried_object_id() : 0;
             $content = $pid ? (string) get_post_field('post_content', $pid) : '';
-            $has_modal_shortcode = $content && has_shortcode($content, 'yuz_modal');
+            $has_modal_shortcode = $content && has_shortcode($content, 'yuztra_modal');
         }
-        $has_modal_block = function_exists('has_block') && has_block('yuz/mod-modal');
+        $has_modal_block = function_exists('has_block') && has_block('yuztra/mod-modal');
         $modal_registry  = class_exists('\\YUZ\\Modals\\Plugin')
             ? (array) \YUZ\Modals\Plugin::instance()->get_modals()
             : [];
@@ -2061,10 +2112,10 @@ public function enqueue_front(): void {
     self::inject_flags_css_root_var_static();
 
     if (wp_script_is('yuz-translate', 'registered')) {
-        wp_localize_script('yuz-translate', 'yuzTraSettings', YUZ_Translation_Manager::build_frontend_settings());
+        wp_localize_script('yuz-translate', 'yuztraSettings', YUZTRA_Translation_Manager::build_frontend_settings());
         wp_enqueue_script('yuz-translate');
     } elseif (wp_script_is('yuz-publish-controller', 'registered')) {
-        wp_localize_script('yuz-publish-controller', 'yuzTraSettings', YUZ_Translation_Manager::build_frontend_settings());
+        wp_localize_script('yuz-publish-controller', 'yuztraSettings', YUZTRA_Translation_Manager::build_frontend_settings());
         wp_enqueue_script('yuz-publish-controller');
     }
 }
@@ -2080,7 +2131,7 @@ public function enqueue_front(): void {
         global $post;
         $url = $post ? get_permalink($post) : home_url('/');
         if ($this->inline_allowed()) {
-            wp_localize_script('yuz-gutenberg-editor','yuzGB',['url_to_load'=>esc_url($url)]);
+            wp_localize_script('yuz-gutenberg-editor','yuztraGB',['url_to_load'=>esc_url($url)]);
         }
         $this->enqueue_script('yuz-gutenberg-editor');
         if (function_exists('wp_set_script_translations')) {
@@ -2108,7 +2159,7 @@ public function enqueue_front(): void {
         if (file_exists($umd_abs)) {
             if ($this->is_script_ready('yuz-string-translation-editor-umd')) {
                 $this->prepare_transverse('yuz-string-translation-editor-umd');
-                $this->localize('yuz-string-translation-editor-umd', 'yuzSE', $payload);
+                $this->localize('yuz-string-translation-editor-umd', 'yuztraSE', $payload);
                 $this->enqueue_script('yuz-string-translation-editor-umd');
             }
             return;
@@ -2119,7 +2170,7 @@ public function enqueue_front(): void {
             self::mark_module_handles('yuz-string-translation-editor');
             if ($this->is_script_ready('yuz-string-translation-editor')) {
                 $this->prepare_transverse('yuz-string-translation-editor');
-                $this->localize('yuz-string-translation-editor', 'yuzSE', $payload);
+                $this->localize('yuz-string-translation-editor', 'yuztraSE', $payload);
                 $this->enqueue_script('yuz-string-translation-editor');
             }
             return;
@@ -2138,7 +2189,9 @@ public function enqueue_front(): void {
             return;
         }
         $this->string_editor_bundle_missing = false;
-        echo "<script>console.error('[YUZ] String Editor: no bundle found (UMD/ESM). Check assets/js/yuz-string-translation-editor.*');</script>";
+        wp_register_script('yuz-tra-missing-bundle', false, [], YUZTRA_VERSION, true);
+        wp_enqueue_script('yuz-tra-missing-bundle');
+        wp_add_inline_script('yuz-tra-missing-bundle', "console.error('[YUZ] String Editor bundle missing.');");
     }
 
     /** Module policy */
@@ -2220,8 +2273,8 @@ public function enqueue_front(): void {
             $crossorigin = (string) $wp_scripts->get_data($handle, 'crossorigin');
         }
 
-        if (defined('YUZ_TRA_SRI_HASH') && YUZ_TRA_SRI_HASH) {
-            $integrity = YUZ_TRA_SRI_HASH;
+        if (defined('YUZTRA_SRI_HASH') && YUZTRA_SRI_HASH) {
+            $integrity = YUZTRA_SRI_HASH;
             if ($crossorigin === '') {
                 $crossorigin = 'anonymous';
             }
@@ -2340,12 +2393,12 @@ public function enqueue_front(): void {
         $q = is_array($wp_scripts->queue) ? $wp_scripts->queue : [];
         $targets = array_values(array_intersect($q, self::T_HANDLES));
         if (!$targets) return;
-        $inst = $GLOBALS['yuz_assets_singleton'] ?? self::$inst;
+        $inst = $GLOBALS['yuztra_assets_singleton'] ?? self::$inst;
         if (!($inst instanceof self)) return;
         foreach ($targets as $h) {
-            if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-                error_log('[YUZ_TRA][ENFORCE_T_MIN] ' . wp_json_encode([
-                    'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+            if (defined('YUZTRA_DEBUG_FRONT') && YUZTRA_DEBUG_FRONT) {
+                yuztra_debug_log('[YUZTRA_TRA][ENFORCE_T_MIN] ' . wp_json_encode([
+                    'request_uri' => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                     'handle'      => $h,
                 ]));
             }
@@ -2355,7 +2408,7 @@ public function enqueue_front(): void {
         }
     }
 
-    /** Minimal yuzTraSettings merger (no overwrite) */
+    /** Minimal yuztraSettings merger (no overwrite) */
     private function ensure_t_min(string $handle): void {
         if (!wp_script_is($handle,'registered') && !wp_script_is($handle,'enqueued')) return;
         if (!$this->inline_allowed()) {
@@ -2363,9 +2416,9 @@ public function enqueue_front(): void {
         }
         $m = ['ajax_url'=>$this->ajax()];
         $settings = $this->pay_transverse_min();
-        if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
-            error_log('[YUZ_TRA][ENSURE_T_MIN] ' . wp_json_encode([
-                'request_uri'  => $_SERVER['REQUEST_URI'] ?? '',
+        if (defined('YUZTRA_DEBUG_FRONT') && YUZTRA_DEBUG_FRONT) {
+            yuztra_debug_log('[YUZTRA_TRA][ENSURE_T_MIN] ' . wp_json_encode([
+                'request_uri'  => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'handle'       => $handle,
                 'has_ajax_url' => !empty($settings['ajax_url']),
                 'has_nonces'   => !empty($settings['nonces']),
@@ -2373,7 +2426,7 @@ public function enqueue_front(): void {
         }
         wp_add_inline_script(
             $handle,
-            'window.yuzTraSettings=(function(c){try{return Object.assign({},c||{},'.wp_json_encode($m).');}catch(e){return c||'.wp_json_encode($m).';}})(window.yuzTraSettings);',
+            'window.yuztraSettings=(function(c){try{return Object.assign({},c||{},'.wp_json_encode($m).');}catch(e){return c||'.wp_json_encode($m).';}})(window.yuztraSettings);',
             'before'
         );
     }
@@ -2383,21 +2436,21 @@ public function enqueue_front(): void {
     /** @zone pay */
     private function language_runtime_config(): array
     {
-        $general = get_option('yuz_tra_general', []);
+        $general = get_option('yuztra_general', []);
         $general = is_array($general) ? $general : [];
-        $ws = get_option('yuz_tra_ws_settings', []);
+        $ws = get_option('yuztra_ws_settings', []);
         $ws = is_array($ws) ? $ws : [];
 
         $normalize = function ($value): string {
             return $this->normalize_locale_code(is_scalar($value) ? (string) $value : '');
         };
 
-        $default = $normalize($general['yuz_tra_default_language'] ?? $ws['yuz_tra_default_language'] ?? '');
+        $default = $normalize($general['yuztra_default_language'] ?? $ws['yuztra_default_language'] ?? '');
         if ($default === '') {
             $default = $normalize($this->languages->get_default_language() ?? get_locale()) ?: 'en_US';
         }
 
-        $source = $normalize($general['yuz_tra_source_language'] ?? $ws['yuz_tra_source_language'] ?? '');
+        $source = $normalize($general['yuztra_source_language'] ?? $ws['yuztra_source_language'] ?? '');
         if ($source === '') {
             $source = $normalize($this->languages->get_source_language() ?? $default) ?: $default;
         }
@@ -2414,10 +2467,10 @@ public function enqueue_front(): void {
             }
         };
 
-        $append_codes($general['yuz_tra_translatable_languages'] ?? []);
-        $append_codes($ws['yuz_tra_translatable_languages'] ?? []);
-        $append_codes($general['yuz_tra_code'] ?? []);
-        $append_codes($ws['yuz_tra_code'] ?? []);
+        $append_codes($general['yuztra_translatable_languages'] ?? []);
+        $append_codes($ws['yuztra_translatable_languages'] ?? []);
+        $append_codes($general['yuztra_code'] ?? []);
+        $append_codes($ws['yuztra_code'] ?? []);
 
         foreach ((array) $this->languages->get_translatable_languages() as $entry) {
             $code = is_object($entry) && isset($entry->language_code)
@@ -2472,7 +2525,7 @@ public function enqueue_front(): void {
             return;
         }
         $done = true;
-        wp_localize_script($bootstrap_handle, 'yuzTraSettings', $this->pay_transverse_min());
+        wp_localize_script($bootstrap_handle, 'yuztraSettings', $this->pay_transverse_min());
     }
 
     /** @zone pay */
@@ -2482,8 +2535,8 @@ public function enqueue_front(): void {
         $default = $lang_cfg['default'];
         $source  = $lang_cfg['source'];
         $current = '';
-        if (class_exists('YUZ_Front_Renderer') && method_exists('YUZ_Front_Renderer', 'get_active_language')) {
-            $current = \YUZ_Front_Renderer::get_active_language();
+        if (class_exists('YUZTRA_Front_Renderer') && method_exists('YUZTRA_Front_Renderer', 'get_active_language')) {
+            $current = \YUZTRA_Front_Renderer::get_active_language();
         }
         $current = $this->normalize_locale_code($current) ?: $default;
 
@@ -2523,8 +2576,8 @@ public function enqueue_front(): void {
         }, $available_langs), 'strlen'));
 
         $translations = [];
-        if (class_exists('YUZ_Translation_Manager') && method_exists('YUZ_Translation_Manager', 'get_frontend_translations')) {
-            $translations = YUZ_Translation_Manager::get_frontend_translations();
+        if (class_exists('YUZTRA_Translation_Manager') && method_exists('YUZTRA_Translation_Manager', 'get_frontend_translations')) {
+            $translations = YUZTRA_Translation_Manager::get_frontend_translations();
         }
         if (empty($translations)) {
             $dictionary_codes = $available_lang_codes;
@@ -2570,35 +2623,35 @@ public function enqueue_front(): void {
             'trace_upload_url'  => $trace_upload_url,
             'nonces'            => array_merge(
                 [
-                    'ajax'        => wp_create_nonce('yuz_ajax_nonce'),
-                    'trace'       => wp_create_nonce('yuz_trace_nonce'),
-                    'yuz_tra_ajax'=> wp_create_nonce('yuz_tra_ajax'),
+                    'ajax'        => wp_create_nonce('yuztra_ajax_nonce'),
+                    'trace'       => wp_create_nonce('yuztra_trace_nonce'),
+                    'yuztra_ajax'=> wp_create_nonce('yuztra_ajax'),
                 ],
                 (array) $this->sec_pick_nonces('min')
             ),
         ];
 
-        if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        if (yuztra_assets_query_text('yuzdebug') !== '') {
             try {
-                error_log('[YUZ_DBG][pay_transverse_min] ' . wp_json_encode([
+                yuztra_debug_log('[YUZTRA_DBG][pay_transverse_min] ' . wp_json_encode([
                     'ajax_url' => $settings['ajax_url'],
                     'nonces'   => array_keys($settings['nonces'] ?? []),
                     'user_id'  => get_current_user_id(),
                     'logged'   => is_user_logged_in(),
-                    'req'      => $_SERVER['REQUEST_URI'] ?? '',
+                    'req'      => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 ]));
             } catch (\Throwable $ignored) {}
         }
 
-        if (defined('YUZ_TRA_DEBUG_FRONT') && YUZ_TRA_DEBUG_FRONT) {
+        if (defined('YUZTRA_DEBUG_FRONT') && YUZTRA_DEBUG_FRONT) {
             $log_languages = array_values(array_filter(array_map(static function ($entry) {
                 if (is_array($entry) && isset($entry['code'])) {
                     return (string) $entry['code'];
                 }
                 return is_string($entry) ? $entry : '';
             }, $settings['languages'] ?? []), 'strlen'));
-            error_log('[YUZ_TRA][PAY_TRANSVERSE_MIN] ' . wp_json_encode([
-                'url'              => $_SERVER['REQUEST_URI'] ?? '',
+            yuztra_debug_log('[YUZTRA_TRA][PAY_TRANSVERSE_MIN] ' . wp_json_encode([
+                'url'              => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 'lang_current'     => $settings['current_language'] ?? null,
                 'lang_default'     => $settings['default_language'] ?? null,
                 'lang_source'      => $settings['source_language'] ?? null,
@@ -2652,8 +2705,8 @@ public function enqueue_front(): void {
         }
 
         $current = get_query_var('lang');
-        if (!$current && isset($_GET['lang'])) {
-            $current = sanitize_text_field((string) $_GET['lang']);
+        if (!$current && yuztra_assets_query_text('lang') !== '') {
+            $current = yuztra_assets_query_text('lang');
         }
         if (!$current || !in_array($current, $langs, true)) {
             $first_target = '';
@@ -2679,12 +2732,13 @@ public function enqueue_front(): void {
         if (!isset($settings['general']) || !is_array($settings['general'])) {
             $settings['general'] = [];
         }
-        $settings['general']['yuz_tra_default_language']       = $default;
-        $settings['general']['yuz_tra_source_language']        = $source;
-        $settings['general']['yuz_tra_translatable_languages'] = $langs;
+        $settings['general']['yuztra_default_language']       = $default;
+        $settings['general']['yuztra_source_language']        = $source;
+        $settings['general']['yuztra_translatable_languages'] = $langs;
 
         $payload = [
             'ajax_url'           => $this->ajax(),
+            'assets_base'        => $this->cfg_asset_url(''),
             'settings'           => $settings,
             'switcher'           => $switcher,
             'default_language'   => $default,
@@ -2704,8 +2758,8 @@ public function enqueue_front(): void {
         $payload['from_choices'] = $this->lang_choices($from_options);
         $payload['to_choices']   = $this->lang_choices($langs);
 
-        if (function_exists('yuz_diag_log')) {
-            yuz_diag_log('js_settings', [
+        if (function_exists('yuztra_diag_log')) {
+            yuztra_diag_log('js_settings', [
                 'trace'          => $trace,
                 'def'            => $default,
                 'src'            => $source,
@@ -2724,18 +2778,18 @@ public function enqueue_front(): void {
         $js = $this->pay_js_settings();
         return [
             'ajax_url'     => $this->ajax(),
-            'nonce'        => wp_create_nonce('yuz_tra_nonce'),
+            'nonce'        => wp_create_nonce('yuztra_nonce'),
             'current_tab'  => 'general',
             'settings'     => $js['settings'] ?? [],
             'switcher'     => $js['switcher'] ?? [],
             'capabilities' => ['can_manage_options' => current_user_can('manage_options')],
             'nonces'       => $this->sec_pick_nonces([
-                'yuz_tra_ws_get_languages','yuz_tra_ws_cre_language','yuz_tra_ws_cre_alllang','yuz_tra_ws_del_language','yuz_tra_ws_del_alllang',
-                'yuz_tra_ws_upd_settings','yuz_tra_ws_upd_weights','yuz_tra_ws_upd_deflang','yuz_tra_ws_upd_srclang',
-                'yuz_tra_ls_get_settings','yuz_tra_sw_get_settings','yuz_tra_sw_upd_settings',
-                // Include TS nonces for fallback when yuzTS localization is blocked by CSP
-                'yuz_tra_ts_get_settings','yuz_tra_ts_upd_settings',
-                'yuz_tra_tm_test_api','yuz_tra_nonce','yuz_con_nonce','yuz_hvy_nonce','yuz_api_nonce','yuz_del_nonce',
+                'yuztra_ws_get_languages','yuztra_ws_cre_language','yuztra_ws_cre_alllang','yuztra_ws_del_language','yuztra_ws_del_alllang',
+                'yuztra_ws_upd_settings','yuztra_ws_upd_weights','yuztra_ws_upd_deflang','yuztra_ws_upd_srclang',
+                'yuztra_ls_get_settings','yuztra_sw_get_settings','yuztra_sw_upd_settings',
+                // Include TS nonces for fallback when yuztraTS localization is blocked by CSP
+                'yuztra_ts_get_settings','yuztra_ts_upd_settings',
+                'yuztra_tm_test_api','yuztra_nonce','yuztra_con_nonce','yuztra_hvy_nonce','yuztra_api_nonce','yuztra_del_nonce',
             ]),
         ];
     }
@@ -2743,17 +2797,17 @@ public function enqueue_front(): void {
     /** @zone pay */
     public function pay_ts(): array
     {
-        $settings = (array) $this->settings->get_option('yuz_tra_ts_settings');
+        $settings = (array) $this->settings->get_option('yuztra_ts_settings');
 
         // Legacy fallbacks (older aliases / imports)
         if (empty($settings)) {
-            $legacy = get_option('yuz_tra_site_settings', []);
+            $legacy = get_option('yuztra_site_settings', []);
             if (is_array($legacy) && !empty($legacy)) {
                 $settings = $legacy;
             }
         }
         if (empty($settings)) {
-            $legacy = get_option('yuz_translation_site_settings', []);
+            $legacy = get_option('yuztra_translation_site_settings', []);
             if (is_array($legacy) && !empty($legacy)) {
                 $settings = $legacy;
             }
@@ -2764,9 +2818,9 @@ public function enqueue_front(): void {
         }
 
         if (!isset($settings['allowed_roles']) || !is_array($settings['allowed_roles'])) {
-            $fallback = get_option('yuz_tra_allowed_roles', []);
-            if (empty($fallback) && function_exists('yuz_tra_default_allowed_roles')) {
-                $fallback = yuz_tra_default_allowed_roles();
+            $fallback = get_option('yuztra_allowed_roles', []);
+            if (empty($fallback) && function_exists('yuztra_default_allowed_roles')) {
+                $fallback = yuztra_default_allowed_roles();
             }
             $settings['allowed_roles'] = array_values(array_unique(array_filter((array) $fallback)));
         }
@@ -2775,8 +2829,8 @@ public function enqueue_front(): void {
             'ajax_url'      => $this->ajax(),
             'home_url'      => home_url('/'),
             'nonces'        => $this->sec_pick_nonces([
-                'yuz_tra_ts_get_settings','yuz_tra_ts_upd_settings',
-                'yuz_tra_ts_cre_fulltra','yuz_tra_ts_start_translation','yuz_api_nonce',
+                'yuztra_ts_get_settings','yuztra_ts_upd_settings',
+                'yuztra_ts_cre_fulltra','yuztra_ts_start_translation','yuztra_api_nonce',
             ]),
             'site_settings' => $settings,
         ];
@@ -2788,23 +2842,23 @@ public function enqueue_front(): void {
         $payload = [
             'ajax_url' => $this->ajax(),
             'nonces'   => $this->sec_pick_nonces([
-                'yuz_tra_te_cre_tstart','yuz_tra_te_cre_translation','yuz_tra_te_upd_manual',
-                'yuz_tra_te_upd_publish','yuz_save_translation','yuz_tra_tm_cre_page',
-                'yuz_tra_tm_get_translations','yuz_tra_tm_search','yuz_tra_tm_del_translation',
-                'yuz_tra_tm_translate','yuz_translate','yuz_api_nonce',
+                'yuztra_te_cre_tstart','yuztra_te_cre_translation','yuztra_te_upd_manual',
+                'yuztra_te_upd_publish','yuztra_save_translation','yuztra_tm_cre_page',
+                'yuztra_tm_get_translations','yuztra_tm_search','yuztra_tm_del_translation',
+                'yuztra_tm_translate','yuztra_translate','yuztra_api_nonce',
             ]),
             'flags'        => ['editor_advanced_ui' => true],
             'site_settings'=> ['url_to_load' => home_url('/')],
         ];
 
-        if (isset($_GET['yuzdebug'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        if (yuztra_assets_query_text('yuzdebug') !== '') {
             try {
-                error_log('[YUZ_DBG][pay_te] ' . wp_json_encode([
+                yuztra_debug_log('[YUZTRA_DBG][pay_te] ' . wp_json_encode([
                     'ajax_url' => $payload['ajax_url'],
                     'nonces'   => $payload['nonces'],
                     'user_id'  => get_current_user_id(),
                     'logged'   => is_user_logged_in(),
-                    'req'      => $_SERVER['REQUEST_URI'] ?? '',
+                    'req'      => sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')),
                 ]));
             } catch (\Throwable $ignored) {}
         }
@@ -2836,16 +2890,17 @@ public function enqueue_front(): void {
 
         $payload = [
             'ajax_url'    => $this->ajax(),
-            'nonce'       => wp_create_nonce('yuz_int_nonce'),
+            'nonce'       => wp_create_nonce('yuztra_int_nonce'),
             'defaultLang' => $default ?: $source,
             'sourceLang'  => $source,
-            'languages'   => YUZ_String_Catalog::languages(),
-            'editorLang'  => YUZ_String_Catalog::locale(get_user_locale()),
+            'languages'   => YUZTRA_String_Catalog::languages(),
+            'editorLang'  => YUZTRA_String_Catalog::locale(get_user_locale()),
             'canScan'     => current_user_can('manage_options'),
             'userId'      => get_current_user_id(),
         ];
 
-        return apply_filters('yuz/assets/payload/strings', $payload);
+
+        return apply_filters('yuztra/assets/payload/strings', $payload);
     }
 
     /** @zone pay */
@@ -2854,11 +2909,11 @@ public function enqueue_front(): void {
         return [
             'ajax_url'      => $this->ajax(),
             'nonces'        => $this->sec_pick_nonces([
-                'yuz_tra_at_get_api_settings','yuz_tra_at_upd_api_settings','yuz_tra_at_del_api_settings',
-                'yuz_tra_at_get_api_test','yuz_tra_tm_test_api','yuz_tra_at_cre_tsilent',
+                'yuztra_at_get_api_settings','yuztra_at_upd_api_settings','yuztra_at_del_api_settings',
+                'yuztra_at_get_api_test','yuztra_tm_test_api','yuztra_at_cre_tsilent',
             ]),
-            'api_settings'  => YUZ_Translation_Budget::settings(),
-            'yuz_api_nonce' => wp_create_nonce('yuz_api_nonce'),
+            'api_settings'  => YUZTRA_Translation_Budget::settings(),
+            'yuztra_api_nonce' => wp_create_nonce('yuztra_api_nonce'),
         ];
     }
 
@@ -2867,8 +2922,8 @@ public function enqueue_front(): void {
     {
         return [
             'ajax_url'      => $this->ajax(),
-            'nonces'        => $this->sec_pick_nonces(['yuz_add_list','yuz_add_toggle','yuz_add_install','yuz_add_update','yuz_add_delete']),
-            'addons'        => method_exists('YUZ_Addons', 'get_all') ? (array) \YUZ_Addons::get_all() : [],
+            'nonces'        => $this->sec_pick_nonces(['yuztra_add_list','yuztra_add_toggle','yuztra_add_install','yuztra_add_update','yuztra_add_delete']),
+            'addons'        => method_exists('YUZTRA_Addons', 'get_all') ? (array) \YUZTRA_Addons::get_all() : [],
             'capabilities'  => ['can_manage_options' => current_user_can('manage_options')],
         ];
     }
@@ -2878,10 +2933,10 @@ public function enqueue_front(): void {
     {
         return [
             'ajax_url'      => $this->ajax(),
-            'nonces'        => $this->sec_pick_nonces(['yuz_lic_get_status','yuz_lic_ping','yuz_lic_activate','yuz_lic_deactivate','yuz_lic_update_key','yuz_lic_delete']),
+            'nonces'        => $this->sec_pick_nonces(['yuztra_lic_get_status','yuztra_lic_ping','yuztra_lic_activate','yuztra_lic_deactivate','yuztra_lic_update_key','yuztra_lic_delete']),
             'license'       => [
-                'key'    => (string) get_option('yuz_tra_license_key', ''),
-                'status' => (string) get_option('yuz_tra_license_status', 'inactive'),
+                'key'    => (string) get_option('yuztra_license_key', ''),
+                'status' => (string) get_option('yuztra_license_status', 'inactive'),
             ],
             'capabilities'  => ['can_manage_options' => current_user_can('manage_options')],
         ];
@@ -2892,7 +2947,7 @@ public function enqueue_front(): void {
     {
         return [
             'ajax_url' => $this->ajax(),
-            'nonces'   => $this->sec_pick_nonces(['yuz_ai_test_connection','yuz_ai_save_settings','yuz_ai_translate_text','yuz_ai_batch_translate','yuz_ai_glossary_upload','yuz_ai_job_status']),
+            'nonces'   => $this->sec_pick_nonces(['yuztra_ai_test_connection','yuztra_ai_save_settings','yuztra_ai_translate_text','yuztra_ai_batch_translate','yuztra_ai_glossary_upload','yuztra_ai_job_status']),
         ];
     }
 
@@ -2902,16 +2957,16 @@ public function enqueue_front(): void {
         $js = $this->pay_js_settings();
         return [
             'ajax_url'         => $this->ajax(),
-            'nonces'           => ['yuz_tra_nonce' => $js['nonces']['yuz_tra_nonce'] ?? wp_create_nonce('yuz_tra_nonce')],
+            'nonces'           => ['yuztra_nonce' => $js['nonces']['yuztra_nonce'] ?? wp_create_nonce('yuztra_nonce')],
             'can_manage_options'=> current_user_can('manage_options'),
-            'can_translate'    => class_exists('YUZ_Capabilities')
-                ? \YUZ_Capabilities::user_is_translator()
-                : current_user_can('yuz_translate_content'),
-            'plugin_version'   => defined('YUZ_TRA_VERSION') ? (string) YUZ_TRA_VERSION : 'dev',
+            'can_translate'    => class_exists('YUZTRA_Capabilities')
+                ? \YUZTRA_Capabilities::user_is_translator()
+                : current_user_can('yuztra_translate_content'),
+            'plugin_version'   => defined('YUZTRA_VERSION') ? (string) YUZTRA_VERSION : 'dev',
             'target_languages' => $js['translation_langs'] ?? [],
             'language_names'   => $js['language_names'] ?? [],
-            'permissions'      => (class_exists('YUZ_Capabilities') && method_exists('YUZ_Capabilities', 'permissions_payload'))
-                ? \YUZ_Capabilities::permissions_payload()
+            'permissions'      => (class_exists('YUZTRA_Capabilities') && method_exists('YUZTRA_Capabilities', 'permissions_payload'))
+                ? \YUZTRA_Capabilities::permissions_payload()
                 : [],
             'urls'             => [
                 'serviceModule' => $this->cfg_asset_url('js/yuz-translation-service.js'),
@@ -2925,15 +2980,18 @@ public function enqueue_front(): void {
     {
         $js = $this->pay_js_settings();
         $config = ['items_per_page' => 20, 'see_more_max_length' => 140];
-        $strings = apply_filters('yuz/assets/payload/string-editor/strings', []);
-        $default_actions = apply_filters('yuz/assets/payload/string-editor/default-actions', [
+
+        $strings = apply_filters('yuztra/assets/payload/string-editor/strings', []);
+
+        $default_actions = apply_filters('yuztra/assets/payload/string-editor/default-actions', [
             'actions'      => ['edit' => __('Edit', 'yuz-tra'), 'delete' => __('Delete', 'yuz-tra')],
             'bulk_actions' => [
                 'publish' => ['name' => __('Publish', 'yuz-tra')],
                 'delete'  => ['name' => __('Delete', 'yuz-tra')],
             ],
         ]);
-        $status_filters = apply_filters('yuz/assets/payload/string-editor/status-filters', [
+
+        $status_filters = apply_filters('yuztra/assets/payload/string-editor/status-filters', [
             'translation_status' => [
                 'published'          => __('Published', 'yuz-tra'),
                 'queued'             => __('Queued for publish', 'yuz-tra'),
@@ -2943,7 +3001,8 @@ public function enqueue_front(): void {
                 'archived'           => __('Archived', 'yuz-tra'),
             ],
         ]);
-        $types_cfg = apply_filters('yuz/assets/payload/string-editor/types-config', [
+
+        $types_cfg = apply_filters('yuztra/assets/payload/string-editor/types-config', [
             'strings' => [
                 'category_based'          => false,
                 'name'                    => __('Strings', 'yuz-tra'),
@@ -2963,10 +3022,10 @@ public function enqueue_front(): void {
             'default_actions'            => $default_actions,
             'translation_status_filters' => $status_filters,
             'config'                     => $config,
-            'yuz_settings'               => $js['settings'] ?? [],
+            'yuztra_settings'               => $js['settings'] ?? [],
             'language_names'             => $js['language_names'] ?? [],
             'flags_path'                 => trailingslashit($this->cfg_asset_url('flags/')),
-            'editor_nonces'              => $this->sec_pick_nonces(['yuz_scan_gettext','yuz_string_translation_bulk_action_publish','yuz_string_translation_bulk_action_delete','yuz_tra_nonce']),
+            'editor_nonces'              => $this->sec_pick_nonces(['yuztra_scan_gettext','yuztra_string_translation_bulk_action_publish','yuztra_string_translation_bulk_action_delete','yuztra_nonce']),
             'string_types_config'        => $types_cfg,
             'upgraded_gettext'           => true,
             'notice_upgrade_gettext'     => '',
@@ -2979,16 +3038,17 @@ public function enqueue_front(): void {
     /** @zone pay */
     public function pay_switcher(): array
     {
-        $payload = apply_filters('yuz/assets/payload/switcher', []);
+
+        $payload = apply_filters('yuztra/assets/payload/switcher', []);
         return is_array($payload) ? $payload : [];
     }
 
     /** @zone pay */
     public function pay_dom_watch(): array
     {
-        $nonces = $this->sec_pick_nonces(['yuz_tra_js_get_regular']);
+        $nonces = $this->sec_pick_nonces(['yuztra_js_get_regular']);
 
-        // Provide minimal language context to the DOM watcher without bloating yuzTraSettings.
+        // Provide minimal language context to the DOM watcher without bloating yuztraSettings.
         // This avoids any hard-coded mapping on the client by letting it pick among
         // DB-declared translatable languages.
         $lang_cfg = $this->language_runtime_config();
@@ -3002,7 +3062,7 @@ public function enqueue_front(): void {
         return [
             'ajax_url' => $this->ajax(),
             'nonces'   => [
-                'yuz_tra_js_get_regular' => $nonces['yuz_tra_js_get_regular'] ?? wp_create_nonce('yuz_tra_nonce'),
+                'yuztra_js_get_regular' => $nonces['yuztra_js_get_regular'] ?? wp_create_nonce('yuztra_nonce'),
             ],
             'languages'        => $codes,
             'default_language' => $default,
@@ -3041,44 +3101,44 @@ public function enqueue_front(): void {
         }
         $handle = 'yuz-nonce-bootstrap';
         if (!wp_script_is($handle, 'registered')) {
-            wp_register_script($handle, false, [], defined('YUZ_TRA_VERSION') ? YUZ_TRA_VERSION : '1.2.2', true);
+            wp_register_script($handle, false, [], defined('YUZTRA_VERSION') ? YUZTRA_VERSION : '1.2.2', true);
         }
         if (!wp_script_is($handle, 'enqueued')) {
             wp_enqueue_script($handle);
         }
-        wp_localize_script($handle, 'yuzNonce', $payload);
-        wp_localize_script($handle, 'yuzNonceMatrix', self::ACTION_NONCE_MATRIX);
+        wp_localize_script($handle, 'yuztraNonce', $payload);
+        wp_localize_script($handle, 'yuztraNonceMatrix', self::ACTION_NONCE_MATRIX);
         $inline = <<<'JS'
 (function(){
   if (typeof window === 'undefined') { return; }
-  var matrix = window.yuzNonceMatrix || (typeof yuzNonceMatrix !== 'undefined' ? yuzNonceMatrix : {});
-  window.yuzNonceMatrix = matrix;
-  var store = window.yuzNonce || (typeof yuzNonce !== 'undefined' ? yuzNonce : {});
-  window.yuzNonce = Object.freeze(store);
-  window.yuzResolveNonce = window.yuzResolveNonce || function(identifier){
+  var matrix = window.yuztraNonceMatrix || (typeof yuztraNonceMatrix !== 'undefined' ? yuztraNonceMatrix : {});
+  window.yuztraNonceMatrix = matrix;
+  var store = window.yuztraNonce || (typeof yuztraNonce !== 'undefined' ? yuztraNonce : {});
+  window.yuztraNonce = Object.freeze(store);
+  window.yuztraResolveNonce = window.yuztraResolveNonce || function(identifier){
     var bucket = (identifier && matrix[identifier]) ? matrix[identifier] : identifier;
-    bucket = (typeof bucket === 'string' && bucket) ? bucket : 'yuz_tra_nonce';
-    return window.yuzNonce[bucket] || '';
+    bucket = (typeof bucket === 'string' && bucket) ? bucket : 'yuztra_nonce';
+    return window.yuztraNonce[bucket] || '';
   };
-  window.yuzGetNonce = window.yuzGetNonce || window.yuzResolveNonce;
+  window.yuztraGetNonce = window.yuztraGetNonce || window.yuztraResolveNonce;
 
   var nonceProxy = null;
   if (typeof window.Proxy === 'function') {
     nonceProxy = new Proxy({}, {
       get: function(_target, prop){
         if (typeof prop === 'string') {
-          return window.yuzResolveNonce(prop);
+          return window.yuztraResolveNonce(prop);
         }
         return undefined;
       }
     });
-    window.yuzNonceProxy = nonceProxy;
+    window.yuztraNonceProxy = nonceProxy;
   }
 
-  var settingsStore = window.yuzTraSettings || {};
+  var settingsStore = window.yuztraSettings || {};
   function attachNonceHelpers(target) {
     target = target || {};
-    target.nonce = window.yuzResolveNonce('yuz_tra_nonce');
+    target.nonce = window.yuztraResolveNonce('yuztra_nonce');
     if (nonceProxy) {
       Object.defineProperty(target, 'nonces', {
         configurable: true,
@@ -3092,7 +3152,7 @@ public function enqueue_front(): void {
   settingsStore = attachNonceHelpers(settingsStore);
 
   try {
-    Object.defineProperty(window, 'yuzTraSettings', {
+    Object.defineProperty(window, 'yuztraSettings', {
       configurable: true,
       enumerable: true,
       get: function(){ return settingsStore; },
@@ -3101,7 +3161,7 @@ public function enqueue_front(): void {
       }
     });
   } catch (e) {
-    window.yuzTraSettings = settingsStore;
+    window.yuztraSettings = settingsStore;
   }
 })();
 JS;
@@ -3129,54 +3189,54 @@ JS;
 
     public function add_yuz_tra_settings_hash(array $hashes): array {
         $mini = $this->pay_transverse_min();
-        $hashes[] = $this->inline_hash('window.yuzTraSettings = window.yuzTraSettings || ' . wp_json_encode($mini) . ';');
-        $hashes[] = $this->inline_hash('var yuzTraSettings=' . wp_json_encode($mini) . ';');
+        $hashes[] = $this->inline_hash('window.yuztraSettings = window.yuztraSettings || ' . wp_json_encode($mini) . ';');
+        $hashes[] = $this->inline_hash('var yuztraSettings=' . wp_json_encode($mini) . ';');
 
         // UI payload globals provided via wp_localize_script
         // These hashes allow Clar_Script_Manager/CSP to accept the inline "var <Global>=...;"
         try {
             $as = wp_json_encode($this->pay_js_settings());
-            $hashes[] = $this->inline_hash('var yuzAS=' . $as . ';');
-            $hashes[] = $this->inline_hash('var yuzAS = ' . $as . ';');
-            $hashes[] = $this->inline_hash('window.yuzAS=' . $as . ';');
-            $hashes[] = $this->inline_hash('window.yuzAS = ' . $as . ';');
+            $hashes[] = $this->inline_hash('var yuztraAS=' . $as . ';');
+            $hashes[] = $this->inline_hash('var yuztraAS = ' . $as . ';');
+            $hashes[] = $this->inline_hash('window.yuztraAS=' . $as . ';');
+            $hashes[] = $this->inline_hash('window.yuztraAS = ' . $as . ';');
         } catch (\Throwable $e) {}
         try {
             $se = wp_json_encode($this->pay_string_editor());
-            $hashes[] = $this->inline_hash('var yuzSE=' . $se . ';');
-            $hashes[] = $this->inline_hash('var yuzSE = ' . $se . ';');
-            $hashes[] = $this->inline_hash('window.yuzSE=' . $se . ';');
-            $hashes[] = $this->inline_hash('window.yuzSE = ' . $se . ';');
+            $hashes[] = $this->inline_hash('var yuztraSE=' . $se . ';');
+            $hashes[] = $this->inline_hash('var yuztraSE = ' . $se . ';');
+            $hashes[] = $this->inline_hash('window.yuztraSE=' . $se . ';');
+            $hashes[] = $this->inline_hash('window.yuztraSE = ' . $se . ';');
         } catch (\Throwable $e) {}
         try {
             $te = wp_json_encode($this->pay_te());
-            $hashes[] = $this->inline_hash('var yuzTE=' . $te . ';');
-            $hashes[] = $this->inline_hash('var yuzTE = ' . $te . ';');
-            $hashes[] = $this->inline_hash('window.yuzTE=' . $te . ';');
-            $hashes[] = $this->inline_hash('window.yuzTE = ' . $te . ';');
+            $hashes[] = $this->inline_hash('var yuztraTE=' . $te . ';');
+            $hashes[] = $this->inline_hash('var yuztraTE = ' . $te . ';');
+            $hashes[] = $this->inline_hash('window.yuztraTE=' . $te . ';');
+            $hashes[] = $this->inline_hash('window.yuztraTE = ' . $te . ';');
         } catch (\Throwable $e) {}
         try {
             $ts = wp_json_encode($this->pay_ts());
             // Cover spacing and window. prefix variants to match wp_localize_script output under CSP
-            $hashes[] = $this->inline_hash('var yuzTS=' . $ts . ';');
-            $hashes[] = $this->inline_hash('var yuzTS = ' . $ts . ';');
-            $hashes[] = $this->inline_hash('window.yuzTS=' . $ts . ';');
-            $hashes[] = $this->inline_hash('window.yuzTS = ' . $ts . ';');
+            $hashes[] = $this->inline_hash('var yuztraTS=' . $ts . ';');
+            $hashes[] = $this->inline_hash('var yuztraTS = ' . $ts . ';');
+            $hashes[] = $this->inline_hash('window.yuztraTS=' . $ts . ';');
+            $hashes[] = $this->inline_hash('window.yuztraTS = ' . $ts . ';');
         } catch (\Throwable $e) {}
         try {
             $ab = wp_json_encode($this->pay_admin_bar());
-            $hashes[] = $this->inline_hash('var yuzAB=' . $ab . ';');
-            $hashes[] = $this->inline_hash('var yuzAB = ' . $ab . ';');
-            $hashes[] = $this->inline_hash('window.yuzAB=' . $ab . ';');
-            $hashes[] = $this->inline_hash('window.yuzAB = ' . $ab . ';');
+            $hashes[] = $this->inline_hash('var yuztraAB=' . $ab . ';');
+            $hashes[] = $this->inline_hash('var yuztraAB = ' . $ab . ';');
+            $hashes[] = $this->inline_hash('window.yuztraAB=' . $ab . ';');
+            $hashes[] = $this->inline_hash('window.yuztraAB = ' . $ab . ';');
         } catch (\Throwable $e) {}
         // Admin-only (harmless on front)
         try {
             $gs = wp_json_encode($this->pay_general());
-            $hashes[] = $this->inline_hash('var yuzGS=' . $gs . ';');
-            $hashes[] = $this->inline_hash('var yuzGS = ' . $gs . ';');
-            $hashes[] = $this->inline_hash('window.yuzGS=' . $gs . ';');
-            $hashes[] = $this->inline_hash('window.yuzGS = ' . $gs . ';');
+            $hashes[] = $this->inline_hash('var yuztraGS=' . $gs . ';');
+            $hashes[] = $this->inline_hash('var yuztraGS = ' . $gs . ';');
+            $hashes[] = $this->inline_hash('window.yuztraGS=' . $gs . ';');
+            $hashes[] = $this->inline_hash('window.yuztraGS = ' . $gs . ';');
         } catch (\Throwable $e) {}
         return $hashes;
     }
@@ -3288,14 +3348,15 @@ JS;
     }
 
     private function is_yuz_page(): bool {
-        if (isset($_GET['page']) && $_GET['page'] === 'yuz-translation-settings') return true;
-        if (isset($_GET['page']) && $_GET['page'] === 'yuz-string-translation-editor') return true;
-        return isset($_GET['yuz-edit-translation']);
+        $page = yuztra_assets_query_text('page');
+        if ($page === 'yuz-translation-settings') return true;
+        if ($page === 'yuz-string-translation-editor') return true;
+        return yuztra_assets_query_text('yuz-edit-translation') !== '';
     }
 
     private function tab(): string {
-        if (($_GET['page'] ?? '') === 'yuz-string-translation-editor') return 'strings';
-        $tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
+        if (yuztra_assets_query_text('page') === 'yuz-string-translation-editor') return 'strings';
+        $tab = sanitize_key(yuztra_assets_query_text('tab')) ?: 'general';
         $map = [
             'general'=>'general','translate-site'=>'translate-site','strings'=>'strings','string'=>'strings','automatic-translation'=>'automatic-translation','advanced'=>'advanced',
             'addons'=>'ad','ad'=>'ad','licenses'=>'licenses','ai'=>'ai-translation','ai-translation'=>'ai-translation'
@@ -3413,7 +3474,7 @@ JS;
                 'scripts' => ['yuz-general-settings'],
                 'localize'=> [
                     'yuz-general-settings' => [
-                        ['global' => 'yuzGS', 'payload' => [$self, 'pay_general']],
+                        ['global' => 'yuztraGS', 'payload' => [$self, 'pay_general']],
                     ],
                 ],
             ],
@@ -3423,7 +3484,7 @@ JS;
                 'scripts' => ['yuz-translation-editor'],
                 'localize'=> [
                     'yuz-translation-editor' => [
-                        ['global' => 'yuzTE', 'payload' => [$self, 'pay_te']],
+                        ['global' => 'yuztraTE', 'payload' => [$self, 'pay_te']],
                     ],
                 ],
             ],
@@ -3433,7 +3494,7 @@ JS;
                 'scripts' => ['yuz-language-switcher'],
                 'localize'=> [
                     'yuz-language-switcher' => [
-                        ['global' => 'yuzSW', 'payload' => [$self, 'pay_switcher']],
+                        ['global' => 'yuztraSW', 'payload' => [$self, 'pay_switcher']],
                     ],
                 ],
             ],
@@ -3463,11 +3524,12 @@ JS;
                 $candidates[] = $query_lang;
             }
         }
-        if (isset($_GET['lang'])) {
-            $candidates[] = (string) $_GET['lang'];
+        $query_language = yuztra_assets_query_text('lang');
+        if ($query_language !== '') {
+            $candidates[] = $query_language;
         }
         if (isset($_SERVER['HTTP_X_YUZ_LANG'])) {
-            $candidates[] = (string) $_SERVER['HTTP_X_YUZ_LANG'];
+            $candidates[] = yuztra_assets_server_text('HTTP_X_YUZ_LANG');
         }
 
         foreach ($candidates as $candidate) {
@@ -3479,7 +3541,7 @@ JS;
 
         $path = '';
         if (isset($_SERVER['REQUEST_URI'])) {
-            $raw = (string) $_SERVER['REQUEST_URI'];
+            $raw = yuztra_assets_server_text('REQUEST_URI');
             $parsed = wp_parse_url($raw, PHP_URL_PATH);
             $path = is_string($parsed) ? $parsed : '';
         }
@@ -3502,18 +3564,18 @@ JS;
     private function resolve_request_page_url(): string
     {
         try {
-            if (!class_exists('YUZ_Url_Converter') && defined('YUZ_TRA_INCLUDES')) {
-                $converter_file = YUZ_TRA_INCLUDES . 'class-yuz-url-converter.php';
+            if (!class_exists('YUZTRA_Url_Converter') && defined('YUZTRA_INCLUDES')) {
+                $converter_file = YUZTRA_INCLUDES . 'class-yuz-url-converter.php';
                 if (is_readable($converter_file)) {
                     require_once $converter_file;
                 }
             }
-            if (class_exists('YUZ_Url_Converter')) {
+            if (class_exists('YUZTRA_Url_Converter')) {
                 $settings = null;
-                if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'settings')) {
-                    $settings = \YUZ_Services::settings();
+                if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'settings')) {
+                    $settings = \YUZTRA_Services::settings();
                 }
-                $converter = new \YUZ_Url_Converter($settings);
+                $converter = new \YUZTRA_Url_Converter($settings);
                 $current = (string) $converter->cur_page_url();
                 if ($current !== '') {
                     return esc_url_raw($current);
@@ -3521,8 +3583,8 @@ JS;
             }
         } catch (\Throwable $ignored) {}
 
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
+        $request_uri = yuztra_assets_server_text('REQUEST_URI') ?: '/';
+        $host = yuztra_assets_server_text('HTTP_HOST') ?: (string) wp_parse_url(home_url('/'), PHP_URL_HOST);
         if ($host === '') {
             return home_url('/');
         }
@@ -3631,7 +3693,7 @@ JS;
             return $dictionary;
         }
         if (function_exists('wp_cache_get')) {
-            $cached = wp_cache_get('yuz_front_dictionary', 'yuz-tra');
+            $cached = wp_cache_get('yuztra_front_dictionary', 'yuz-tra');
             if (is_array($cached)) {
                 $dictionary = $cached;
                 return $dictionary;
@@ -3648,7 +3710,7 @@ JS;
             return $dictionary;
         }
         $rows = $wpdb->get_results(
-            "SELECT original_text, translated_text, language_code, status FROM {$table} WHERE translated_text IS NOT NULL AND translated_text <> '' AND status >= 1",
+            $wpdb->prepare("SELECT original_text, translated_text, language_code, status FROM %i WHERE translated_text IS NOT NULL AND translated_text <> '' AND status >= 1", $table),
             ARRAY_A
         );
         if (!is_array($rows)) {
@@ -3702,7 +3764,7 @@ JS;
         }
         if (function_exists('wp_cache_set')) {
             $ttl = defined('MINUTE_IN_SECONDS') ? MINUTE_IN_SECONDS : 60;
-            wp_cache_set('yuz_front_dictionary', $dictionary, 'yuz-tra', $ttl);
+            wp_cache_set('yuztra_front_dictionary', $dictionary, 'yuz-tra', $ttl);
         }
         return $dictionary;
     }
@@ -3733,7 +3795,7 @@ JS;
 
     private function resolve_trace_upload_url(): string
     {
-        $fallback = '/wp-content/uploads/yuz-trace.log';
+        $fallback = '';
         if (!function_exists('wp_upload_dir')) {
             return $fallback;
         }
@@ -3796,7 +3858,7 @@ JS;
     /** @zone dbg */
     private function debug_on(): bool
     {
-        return (defined('YUZ_DEBUG') && YUZ_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
+        return (defined('YUZTRA_ASSETS_DEBUG') && YUZTRA_ASSETS_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
     }
 
     /** @zone dbg */
@@ -3848,19 +3910,19 @@ JS;
 } // end class
 
 
-YUZ_Assets::init();
+YUZTRA_Assets::init();
 endif;
 
 /** ======================================================================
  * Zone: Shims & Compat (shim)
  * ====================================================================== */
-if (class_exists(__NAMESPACE__ . '\\YUZ_Assets') && !YUZ_Assets::DISABLE_SHIMS) {
+if (class_exists(__NAMESPACE__ . '\\YUZTRA_Assets') && !YUZTRA_Assets::DISABLE_SHIMS) {
     /**
      * @deprecated 1.0.0 Use YUZ\YUZ_Assets::get()->cfg_asset_url()
      */
-    if (!function_exists('yuz_asset_url')) {
-        function yuz_asset_url(string $rel): string {
-            $assets = YUZ_Assets::get();
+    if (!function_exists('yuztra_asset_url')) {
+        function yuztra_asset_url(string $rel): string {
+            $assets = YUZTRA_Assets::get();
             $assets->log_deprecated(__FUNCTION__, '1.0.0');
             return $assets->cfg_asset_url($rel);
         }

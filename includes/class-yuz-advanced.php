@@ -63,8 +63,8 @@
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 
 use YUZTRA\Interfaces\AdvancedInterface;
 use YUZTRA\Interfaces\RendererInterface;
@@ -81,9 +81,10 @@ use YUZTRA\Fallbacks\NullHealthCheck;
 use YUZTRA\Fallbacks\NullRenderer;
 use YUZTRA\Fallbacks\NullLanguages;
 
-if ( ! class_exists('YUZ_Advanced') ) {
+if ( ! class_exists('YUZTRA_Advanced') ) {
 
-class YUZ_Advanced implements AdvancedInterface {
+
+class YUZTRA_Advanced implements AdvancedInterface {
 
     private RendererInterface $renderer;
     private LoggerInterface $logger;
@@ -112,21 +113,21 @@ class YUZ_Advanced implements AdvancedInterface {
         }
         self::$booted = true;
 
-        if ( ! defined('YUZ_TRA_INCLUDES') || ! defined('YUZ_TRA_PLUGIN_FILE') ) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZ_Advanced::init');
+        if ( ! defined('YUZTRA_INCLUDES') || ! defined('YUZTRA_PLUGIN_FILE') ) {
+            yuztra_debug_log('🟥 [CRITICAL] YUZ-TRA: constants missing in YUZTRA_Advanced::init');
             return;
         }
 
-        $logger       = class_exists('YUZ_Logger')       ? new \YUZ_Logger()                       : new NullLogger();
-        $health_check = class_exists('YUZ_Health_Check') ? new \YUZ_Health_Check($logger)           : new NullHealthCheck();
-        $db           = class_exists('YUZ_DB')           ? new \YUZ_DB($logger, $health_check)      : null;
-        $ajax         = (class_exists('YUZ_Ajax') && $db instanceof \YUZ_DB)
-                            ? new \YUZ_Ajax(new NullTranslationManager(), new NullLanguageManager(), $db)
+        $logger       = class_exists('YUZTRA_Logger')       ? new \YUZTRA_Logger()                       : new NullLogger();
+        $health_check = class_exists('YUZTRA_Health_Check') ? new \YUZTRA_Health_Check($logger)           : new NullHealthCheck();
+        $db           = class_exists('YUZTRA_DB')           ? new \YUZTRA_DB($logger, $health_check)      : null;
+        $ajax         = (class_exists('YUZTRA_Ajax') && $db instanceof \YUZTRA_DB)
+                            ? new \YUZTRA_Ajax(new NullTranslationManager(), new NullLanguageManager(), $db)
                             : new NullAjax();
 
-        $languages    = class_exists('YUZ_Languages') ? new \YUZ_Languages(new NullSettings(), $db) : new NullLanguages();
-        $settings     = class_exists('YUZ_Settings')  ? new \YUZ_Settings($languages, $ajax, new NullTranslationManager(), new NullLanguageManager(), $logger) : new NullSettings();
-        $renderer     = class_exists('YUZ_Renderer')  ? new \YUZ_Renderer($ajax, $settings, $logger, $languages) : new NullRenderer();
+        $languages    = class_exists('YUZTRA_Languages') ? new \YUZTRA_Languages(new NullSettings(), $db) : new NullLanguages();
+        $settings     = class_exists('YUZTRA_Settings')  ? new \YUZTRA_Settings($languages, $ajax, new NullTranslationManager(), new NullLanguageManager(), $logger) : new NullSettings();
+        $renderer     = class_exists('YUZTRA_Renderer')  ? new \YUZTRA_Renderer($ajax, $settings, $logger, $languages) : new NullRenderer();
 
         $instance = new self($renderer, $logger, $health_check, $ajax);
 
@@ -139,7 +140,7 @@ class YUZ_Advanced implements AdvancedInterface {
     /** Tabs par défaut + filtre d’extension */
     private function get_tabs(): array
     {
-        $has_diag = class_exists('YUZ_Diagnostic'); // sidecar optionnel
+        $has_diag = class_exists('YUZTRA_Diagnostic'); // sidecar optionnel
         $tabs = [
             'troubleshooting' => __('Troubleshooting', 'yuz-tra'),
             'debug'           => __('Debug', 'yuz-tra'),
@@ -149,7 +150,8 @@ class YUZ_Advanced implements AdvancedInterface {
             $tabs['diagnostics'] = __('Diagnostics', 'yuz-tra');
         }
         // Hook 1 : permettre d’ajouter/enlever des sous-onglets
-        $tabs = apply_filters('yuz_advanced_tabs', $tabs);
+
+        $tabs = apply_filters('yuztra_advanced_tabs', $tabs);
 
         // sécurité : garder l’ordre stable, filtrer les clés/labels vides
         $clean = [];
@@ -163,7 +165,9 @@ class YUZ_Advanced implements AdvancedInterface {
 
     private function get_active_tab(string $fallback): string
     {
-        $active = isset($_GET['subtab']) ? sanitize_key($_GET['subtab']) : $fallback;
+        // Read-only navigation after render_tab() checks manage_options.
+        $active = isset($_GET['subtab']) && is_string($_GET['subtab'])
+            ? sanitize_key(wp_unslash($_GET['subtab'])) : $fallback;
         $tabs   = $this->get_tabs();
         return array_key_exists($active, $tabs) ? $active : $fallback;
     }
@@ -177,8 +181,8 @@ class YUZ_Advanced implements AdvancedInterface {
         }
 
         // Enqueue des assets (fabrique centrale)
-        if (method_exists('YUZ_Assets','require')) {
-            YUZ_Assets::require('advanced-admin');
+        if (method_exists('YUZTRA_Assets','require')) {
+            YUZTRA_Assets::require('advanced-admin');
         }
 
         $tabs = $this->get_tabs();
@@ -236,9 +240,10 @@ class YUZ_Advanced implements AdvancedInterface {
                  * Hook 2 : sous-onglet fourni par un module externe (ex: sidecar)
                  * Le module doit écho son HTML.
                  */
-                do_action('yuz_advanced_render_tab_'.$active, $this);
 
-                if ( ! has_action('yuz_advanced_render_tab_'.$active) ) {
+                do_action('yuztra_advanced_render_tab_'.$active, $this);
+
+                if ( ! has_action('yuztra_advanced_render_tab_'.$active) ) {
                     echo '<div class="notice notice-info"><p>'
                          . esc_html__('This section is planned but not implemented yet.', 'yuz-tra')
                          . '</p></div>';
@@ -251,48 +256,48 @@ class YUZ_Advanced implements AdvancedInterface {
     private function render_troubleshooting(): void
     {
         // POST d’abord pour refléter l’état
-        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'],'yuz_con_nonce') ) {
-            $fix  = isset($_POST['yuz_fix_dynamic']) ? 1 : 0;
-            $stop = isset($_POST['yuz_disable_dynamic']) ? 1 : 0;
+        if ( 'POST' === sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')) && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])),'yuztra_con_nonce') ) {
+            $fix  = isset($_POST['yuztra_fix_dynamic']) ? 1 : 0;
+            $stop = isset($_POST['yuztra_disable_dynamic']) ? 1 : 0;
 
             $payload = [
                 'fix_dynamic_content'        => (bool)$fix,
                 'disable_dynamic_translation'=> (bool)$stop,
             ];
 
-            if (class_exists('YUZ_Settings')) {
+            if (class_exists('YUZTRA_Settings')) {
                 try {
-                    $languages = class_exists('YUZ_Languages') ? new \YUZ_Languages(new NullSettings(), (class_exists('YUZ_DB') ? new \YUZ_DB(new NullLogger(), new NullHealthCheck()) : null)) : new NullLanguages();
-                    $settings  = new \YUZ_Settings($languages, $this->ajax, new NullTranslationManager(), new NullLanguageManager(), $this->logger ?: new NullLogger());
-                    $settings->update_option('yuz_tra_av_settings', $payload);
+                    $languages = class_exists('YUZTRA_Languages') ? new \YUZTRA_Languages(new NullSettings(), (class_exists('YUZTRA_DB') ? new \YUZTRA_DB(new NullLogger(), new NullHealthCheck()) : null)) : new NullLanguages();
+                    $settings  = new \YUZTRA_Settings($languages, $this->ajax, new NullTranslationManager(), new NullLanguageManager(), $this->logger ?: new NullLogger());
+                    $settings->update_option('yuztra_av_settings', $payload);
                 } catch (\Throwable $e) {
                     // ignore, fallback legacy juste après
                 }
             }
 
-            update_option('yuz_fix_dynamic',    $fix);
-            update_option('yuz_disable_dynamic',$stop);
+            update_option('yuztra_fix_dynamic',    $fix);
+            update_option('yuztra_disable_dynamic',$stop);
 
             echo '<div class="updated notice"><p>'.esc_html__('Settings saved.', 'yuz-tra').'</p></div>';
         }
 
         // Lecture depuis settings consolidés avec fallback legacy
-        $adv = class_exists('YUZ_Settings')
-              ? (new \YUZ_Settings(new NullLanguages(), new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), new NullLogger()))->get_option('yuz_tra_av_settings')
+        $adv = class_exists('YUZTRA_Settings')
+              ? (new \YUZTRA_Settings(new NullLanguages(), new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), new NullLogger()))->get_option('yuztra_av_settings')
               : [];
         if (!is_array($adv)) { $adv = []; }
 
-        $fix_dynamic     = !empty($adv['fix_dynamic_content']) ? 1 : (int) get_option('yuz_fix_dynamic', 0);
-        $disable_dynamic = !empty($adv['disable_dynamic_translation']) ? 1 : (int) get_option('yuz_disable_dynamic', 0);
+        $fix_dynamic     = !empty($adv['fix_dynamic_content']) ? 1 : (int) get_option('yuztra_fix_dynamic', 0);
+        $disable_dynamic = !empty($adv['disable_dynamic_translation']) ? 1 : (int) get_option('yuztra_disable_dynamic', 0);
         ?>
         <form method="post" action="">
-            <?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
+            <?php wp_nonce_field('yuztra_con_nonce', 'nonce'); ?>
             <table class="form-table">
                 <tr>
                     <th><?php esc_html_e('Fix missing dynamic content', 'yuz-tra'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="yuz_fix_dynamic" value="1" <?php checked($fix_dynamic); ?> />
+                            <input type="checkbox" name="yuztra_fix_dynamic" value="1" <?php checked($fix_dynamic); ?> />
                             <span class="slider round"></span>
                         </label>
                         <label style="margin-left:8px;">
@@ -304,7 +309,7 @@ class YUZ_Advanced implements AdvancedInterface {
                     <th><?php esc_html_e('Disable dynamic translation', 'yuz-tra'); ?></th>
                     <td>
                         <label class="switch">
-                            <input type="checkbox" name="yuz_disable_dynamic" value="1" <?php checked($disable_dynamic); ?> />
+                            <input type="checkbox" name="yuztra_disable_dynamic" value="1" <?php checked($disable_dynamic); ?> />
                             <span class="slider round"></span>
                         </label>
                         <label style="margin-left:8px;">
@@ -321,22 +326,22 @@ class YUZ_Advanced implements AdvancedInterface {
     private function render_debug(): void
     {
         // POST d’abord
-        if ( 'POST' === ($_SERVER['REQUEST_METHOD'] ?? '') && isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'],'yuz_con_nonce') ) {
-            update_option('yuz_debug_mode', isset($_POST['debug_mode']) ? 1 : 0);
+        if ( 'POST' === sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')) && isset($_POST['nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])),'yuztra_con_nonce') ) {
+            update_option('yuztra_debug_mode', isset($_POST['debug_mode']) ? 1 : 0);
             // Log level select
-            $level = isset($_POST['yuz_tra_log_level']) ? sanitize_text_field(wp_unslash($_POST['yuz_tra_log_level'])) : '';
+            $level = isset($_POST['yuztra_log_level']) ? sanitize_text_field(wp_unslash($_POST['yuztra_log_level'])) : '';
             $allowed = ['debug','info','success','warning','error','critical'];
             if (in_array($level, $allowed, true)) {
-                update_option('yuz_tra_log_level', $level);
+                update_option('yuztra_log_level', $level);
             }
             echo '<div class="updated notice"><p>'.esc_html__('Settings saved.', 'yuz-tra').'</p></div>';
         }
 
-        $debug_mode = (int) get_option('yuz_debug_mode', 0);
-        $current_level = (string) get_option('yuz_tra_log_level', 'warning');
+        $debug_mode = (int) get_option('yuztra_debug_mode', 0);
+        $current_level = (string) get_option('yuztra_log_level', 'warning');
         ?>
         <form method="post" action="">
-            <?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
+            <?php wp_nonce_field('yuztra_con_nonce', 'nonce'); ?>
             <table class="form-table">
                 <tr>
                     <th><label for="debug_mode"><?php esc_html_e('Enable Debug Mode', 'yuz-tra'); ?></label></th>
@@ -348,9 +353,9 @@ class YUZ_Advanced implements AdvancedInterface {
                     </td>
                 </tr>
                 <tr>
-                    <th><label for="yuz_tra_log_level"><?php esc_html_e('Log Level', 'yuz-tra'); ?></label></th>
+                    <th><label for="yuztra_log_level"><?php esc_html_e('Log Level', 'yuz-tra'); ?></label></th>
                     <td>
-                        <select id="yuz_tra_log_level" name="yuz_tra_log_level">
+                        <select id="yuztra_log_level" name="yuztra_log_level">
                             <?php
                             $levels = ['debug','info','success','warning','error','critical'];
                             foreach ($levels as $lv) {
@@ -387,7 +392,7 @@ class YUZ_Advanced implements AdvancedInterface {
             <h2 class="yuz-section-title"><?php esc_html_e('Translations Table Maintenance', 'yuz-tra'); ?></h2>
             <p class="description"><?php esc_html_e('Backup and clean the translations table: remove empty translations, normalize locales, deduplicate.', 'yuz-tra'); ?></p>
 
-            <input type="hidden" id="yuz_tra_maintenance_nonce" value="<?php echo esc_attr( wp_create_nonce('yuz_hvy_nonce') ); ?>">
+            <input type="hidden" id="yuztra_maintenance_nonce" value="<?php echo esc_attr( wp_create_nonce('yuztra_hvy_nonce') ); ?>">
             <div class="yuz-tools-actions">
                 <button type="button" id="yuz-maint-metrics" class="button button-secondary" style="margin-right:12px"><?php esc_html_e('Preview Metrics', 'yuz-tra'); ?></button>
                 <button type="button" id="yuz-maint-backup" class="button" style="margin-right:12px"><?php esc_html_e('Backup Table', 'yuz-tra'); ?></button>
@@ -409,8 +414,8 @@ class YUZ_Advanced implements AdvancedInterface {
 
     private function render_diagnostics(): void
     {
-        $has_diag   = class_exists('YUZ_Diagnostic');
-        $diag_cache = get_option('yuz_diagnostic_cache', []);
+        $has_diag   = class_exists('YUZTRA_Diagnostic');
+        $diag_cache = get_option('yuztra_diagnostic_cache', []);
         $diag_report= $diag_cache['report'] ?? __('No diagnostics run yet.', 'yuz-tra');
 
         if ( ! $has_diag ) {
@@ -436,9 +441,9 @@ class YUZ_Advanced implements AdvancedInterface {
      * Aucun enqueue direct ici (voir CORE RULES).
      */
     public function enqueue_scripts(string $hook): void {
-        if (class_exists('YUZ_Assets') && method_exists('YUZ_Assets','require')) {
+        if (class_exists('YUZTRA_Assets') && method_exists('YUZTRA_Assets','require')) {
             // pack "advanced-admin" : js + css + localisation (nonce, ajaxurl, i18n)
-            YUZ_Assets::require('advanced-admin');
+            YUZTRA_Assets::require('advanced-admin');
         }
     }
 
@@ -451,6 +456,6 @@ class YUZ_Advanced implements AdvancedInterface {
 }
 
 // Hook d’initialisation (admin)
-if ( class_exists('YUZ_Advanced') ) {
-    add_action('admin_init', ['YUZ_Advanced', 'init']);
+if ( class_exists('YUZTRA_Advanced') ) {
+    add_action('admin_init', ['YUZTRA_Advanced', 'init']);
 }

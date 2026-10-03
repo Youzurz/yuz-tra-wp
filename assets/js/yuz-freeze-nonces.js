@@ -28,5 +28,5 @@
   var iv = setInterval(function(){
     if (sweep() === 0) { clearInterval(iv); }
   }, 50);
-})(['yuzGS','yuzTS','yuzTE','yuzAI','yuzSW','yuzAB','yuzAT','yuzGB']); // ajoute ici d’autres globals si besoin
+})(['yuztraGS','yuztraTS','yuztraTE','yuztraAI','yuztraSW','yuztraAB','yuztraAT','yuztraGB']); // ajoute ici d’autres globals si besoin
 

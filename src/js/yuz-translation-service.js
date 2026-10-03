@@ -2,26 +2,26 @@
 // Shim minimal : fournit les exports nommés attendus par ton éditeur.
 //
 // S'appuie si présent sur un service global déjà chargé (window.YUZTranslationService)
-// et sur les settings localisés (yuzTraSettings / yuzTE / yuzTS).
+// et sur les settings localisés (yuztraSettings / yuztraTE / yuztraTS).
 
 const g = typeof window !== 'undefined' ? window : {};
 const globalSvc =
   g.YUZTranslationService ||
-  g.yuzTranslationService ||
+  g.yuztraTranslationService ||
   {};
 
 // Préfère l’objet localisé le plus riche disponible
-const S = g.yuzTraSettings || g.yuzTE || g.yuzTS || {};
+const S = g.yuztraSettings || g.yuztraTE || g.yuztraTS || {};
 
 // URL AJAX (fallback sur ajaxurl de WP)
 export const API_CONFIG = {
-  ajaxUrl: S.ajax_url || g.ajaxurl || '/wp-admin/admin-ajax.php',
+  ajaxUrl: S.ajax_url || g.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })(),
 };
 
 // Pool de nonces connus (avec fallback générique)
 const NONCES = (S.nonces || {});
 const DEFAULT_NONCE =
-  NONCES.yuz_tra_nonce ||
+  NONCES.yuztra_nonce ||
   S.nonce ||
   '';
 

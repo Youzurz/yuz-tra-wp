@@ -67,29 +67,30 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-services.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-logger.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-health-check.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-db.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-services.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-logger.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-health-check.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-db.php';
 
 use YUZTRA\Interfaces\DBInterface;
 
-class YUZ_Data_Repository {
+
+class YUZTRA_Data_Repository {
     public static function store_translation($translation_data) {
-        if (function_exists('yuz_debug_probe_log')) {
-            yuz_debug_probe_log('repository_store_translation_start', [
+        if (function_exists('yuztra_debug_probe_log')) {
+            yuztra_debug_probe_log('repository_store_translation_start', [
                 'payload' => $translation_data,
             ]);
         }
 
-        $logger = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new \YUZTRA\Fallbacks\NullLogger();
-        $health = class_exists('YUZ_Health_Check') ? new \YUZ_Health_Check($logger) : null;
-        $db     = class_exists('YUZ_DB') ? new \YUZ_DB($logger, $health) : null;
+        $logger = class_exists('YUZTRA_Logger') ? new \YUZTRA_Logger() : new \YUZTRA\Fallbacks\NullLogger();
+        $health = class_exists('YUZTRA_Health_Check') ? new \YUZTRA_Health_Check($logger) : null;
+        $db     = class_exists('YUZTRA_DB') ? new \YUZTRA_DB($logger, $health) : null;
 
         if (!$db || !method_exists($db, 'store_translation')) {
-            $logger->log('error', 'store_translation unavailable: YUZ_DB missing');
+            $logger->log('error', 'store_translation unavailable: YUZTRA_DB missing');
             return false;
         }
 
@@ -97,15 +98,15 @@ class YUZ_Data_Repository {
             $db->ensure_tables();
         }
 
-        $languages = (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'languages'))
-            ? \YUZ_Services::languages()
+        $languages = (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'languages'))
+            ? \YUZTRA_Services::languages()
             : new \YUZTRA\Fallbacks\NullLanguages();
 
         $target_code = sanitize_text_field($translation_data['target_lang'] ?? $translation_data['language_code'] ?? '');
         if ($target_code === '') {
             $logger->log('warning', 'store_translation aborted: missing target code');
-            if (function_exists('yuz_debug_probe_log')) {
-                yuz_debug_probe_log('repository_store_translation_abort', ['reason' => 'missing_target_code']);
+            if (function_exists('yuztra_debug_probe_log')) {
+                yuztra_debug_probe_log('repository_store_translation_abort', ['reason' => 'missing_target_code']);
             }
             return false;
         }
@@ -113,8 +114,8 @@ class YUZ_Data_Repository {
         $target_lang = $languages->get_by_code($target_code);
         if (!$target_lang || !method_exists($target_lang, 'getId')) {
             $logger->log('warning', 'store_translation aborted: unknown target language', ['code' => $target_code]);
-            if (function_exists('yuz_debug_probe_log')) {
-                yuz_debug_probe_log('repository_store_translation_abort', ['reason' => 'unknown_target_language', 'code' => $target_code]);
+            if (function_exists('yuztra_debug_probe_log')) {
+                yuztra_debug_probe_log('repository_store_translation_abort', ['reason' => 'unknown_target_language', 'code' => $target_code]);
             }
             return false;
         }
@@ -152,18 +153,18 @@ class YUZ_Data_Repository {
             $mode = 'semi_auto';
         }
 
-        if (function_exists('yuz_tra_status_sanitize')) {
+        if (function_exists('yuztra_status_sanitize')) {
             if ($mode === 'manual') {
-                $default_status = YUZ_TRA_STATUS_DRAFT;
+                $default_status = YUZTRA_STATUS_DRAFT;
             } elseif ($mode === 'semi_auto') {
-                $default_status = YUZ_TRA_STATUS_IN_REVIEW;
+                $default_status = YUZTRA_STATUS_IN_REVIEW;
             } elseif ($mode === 'auto') {
-                $default_status = YUZ_TRA_STATUS_PUBLISHED;
+                $default_status = YUZTRA_STATUS_PUBLISHED;
             } else {
                 $needs_review = in_array($origin, ['machine', 'dom'], true) || $is_batch;
-                $default_status = $needs_review ? YUZ_TRA_STATUS_IN_REVIEW : YUZ_TRA_STATUS_PUBLISHED;
+                $default_status = $needs_review ? YUZTRA_STATUS_IN_REVIEW : YUZTRA_STATUS_PUBLISHED;
             }
-            $status = yuz_tra_status_sanitize($translation_data['status'] ?? null, $default_status);
+            $status = yuztra_status_sanitize($translation_data['status'] ?? null, $default_status);
         } else {
             if ($mode === 'manual') {
                 $default_status = 1;
@@ -181,12 +182,12 @@ class YUZ_Data_Repository {
                 $status = 5;
             }
         }
-        if (function_exists('yuz_tra_status_for_origin')) {
-            $status = yuz_tra_status_for_origin($origin, $status, $is_batch, $mode);
+        if (function_exists('yuztra_status_for_origin')) {
+            $status = yuztra_status_for_origin($origin, $status, $is_batch, $mode);
         } elseif ($mode === 'auto') {
-            $status = defined('YUZ_TRA_STATUS_PUBLISHED') ? YUZ_TRA_STATUS_PUBLISHED : 4;
+            $status = defined('YUZTRA_STATUS_PUBLISHED') ? YUZTRA_STATUS_PUBLISHED : 4;
         } elseif ($origin === 'machine' || $origin === 'dom' || $is_batch || $mode === 'semi_auto') {
-            $status = defined('YUZ_TRA_STATUS_REVIEW') ? YUZ_TRA_STATUS_REVIEW : 2;
+            $status = defined('YUZTRA_STATUS_REVIEW') ? YUZTRA_STATUS_REVIEW : 2;
         }
 
         $payload = [
@@ -210,28 +211,29 @@ class YUZ_Data_Repository {
 
         if ($payload['original_text'] === '' || $payload['translated_text'] === '') {
             $logger->log('warning', 'store_translation aborted: empty text payload');
-            if (function_exists('yuz_debug_probe_log')) {
-                yuz_debug_probe_log('repository_store_translation_abort', ['reason' => 'empty_text']);
+            if (function_exists('yuztra_debug_probe_log')) {
+                yuztra_debug_probe_log('repository_store_translation_abort', ['reason' => 'empty_text']);
             }
             return false;
         }
 
         $result = $db->store_translation($payload);
-        if (function_exists('yuz_debug_probe_log')) {
-            yuz_debug_probe_log('repository_store_translation_result', [
+        if (function_exists('yuztra_debug_probe_log')) {
+            yuztra_debug_probe_log('repository_store_translation_result', [
                 'payload' => $payload,
                 'result'  => $result,
             ]);
         }
         if ($result) {
-            do_action('yuz_translation_stored', $translation_data);
+
+            do_action('yuztra_translation_stored', $translation_data);
         }
         return $result;
     }
 
     public function set_option( $name, $value ) {
     $ok = update_option($name, $value);
-    YUZ_Health_Check::ensure(
+    YUZTRA_Health_Check::ensure(
         $ok,
         "update_option('$name') a retourné false",
         __METHOD__

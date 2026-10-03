@@ -1,6 +1,6 @@
 // assets/js/yuz-assets.js
 ;(function(window, console){
-  window.YUZ_Assets = {
+  window.YUZTRA_Assets = {
     log_colored: function(level, message, context){
       const prefixes = {
         critical: '🟥 [CRITICAL]',

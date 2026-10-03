@@ -1,9 +1,9 @@
-// Mute YUZ console noise by default; set yuzTraSettings.silent_logs = false to re-enable.
+// Mute YUZ console noise by default; set yuztraSettings.silent_logs = false to re-enable.
 (function () {
-  const settings = window.yuzTraSettings || {};
+  const settings = window.yuztraSettings || {};
   const allowDebug = settings.silent_logs === false || settings.debug_logs === true;
   if (allowDebug) return;
-  const mutePrefixes = [/^\[YUZ/i, /^\[yuz/i, /^\[toast]/i, /^\[INSTANT]/i, /^\[SMART]/i];
+  const mutePrefixes = [/^\[YUZ/i, /^\[yuztra/i, /^\[toast]/i, /^\[INSTANT]/i, /^\[SMART]/i];
   const shouldMute = (first) => typeof first === 'string' && mutePrefixes.some((rx) => rx.test(first));
   ['warn', 'info', 'log', 'debug'].forEach((level) => {
     const orig = console[level];
@@ -29,9 +29,9 @@
   window.__YUZ_TE_DBG__ = { DBG, log };
 })();
 (function () {
-  var settings = window.yuzTraSettings && window.yuzTraSettings.general ? window.yuzTraSettings.general : null;
+  var settings = window.yuztraSettings && window.yuztraSettings.general ? window.yuztraSettings.general : null;
   if (!settings) return;
-  var fromSettings = Array.isArray(settings.yuz_tra_translatable_languages) ? settings.yuz_tra_translatable_languages.slice() : [];
+  var fromSettings = Array.isArray(settings.yuztra_translatable_languages) ? settings.yuztra_translatable_languages.slice() : [];
   if (!fromSettings.length) return;
   try {
     if (window.YUZ && window.YUZ.state && (!Array.isArray(window.YUZ.state.langs) || !window.YUZ.state.langs.length)) {
@@ -44,31 +44,31 @@
   } catch (_) { }
 })();
 
-// Bootstrap minimal yuzTraSettings even if localization missed.
+// Bootstrap minimal yuztraSettings even if localization missed.
 (function () {
-  const Y = (window.yuzTraSettings = window.yuzTraSettings || {});
+  const Y = (window.yuztraSettings = window.yuztraSettings || {});
   const dbg = (window.__YUZ_TE_DBG__ && window.__YUZ_TE_DBG__.log) || function () { };
   const hasContainer = !!document.getElementById('yuz-editor-container');
   dbg('info', 'bootstrap yzTraSettings fallback', {
     hasContainer,
     ajax: !!Y.ajax_url,
     nonces: Y.nonces ? Object.keys(Y.nonces) : [],
-    yuzTE_nonces: window.yuzTE ? Object.keys(window.yuzTE.nonces || {}) : [],
+    yuzTE_nonces: window.yuztraTE ? Object.keys(window.yuztraTE.nonces || {}) : [],
   });
-  // CSP/inline-free fallback: if the inline yuzTraSettings localization was stripped,
+  // CSP/inline-free fallback: if the inline yuztraSettings localization was stripped,
   // reuse the yzTE payload (nonces + ajax_url) so AJAX fallbacks can work.
-  if ((!Y.nonces || !Object.keys(Y.nonces).length) && window.yuzTE && window.yuzTE.nonces) {
-    Y.nonces = Object.assign({}, window.yuzTE.nonces);
-    Y.ajax_url = Y.ajax_url || window.yuzTE.ajax_url;
-    dbg('warn', 'patched yuzTraSettings from yzTE (inline blocked?)', {
+  if ((!Y.nonces || !Object.keys(Y.nonces).length) && window.yuztraTE && window.yuztraTE.nonces) {
+    Y.nonces = Object.assign({}, window.yuztraTE.nonces);
+    Y.ajax_url = Y.ajax_url || window.yuztraTE.ajax_url;
+    dbg('warn', 'patched yuztraSettings from yzTE (inline blocked?)', {
       ajax: Y.ajax_url,
       nonces: Object.keys(Y.nonces || {}),
     });
   }
-  if (!Y.general || !Array.isArray(Y.general.yuz_tra_translatable_languages) || !Y.general.yuz_tra_translatable_languages.length) {
-    const N = (Y.nonces && (Y.nonces.yuz_tra_ws_get_languages || Y.nonces.yuz_tra_nonce)) || '';
-    const params = new URLSearchParams({ action: 'yuz_tra_ws_get_languages', yuz_tra_nonce: N, nonce: N, security: N });
-    const ajax = Y.ajax_url || '/wp-admin/admin-ajax.php';
+  if (!Y.general || !Array.isArray(Y.general.yuztra_translatable_languages) || !Y.general.yuztra_translatable_languages.length) {
+    const N = (Y.nonces && (Y.nonces.yuztra_ws_get_languages || Y.nonces.yuztra_nonce)) || '';
+    const params = new URLSearchParams({ action: 'yuztra_ws_get_languages', yuztra_nonce: N, nonce: N, security: N });
+    const ajax = Y.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
     fetch(ajax, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -82,8 +82,8 @@
             : Array.isArray(j.data?.langs) ? j.data.langs
               : [];
           const codes = raw.map(item => (item?.language_code || item?.code || item)).filter(Boolean);
-          window.yuzTraSettings.general = window.yuzTraSettings.general || {};
-          window.yuzTraSettings.general.yuz_tra_translatable_languages = codes;
+          window.yuztraSettings.general = window.yuztraSettings.general || {};
+          window.yuztraSettings.general.yuztra_translatable_languages = codes;
           dbg('info', '[yuz] fallback langs from ajax', codes);
         } else {
           dbg('warn', '[yuz] fallback ajax failed', j);
@@ -95,17 +95,17 @@
 
 (function () {
   // Évite la dépendance stricte à l'inline YUZ_PARAMS (bloqué si CSP refuse l'inline).
-  // Reconstruit un YUZ_PARAMS minimal à partir du payload localisé dans yuzTraSettings.
+  // Reconstruit un YUZ_PARAMS minimal à partir du payload localisé dans yuztraSettings.
   try {
-    const perms = window.yuzTraSettings && window.yuzTraSettings.permissions;
-    const alias = (window.yuzTraSettings && window.yuzTraSettings.current_user) || null;
+    const perms = window.yuztraSettings && window.yuztraSettings.permissions;
+    const alias = (window.yuztraSettings && window.yuztraSettings.current_user) || null;
     const canEdit = perms ? !!(perms.canTranslate || perms.canManage || perms.canPublish) : null;
-    window.YUZ_PARAMS = window.YUZ_PARAMS || {};
-    if (typeof window.YUZ_PARAMS.canEdit === 'undefined' && canEdit !== null) {
-      window.YUZ_PARAMS.canEdit = canEdit;
+    window.YUZTRA_PARAMS = window.YUZTRA_PARAMS || {};
+    if (typeof window.YUZTRA_PARAMS.canEdit === 'undefined' && canEdit !== null) {
+      window.YUZTRA_PARAMS.canEdit = canEdit;
     }
-    if (!window.YUZ_PARAMS.alias && alias) {
-      window.YUZ_PARAMS.alias = alias;
+    if (!window.YUZTRA_PARAMS.alias && alias) {
+      window.YUZTRA_PARAMS.alias = alias;
     }
   } catch (_) { /* silencieux */ }
 })();
@@ -114,21 +114,21 @@
   try {
     const params = new URLSearchParams(window.location.search);
     const ss = window.sessionStorage;
-    if (params.get('yuz_umd') === '1') {
-      window.YUZ_FALLBACK_UMD = true;
-      const url = params.get('yuz_umd_url');
+    if (params.get('yuztra_umd') === '1') {
+      window.YUZTRA_FALLBACK_UMD = true;
+      const url = params.get('yuztra_umd_url');
       if (url) {
-        window.YUZ_FALLBACK_UMD_URL = url;
-        ss && ss.setItem('YUZ_FALLBACK_UMD_URL', url);
+        window.YUZTRA_FALLBACK_UMD_URL = url;
+        ss && ss.setItem('YUZTRA_FALLBACK_UMD_URL', url);
       }
-      ss && ss.setItem('YUZ_FALLBACK_UMD', '1');
-    } else if (params.get('yuz_umd') === '0') {
-      window.YUZ_FALLBACK_UMD = false;
-      ss && ss.removeItem('YUZ_FALLBACK_UMD');
-      ss && ss.removeItem('YUZ_FALLBACK_UMD_URL');
-    } else if (ss && ss.getItem('YUZ_FALLBACK_UMD') === '1') {
-      window.YUZ_FALLBACK_UMD = true;
-      window.YUZ_FALLBACK_UMD_URL = ss.getItem('YUZ_FALLBACK_UMD_URL') || window.YUZ_FALLBACK_UMD_URL;
+      ss && ss.setItem('YUZTRA_FALLBACK_UMD', '1');
+    } else if (params.get('yuztra_umd') === '0') {
+      window.YUZTRA_FALLBACK_UMD = false;
+      ss && ss.removeItem('YUZTRA_FALLBACK_UMD');
+      ss && ss.removeItem('YUZTRA_FALLBACK_UMD_URL');
+    } else if (ss && ss.getItem('YUZTRA_FALLBACK_UMD') === '1') {
+      window.YUZTRA_FALLBACK_UMD = true;
+      window.YUZTRA_FALLBACK_UMD_URL = ss.getItem('YUZTRA_FALLBACK_UMD_URL') || window.YUZTRA_FALLBACK_UMD_URL;
     }
   } catch (_) { }
 })();
@@ -157,15 +157,15 @@
 (function () {
   const dbg = (window.__YUZ_TE_DBG__ && window.__YUZ_TE_DBG__.log) || function () { };
   setTimeout(() => {
-    const app = window.YUZ_StringTranslationApp;
+    const app = window.YUZTRA_StringTranslationApp;
     const c = document.getElementById('yuz-editor-container');
     if (!app || !c || !c.children || c.children.length === 0) {
       dbg('warn', 'Editor not mounted after 5s', {
         hasApp: !!app,
         hasContainer: !!c,
         containerChildren: c && c.children ? c.children.length : null,
-        yzNonces: window.yuzTraSettings && window.yuzTraSettings.nonces ? Object.keys(window.yuzTraSettings.nonces || {}) : [],
-        teNonces: window.yuzTE && window.yuzTE.nonces ? window.yuzTE.nonces : {},
+        yzNonces: window.yuztraSettings && window.yuztraSettings.nonces ? Object.keys(window.yuztraSettings.nonces || {}) : [],
+        teNonces: window.yuztraTE && window.yuztraTE.nonces ? window.yuztraTE.nonces : {},
       });
     }
   }, 5000);
@@ -202,7 +202,7 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
 
 // Overlay diagnostic & fallback (ESM + legacy)
 (() => {
-  const DEBUG = /\b(?:\?|&)yuzdebug=1\b/.test(location.search) || window.YUZ_DEBUG === true;
+  const DEBUG = /\b(?:\?|&)yuzdebug=1\b/.test(location.search) || window.YUZTRA_ASSETS_DEBUG === true;
   const onReady = (fn) =>
     (document.readyState === 'complete' || document.readyState === 'interactive')
       ? fn()
@@ -230,16 +230,16 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
 
   onReady(() => {
     const ensureReport = () => {
-      const rep = window.YUZ_DETECTOR_REPORT || {};
+      const rep = window.YUZTRA_DETECTOR_REPORT || {};
       rep.ts = rep.ts || new Date().toISOString();
       rep.checks = rep.checks && typeof rep.checks === 'object' ? rep.checks : {};
       rep.events = Array.isArray(rep.events) ? rep.events : [];
       rep.scripts = Array.isArray(rep.scripts) ? rep.scripts : [];
-      window.YUZ_DETECTOR_REPORT = rep;
+      window.YUZTRA_DETECTOR_REPORT = rep;
       return rep;
     };
 
-    const report = typeof window.YUZ_SAFE_REPORT === 'function' ? window.YUZ_SAFE_REPORT() : ensureReport();
+    const report = typeof window.YUZTRA_SAFE_REPORT === 'function' ? window.YUZTRA_SAFE_REPORT() : ensureReport();
     const tag = document.querySelector(selModule);
     const hasContainer = () => !!document.querySelector(selContainer);
     const containerFound = hasContainer();
@@ -260,9 +260,9 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
     } : { dom_seen: false };
 
     const checks = {
-      hasParam: typeof window.YUZ_PARAMS !== 'undefined',
-      canEdit: !!(window.YUZ_PARAMS && window.YUZ_PARAMS.canEdit),
-      alias: (window.YUZ_PARAMS && window.YUZ_PARAMS.alias) || null,
+      hasParam: typeof window.YUZTRA_PARAMS !== 'undefined',
+      canEdit: !!(window.YUZTRA_PARAMS && window.YUZTRA_PARAMS.canEdit),
+      alias: (window.YUZTRA_PARAMS && window.YUZTRA_PARAMS.alias) || null,
       boot: 'editor-js',
       pipeline,
       tag: tagInfo,
@@ -304,10 +304,10 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
       }, 10000);
     }
 
-    if (!tag && window.YUZ_FALLBACK_UMD === true && window.YUZ_FALLBACK_UMD_URL) {
+    if (!tag && window.YUZTRA_FALLBACK_UMD === true && window.YUZTRA_FALLBACK_UMD_URL) {
       try {
         const s = document.createElement('script');
-        s.src = String(window.YUZ_FALLBACK_UMD_URL);
+        s.src = String(window.YUZTRA_FALLBACK_UMD_URL);
         s.async = true;
         s.defer = true;
         s.dataset.yuzFallback = '1';
@@ -352,28 +352,28 @@ document.addEventListener('yuz:inspector:targets:form-legends', (e) => {
  * ======================================================================================= */
 
 // --- N19 hotfix: AJAX + nonce helper ----------------------------
-const __T__ = window.yuzTraSettings || {};
-const __AJAX__ = __T__.ajax_url || '/wp-admin/admin-ajax.php';
+const __T__ = window.yuztraSettings || {};
+const __AJAX__ = __T__.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
 const __NONCES__ = (__T__.nonces || {});
 const __NONCE_ROUTES__ = {
-  yuz_get_pending_translations: ['int', 'yuz_int_nonce', 'yuz_get_pending_translations'],
-  yuz_publish_translations: ['con', 'yuz_con_nonce', 'yuz_publish_translations', 'yuz_publish_controller'],
-  yuz_mass_publish: ['con', 'yuz_con_nonce', 'yuz_publish_controller'],
-  yuz_translate: ['hvy', 'yuz_hvy_nonce', 'yuz_translate', 'yuz_api_nonce'],
-  yuz_tra_tm_translate: ['hvy', 'yuz_hvy_nonce', 'yuz_tra_tm_translate', 'yuz_api_nonce'],
-  yuz_tra_tm_del_translation: ['del', 'yuz_del_nonce', 'yuz_tra_tm_del_translation', 'yuz_tra_delete_translation'],
-  yuz_tra_delete_translation: ['del', 'yuz_del_nonce', 'yuz_tra_delete_translation'],
-  yuz_tra_tm_test_api: ['api', 'yuz_api_nonce', 'yuz_tra_tm_test_api'],
-  yuz_tra_ws_get_languages: ['tra', 'yuz_tra_nonce', 'yuz_tra_ws_get_languages']
+  yuztra_get_pending_translations: ['int', 'yuztra_int_nonce', 'yuztra_get_pending_translations'],
+  yuztra_publish_translations: ['con', 'yuztra_con_nonce', 'yuztra_publish_translations', 'yuztra_publish_controller'],
+  yuztra_mass_publish: ['con', 'yuztra_con_nonce', 'yuztra_publish_controller'],
+  yuztra_translate: ['hvy', 'yuztra_hvy_nonce', 'yuztra_translate', 'yuztra_api_nonce'],
+  yuztra_tm_translate: ['hvy', 'yuztra_hvy_nonce', 'yuztra_tm_translate', 'yuztra_api_nonce'],
+  yuztra_tm_del_translation: ['del', 'yuztra_del_nonce', 'yuztra_tm_del_translation', 'yuztra_delete_translation'],
+  yuztra_delete_translation: ['del', 'yuztra_del_nonce', 'yuztra_delete_translation'],
+  yuztra_tm_test_api: ['api', 'yuztra_api_nonce', 'yuztra_tm_test_api'],
+  yuztra_ws_get_languages: ['tra', 'yuztra_nonce', 'yuztra_ws_get_languages']
 };
 
 // Per-action HTTP timeouts (ms) — translations are slower than UI defaults
 const __ACTION_TIMEOUTS__ = {
-  yuz_tra_tm_translate: 30000,
-  yuz_translate: 30000,
-  yuz_tra_tm_get_translations: 45000,
-  yuz_tra_tm_search: 20000,
-  yuz_tra_ws_get_languages: 15000
+  yuztra_tm_translate: 30000,
+  yuztra_translate: 30000,
+  yuztra_tm_get_translations: 45000,
+  yuztra_tm_search: 20000,
+  yuztra_ws_get_languages: 15000
 };
 
 // Lightweight internal diagnostics (no-op if console missing)
@@ -391,12 +391,12 @@ function __nonceFor__(action) {
       }
     }
   }
-  return __NONCES__[action] || __NONCES__.tra || __NONCES__.yuz_tra_nonce || __NONCES__.yuz_tra_ajax || '';
+  return __NONCES__[action] || __NONCES__.tra || __NONCES__.yuztra_nonce || __NONCES__.yuztra_ajax || '';
 }
 try { window.__nonceFor__ = __nonceFor__; } catch (_) { }
 
 /** POST standardisé vers admin-ajax avec nonce auto */
-async function yuzPost(action, payload = {}) {
+async function yuztraPost(action, payload = {}) {
   const n = __nonceFor__(action);
   const params = new URLSearchParams();
 
@@ -433,8 +433,8 @@ async function yuzPost(action, payload = {}) {
   });
 
   // On pousse les deux clés possibles (compat check_ajax_referer)
-  if (n && !params.has('yuz_tra_nonce') && !params.has('security')) {
-    params.set('yuz_tra_nonce', n);
+  if (n && !params.has('yuztra_nonce') && !params.has('security')) {
+    params.set('yuztra_nonce', n);
     params.set('security', n);
   }
 
@@ -512,8 +512,8 @@ async function yuzPost(action, payload = {}) {
         const maybe = w.__nonceFor__(action);
         if (maybe) return maybe;
       }
-      if (w.yuzTraSettings && w.yuzTraSettings.nonces && w.yuzTraSettings.nonces[action]) {
-        return w.yuzTraSettings.nonces[action];
+      if (w.yuztraSettings && w.yuztraSettings.nonces && w.yuztraSettings.nonces[action]) {
+        return w.yuztraSettings.nonces[action];
       }
       if (w.CLAR && w.CLAR.nonces && w.CLAR.nonces[action]) {
         return w.CLAR.nonces[action];
@@ -534,8 +534,8 @@ async function yuzPost(action, payload = {}) {
       const action = params.get('action') || '';
       const nonce = getNonceFor(action);
 
-      if (nonce && !params.has('yuz_tra_nonce') && !params.has('security')) {
-        params.set('yuz_tra_nonce', nonce);
+      if (nonce && !params.has('yuztra_nonce') && !params.has('security')) {
+        params.set('yuztra_nonce', nonce);
         params.set('security', nonce);
       }
 
@@ -575,10 +575,10 @@ const $ = window.jQuery;
   }
 
   // Be tolerant: some environments localize late. Retry once on DOMContentLoaded
-  let Y = window.yuzTE;
+  let Y = window.yuztraTE;
   if (!Y) {
     document.addEventListener('DOMContentLoaded', function () {
-      if (!window.yuzTE) return; // if still missing, stay silent
+      if (!window.yuztraTE) return; // if still missing, stay silent
       // re-run minimal bootstrap if defined later (handled by loader/enqueue elsewhere)
     });
     // Continue without noisy warning; other modules may not require the editor
@@ -591,7 +591,7 @@ const $ = window.jQuery;
   }
 
   // --- Ignore-list unifiée pour tous les scanners (visible & mapper)
-  const YUZ_SKIP =
+  const YUZTRA_SKIP =
     'style,script,noscript,template,textarea,code,pre,' +
     '[hidden],[aria-hidden="true"],#wpadminbar,' +
     '#yuz-editor-container,#yuz-translation-editor,' +
@@ -601,7 +601,7 @@ const $ = window.jQuery;
     '[class*="cookie"],[id*="cookie"],.newsletter-section,.newsletter-form';
 
   // Expose pour les autres modules (mapDomToItems, etc.)
-  try { window.YUZ_SKIP_SELECTORS = YUZ_SKIP; } catch (_) { }
+  try { window.YUZTRA_SKIP_SELECTORS = YUZTRA_SKIP; } catch (_) { }
 
   const CANONICAL_URL_OMIT_PARAMS = [
     'yuz-edit-translation',
@@ -626,9 +626,9 @@ const $ = window.jQuery;
   // Figer les nonces pour empêcher une mutation/injection tardive
   try { if (Y.nonces && !Object.isFrozen(Y.nonces)) Object.freeze(Y.nonces); } catch (_) { }
   // Sources possibles injectées côté WP/YUZ
-  const CFG = (window.YUZ_TE_CFG
-    || window.yuzTraSettings
-    || window.YUZ_PARAMS
+  const CFG = (window.YUZTRA_TE_CFG
+    || window.yuztraSettings
+    || window.YUZTRA_PARAMS
     || {});
   const TRACE = CFG.trace || Math.random().toString(16).slice(2);
   const norm = (s) => (s || '').toString().replace('-', '_');
@@ -647,14 +647,14 @@ const $ = window.jQuery;
     if (Array.isArray(CFG.langs)) return CFG.langs;
     if (Array.isArray(CFG.translatable_languages)) return CFG.translatable_languages;
 
-    const Y = window.yuzTraSettings || {};
+    const Y = window.yuztraSettings || {};
     const fromCfg = Array.isArray(CFG?.translation_langs) ? CFG.translation_langs : [];
     if (fromCfg.length) return fromCfg;
 
-    const fromStructured = Y?.settings?.general?.yuz_tra_translatable_languages;
+    const fromStructured = Y?.settings?.general?.yuztra_translatable_languages;
     if (Array.isArray(fromStructured) && fromStructured.length) return fromStructured;
 
-    const fromFlat = Y?.general?.yuz_tra_translatable_languages;
+    const fromFlat = Y?.general?.yuztra_translatable_languages;
     if (Array.isArray(fromFlat) && fromFlat.length) return fromFlat;
 
     if (Array.isArray(window.__yuz_boot_langs__) && window.__yuz_boot_langs__.length) {
@@ -665,32 +665,33 @@ const $ = window.jQuery;
   })();
 
   const resolveAssetBase = () => {
+    const cfgBase = (window.yuztraSettings && (window.yuztraSettings.assets_base || window.yuztraSettings.assetsBase)) || '';
+    if (typeof cfgBase === 'string' && cfgBase) {
+      try { return new URL(cfgBase.replace(/\/$/, '') + '/', document.baseURI).href; } catch (_) { }
+    }
     try {
       const script = document.querySelector('script[src*="yuz-translation-editor"]');
       if (script && script.src) {
-        const base = script.src.replace(/js\/widgets\/yuz-translation-editor(?:\.min)?\.js.*$/, '');
-        if (base) {
-          return base;
+        const url = new URL(script.src, document.baseURI);
+        if (/\/js\/widgets\/yuz-translation-editor(?:\.min)?\.js$/.test(url.pathname)) {
+          return new URL('../../', url).href;
         }
       }
     } catch (_) { }
-    const cfgBase = (window.yuzTraSettings && (window.yuzTraSettings.assets_base || window.yuzTraSettings.assetsBase)) || '';
-    if (cfgBase) {
-      return cfgBase.replace(/\/$/, '') + '/';
-    }
-    return '/wp-content/plugins/yuz-tra/assets/';
+    return '';
   };
 
   const ASSET_BASE = resolveAssetBase();
-  const publishControllerScriptUrl = () => (ASSET_BASE.replace(/\/$/, '') + '/js/yuz-publish-controller.js');
-  const publishControllerCssUrl = () => (ASSET_BASE.replace(/\/$/, '') + '/css/yuz-publish-controller.css');
+  const publishControllerScriptUrl = () => ASSET_BASE ? new URL('js/yuz-publish-controller.js', ASSET_BASE).href : '';
+  const publishControllerCssUrl = () => ASSET_BASE ? new URL('css/yuz-publish-controller.css', ASSET_BASE).href : '';
 
   const ensurePublishControllerAssets = (() => {
     let inflight = null;
     return () => {
-      if (window.YUZ_PUBLISH && typeof window.YUZ_PUBLISH.showDockReview === 'function') {
+      if (window.YUZTRA_PUBLISH && typeof window.YUZTRA_PUBLISH.showDockReview === 'function') {
         return Promise.resolve(true);
       }
+      if (!ASSET_BASE) return Promise.resolve(false);
       if (inflight) {
         return inflight;
       }
@@ -728,7 +729,7 @@ const $ = window.jQuery;
   const describeReviewDockState = () => {
     const scriptLoaded = !!document.querySelector('script[src*="yuz-publish-controller"]');
     const cssLoaded = !!document.querySelector('link[data-yuz-publish-css="1"]');
-    const publish = window.YUZ_PUBLISH || null;
+    const publish = window.YUZTRA_PUBLISH || null;
     return {
       hasWindow: !!publish,
       hasShowDock: !!(publish && typeof publish.showDockReview === 'function'),
@@ -762,7 +763,7 @@ const $ = window.jQuery;
     { value: 'xpress', label: 'Xpress' }
   ];
   const INITIAL_MODE = canonicalMode(
-    (window.YUZ_UI && typeof window.YUZ_UI.getMode === 'function' && window.YUZ_UI.getMode())
+    (window.YUZTRA_UI && typeof window.YUZTRA_UI.getMode === 'function' && window.YUZTRA_UI.getMode())
     || (typeof localStorage !== 'undefined' ? localStorage.getItem('yuz.ui.mode') : null)
     || 'advanced'
   );
@@ -801,17 +802,17 @@ const $ = window.jQuery;
 
   const ACTION = {
     // fetch/search → tra
-    TM_GET: 'yuz_tra_tm_get_translations',
-    TM_SEARCH: 'yuz_tra_tm_search',
+    TM_GET: 'yuztra_tm_get_translations',
+    TM_SEARCH: 'yuztra_tm_search',
     // save/bulk → int
-    TE_SAVE: 'yuz_save_translation',
-    TE_PUBLISH: 'yuz_tra_te_upd_publish',
-    TE_CREATE: 'yuz_tra_te_cre_translation',
+    TE_SAVE: 'yuztra_save_translation',
+    TE_PUBLISH: 'yuztra_te_upd_publish',
+    TE_CREATE: 'yuztra_te_cre_translation',
     // optional maintenance
-    TM_DEL: 'yuz_tra_tm_del_translation',
-    TM_CREATE_PAGE: 'yuz_tra_tm_cre_page',
+    TM_DEL: 'yuztra_tm_del_translation',
+    TM_CREATE_PAGE: 'yuztra_tm_cre_page',
     // suggest_ai → hvy (si présent)
-    AI_SUGGEST_BATCH: 'yuz_ai_batch_translate'
+    AI_SUGGEST_BATCH: 'yuztra_ai_batch_translate'
   };
 
   const PREVIEW_STORAGE_KEY = 'yuz.preview_toggle';
@@ -821,9 +822,9 @@ const $ = window.jQuery;
       const search = window.location.search || '';
       const forcedOff = /\byuzprobe=0\b/.test(search);
       const forcedOn = /\byuzprobe=1\b/.test(search);
-      const telemetryFlag = window.yuzTraSettings?.telemetry?.pipeline_probe;
-      const enabled = !forcedOff && (forcedOn || telemetryFlag === true || window.YUZ_DEBUG === true);
-      const configuredEndpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || '/wp-admin/admin-ajax.php';
+      const telemetryFlag = window.yuztraSettings?.telemetry?.pipeline_probe;
+      const enabled = !forcedOff && (forcedOn || telemetryFlag === true || window.YUZTRA_ASSETS_DEBUG === true);
+      const configuredEndpoint = window.yuztraSettings?.ajax_url || window.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
       const endpoint = (() => {
         try {
           const parsed = new URL(configuredEndpoint, window.location.href);
@@ -865,7 +866,7 @@ const $ = window.jQuery;
         return value;
       };
 
-      const alias = window.YUZ_PARAMS?.alias || window.yuzTraSettings?.current_user || '';
+      const alias = window.YUZTRA_PARAMS?.alias || window.yuztraSettings?.current_user || '';
 
       const send = (event, detail = {}) => {
         try {
@@ -879,10 +880,12 @@ const $ = window.jQuery;
             context.ids = limitArray(ids);
           }
           const payload = new URLSearchParams({
-            action: 'yuz_dom_log',
+            action: 'yuztra_dom_log',
+            nonce: window.yuztraSettings?.nonces?.yuztra_log_nonce || '',
             event: `pipeline:${event}`,
             context: JSON.stringify(context)
           });
+          if (!payload.get('nonce')) return;
           const data = payload.toString();
           if (navigator.sendBeacon) {
             navigator.sendBeacon(endpoint, new Blob([data], { type: 'application/x-www-form-urlencoded' }));
@@ -904,12 +907,12 @@ const $ = window.jQuery;
   }
 
   const pipelineProbe = (() => {
-    if (typeof window.YUZ_PIPE_PROBE === 'function') {
-      return window.YUZ_PIPE_PROBE;
+    if (typeof window.YUZTRA_PIPE_PROBE === 'function') {
+      return window.YUZTRA_PIPE_PROBE;
     }
     const factory = window.__yuzInitPipelineProbe || (() => () => { });
     const fn = factory('translation-editor');
-    window.YUZ_PIPE_PROBE = fn;
+    window.YUZTRA_PIPE_PROBE = fn;
     return fn;
   })();
 
@@ -927,9 +930,9 @@ const $ = window.jQuery;
 
 
   const GROUP_NONCE_FALLBACK = {
-    tra: ['yuz_tra_nonce', 'yuz_int_nonce', 'yuz_api_nonce'],
-    int: ['yuz_int_nonce', 'yuz_tra_nonce', 'yuz_api_nonce'],
-    hvy: ['yuz_hvy_nonce', 'yuz_api_nonce', 'yuz_tra_nonce']
+    tra: ['yuztra_nonce', 'yuztra_int_nonce', 'yuztra_api_nonce'],
+    int: ['yuztra_int_nonce', 'yuztra_nonce', 'yuztra_api_nonce'],
+    hvy: ['yuztra_hvy_nonce', 'yuztra_api_nonce', 'yuztra_nonce']
   };
 
   // Nonce strict: si absent → on bloque la requête
@@ -944,7 +947,7 @@ const $ = window.jQuery;
       if (alias && nonces[alias]) return nonces[alias];
     }
 
-    for (const alias of ['yuz_tra_nonce', 'yuz_int_nonce', 'yuz_api_nonce', 'yuz_del_nonce']) {
+    for (const alias of ['yuztra_nonce', 'yuztra_int_nonce', 'yuztra_api_nonce', 'yuztra_del_nonce']) {
       if (nonces[alias]) return nonces[alias];
     }
 
@@ -1139,7 +1142,7 @@ const $ = window.jQuery;
     return '';
   }
 
-  // ACT-03/05: utilise uniquement Y (yuzTE). Vérifie même-origine. (BLOC B)
+  // ACT-03/05: utilise uniquement Y (yuztraTE). Vérifie même-origine. (BLOC B)
   const apiPost = (action, payload = {}) => {
     let nonceValue;
     try { nonceValue = nonceFor(action); }
@@ -1151,17 +1154,17 @@ const $ = window.jQuery;
     }
 
     const data = { ...payload };
-    if (TRACE && data.yuz_trace === undefined) {
-      data.yuz_trace = TRACE;
+    if (TRACE && data.yuztra_trace === undefined) {
+      data.yuztra_trace = TRACE;
     }
     if (nonceValue) {
       if (data.nonce === undefined) data.nonce = nonceValue;
       if (data._ajax_nonce === undefined) data._ajax_nonce = nonceValue;
-      if (data.yuz_tra_nonce === undefined) data.yuz_tra_nonce = nonceValue;
+      if (data.yuztra_nonce === undefined) data.yuztra_nonce = nonceValue;
     }
 
     const deferred = $.Deferred();
-    yuzPost(action, data)
+    yuztraPost(action, data)
       .then((result) => deferred.resolve(result))
       .catch((error) => deferred.reject(error));
     return deferred.promise();
@@ -1210,17 +1213,17 @@ const $ = window.jQuery;
 
   const TRANSLATE_ENDPOINT = __AJAX__;
 
-  const TRANSLATE_NONCE = __nonceFor__('yuz_translate');
+  const TRANSLATE_NONCE = __nonceFor__('yuztra_translate');
 
   function nonceForTM() {
-    return __nonceFor__('yuz_tra_tm_translate');
+    return __nonceFor__('yuztra_tm_translate');
   }
 
   // -------------------------------
   // Sniffer & nettoyage agressifs
   // -------------------------------
 
-  function yuzLooksLikeCode(text) {
+  function yuztraLooksLikeCode(text) {
     if (!text) return false;
     const s = String(text).trim();
     const hints = [
@@ -1257,29 +1260,29 @@ const $ = window.jQuery;
       .replace(/\s+/g, ' ')
       .trim();
 
-    if (yuzLooksLikeCode(t)) return '';
+    if (yuztraLooksLikeCode(t)) return '';
     if (!/[A-Za-zÀ-ÿ]{2}/.test(t)) return '';
     return t;
   }
 
-  function yuzShouldSkip(text = '') {
+  function yuztraShouldSkip(text = '') {
     const trimmed = String(text || '').trim();
     if (trimmed.length < 2) return true;
-    return yuzLooksLikeCode(trimmed);
+    return yuztraLooksLikeCode(trimmed);
   }
 
   // Expose pour réutilisation ailleurs (mapper, setters…)
   try {
     window.stripCssJsNoise = stripCssJsNoise;
-    window.yuzLooksLikeCode = yuzLooksLikeCode;
-    window.yuzShouldSkip = yuzShouldSkip;
+    window.yuztraLooksLikeCode = yuztraLooksLikeCode;
+    window.yuztraShouldSkip = yuztraShouldSkip;
   } catch (_) { }
 
   // --- Visible-text scanner used by the editor (TreeWalker)
-  function yuzEditorVisibleText(root) {
+  function yuztraEditorVisibleText(root) {
     const out = [];
     if (!root || root.nodeType !== 1) return '';
-    const SKIP = YUZ_SKIP; // ← unifié
+    const SKIP = YUZTRA_SKIP; // ← unifié
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const p = node.parentElement;
@@ -1288,7 +1291,7 @@ const $ = window.jQuery;
         if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return NodeFilter.FILTER_REJECT;
         let t = (node.nodeValue || '').trim();
         if (!t) return NodeFilter.FILTER_REJECT;
-        if (yuzLooksLikeCode(t)) return NodeFilter.FILTER_REJECT; // heuristique agressive
+        if (yuztraLooksLikeCode(t)) return NodeFilter.FILTER_REJECT; // heuristique agressive
         // Shortcodes WP
         t = t.replace(/\[(\/)?[a-z0-9_-]+[^\]]*\]/ig, '').trim();
         return t ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
@@ -1297,15 +1300,15 @@ const $ = window.jQuery;
     while (walker.nextNode()) out.push(walker.currentNode.nodeValue.trim());
     return out.join(' ').replace(/\s+/g, ' ').trim();
   }
-  try { window.yuzEditorVisibleText = yuzEditorVisibleText; } catch (_) { }
+  try { window.yuztraEditorVisibleText = yuztraEditorVisibleText; } catch (_) { }
 
   const ajaxPromise = (action, payload = {}) => new Promise((resolve, reject) => {
-    const DEBUG = /\b(?:\?|&)yuzdebug=1\b/.test(location.search) || window.YUZ_DEBUG === true;
+    const DEBUG = /\b(?:\?|&)yuzdebug=1\b/.test(location.search) || window.YUZTRA_ASSETS_DEBUG === true;
     // Ajoute un trace-id corrélé si absent
     try {
-      if (payload && typeof payload === 'object' && !payload.yuz_trace) {
-        const trace = (window.yuzTraSettings && (window.yuzTraSettings.trace || '')) || String(Date.now());
-        payload.yuz_trace = trace;
+      if (payload && typeof payload === 'object' && !payload.yuztra_trace) {
+        const trace = (window.yuztraSettings && (window.yuztraSettings.trace || '')) || String(Date.now());
+        payload.yuztra_trace = trace;
       }
     } catch (_) { }
 
@@ -1360,9 +1363,9 @@ const $ = window.jQuery;
 
   if (typeof window !== 'undefined') {
     if (!window.ajaxurl && TRANSLATE_ENDPOINT) window.ajaxurl = TRANSLATE_ENDPOINT;
-    if (!window.yuzNonce && TRANSLATE_NONCE) window.yuzNonce = TRANSLATE_NONCE;
+    if (!window.yuztraNonce && TRANSLATE_NONCE) window.yuztraNonce = TRANSLATE_NONCE;
     if (!TRANSLATE_NONCE) {
-      try { console.warn('[YUZ] Missing nonce for yuz_translate; instant mode may fail.'); } catch (_) { }
+      try { console.warn('[YUZ] Missing nonce for yuztra_translate; instant mode may fail.'); } catch (_) { }
     }
   }
 
@@ -1385,11 +1388,11 @@ const $ = window.jQuery;
   }
 
   function configHint() {
-    const cfg = window.yuzTraSettings || {};
+    const cfg = window.yuztraSettings || {};
     const hints = [];
     if (!cfg.ajax_url) hints.push('ajax_url manquant');
     const nonces = cfg.nonces || {};
-    if (!nonces.yuz_hvy_nonce && !nonces.yuz_api_nonce && !nonces.yuz_tra_tm_translate) {
+    if (!nonces.yuztra_hvy_nonce && !nonces.yuztra_api_nonce && !nonces.yuztra_tm_translate) {
       hints.push('nonce API absent');
     }
     const api = cfg.api_settings || cfg.api || {};
@@ -1400,7 +1403,7 @@ const $ = window.jQuery;
   }
 
   function autoFlag(flagName, fallback) {
-    const cfg = window.yuzTraSettings || {};
+    const cfg = window.yuztraSettings || {};
     if (typeof cfg[flagName] === 'boolean') return cfg[flagName];
     return fallback;
   }
@@ -1548,8 +1551,8 @@ const $ = window.jQuery;
       : (typeof params.to === 'string' ? params.to.trim()
         : (typeof params.target === 'string' ? params.target.trim() : '')));
 
-    const fromCanon = canonLT(fromInput || params.from || window.yuzTraSettings?.source_language || 'auto');
-    const toCanon = canonLT(toInput || params.to || window.yuzTraSettings?.translatable_languages?.[0] || '');
+    const fromCanon = canonLT(fromInput || params.from || window.yuztraSettings?.source_language || 'auto');
+    const toCanon = canonLT(toInput || params.to || window.yuztraSettings?.translatable_languages?.[0] || '');
     if (!toCanon) throw new Error('missing_target');
 
     const basePayload = {
@@ -1565,7 +1568,7 @@ const $ = window.jQuery;
       basePayload.context = params.context.trim();
     }
     if (TRACE) {
-      basePayload.yuz_trace = TRACE;
+      basePayload.yuztra_trace = TRACE;
     }
 
     async function postOnce(src, tgt) {
@@ -1580,7 +1583,7 @@ const $ = window.jQuery;
 
       let json;
       try {
-        json = await yuzPost('yuz_tra_tm_translate', payload);
+        json = await yuztraPost('yuztra_tm_translate', payload);
       } catch (error) {
         console.warn('[YUZ][TM] ✗', error);
         console.groupEnd();
@@ -1987,7 +1990,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           index: -1,
           languages: [],
           languageNames: {},
-          sourceLanguage: (window.yuzTraSettings?.source_language || '').replace('-', '_'),
+          sourceLanguage: (window.yuztraSettings?.source_language || '').replace('-', '_'),
           selectedSourceLanguage: '',
           currentLanguage: '',
           fromLanguages: [],
@@ -2213,7 +2216,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         // Optional probe hook to trace inspector pipeline without flooding logs
         inspectorProbe(event, detail = {}) {
           try {
-            const tap = window.__YUZ_INSPECTOR_PROBE || window.YUZ_INSPECTOR_PROBE;
+            const tap = window.__YUZ_INSPECTOR_PROBE || window.YUZTRA_INSPECTOR_PROBE;
             if (typeof tap === 'function') tap(event, detail);
           } catch (_) { /* silent */ }
         },
@@ -2337,21 +2340,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         },
 
         getInspectorAssetUrl() {
-          try {
-            const script = document.querySelector('script[src*="yuz-translation-editor"]');
-            if (script && script.src) {
-              const base = script.src.replace(/yuz-translation-editor(?:\\.min)?\\.js.*$/i, '');
-              if (base) {
-                return base + 'inspector/yuz-inspector.js';
-              }
-            }
-          } catch (_) { }
-          const fallback =
-            (window.yuzTraSettings && (window.yuzTraSettings.assets_base || window.yuzTraSettings.assetsBase)) || '';
-          if (fallback) {
-            return fallback.replace(/\/$/, '') + '/js/widgets/inspector/yuz-inspector.js';
-          }
-          return '/wp-content/plugins/yuz-tra/assets/js/widgets/inspector/yuz-inspector.js';
+          return ASSET_BASE ? new URL('js/widgets/inspector/yuz-inspector.js', ASSET_BASE).href : '';
         },
 
         async _doSearch() {
@@ -2364,7 +2353,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             const res = await (
               this.$yuz?.api?.search
                 ? this.$yuz.api.search(params)
-                : ajaxPromise('yuz_tra_tm_search', { ...params, limit: 50, index: 0 })
+                : ajaxPromise('yuztra_tm_search', { ...params, limit: 50, index: 0 })
             );
 
             if (ticket !== this._lastTicket) return;
@@ -2941,7 +2930,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         computePreviewUrl(lang) {
           try {
             const base = this.urlToLoad || window.location.href.split('#')[0];
-            const sw = window.yuzSW || {};
+            const sw = window.yuztraSW || {};
             if (typeof sw.getUrlForLanguage === 'function') {
               const viaSwitcher = sw.getUrlForLanguage(lang, base, {});
               if (viaSwitcher) return viaSwitcher;
@@ -2992,7 +2981,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           } catch (_) { }
 
           // 4) État global
-          try { window.YUZ_EDITOR_APP = null; } catch (_) { }
+          try { window.YUZTRA_EDITOR_APP = null; } catch (_) { }
           try { currentOverlayMode = null; } catch (_) { }
           try { delete document.documentElement.dataset.yuzEdit; } catch (_) { }
 
@@ -3015,8 +3004,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           this.activeMode = canonical;
           try { localStorage.setItem('yuz.ui.mode', canonical); } catch (_) { }
           setUiDataset(canonical);
-          if (window.YUZ_UI && typeof window.YUZ_UI.switchTo === 'function') {
-            window.YUZ_UI.switchTo(canonical);
+          if (window.YUZTRA_UI && typeof window.YUZTRA_UI.switchTo === 'function') {
+            window.YUZTRA_UI.switchTo(canonical);
           } else {
             document.dispatchEvent(new CustomEvent('yuz:ui:mount', { detail: { mode: canonical } }));
           }
@@ -3024,7 +3013,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
         // Utilitaire: récupère la langue courante sans collision nom → propriété vs méthode
         getCurrentLanguage() {
-          return this.currentLanguage || (window.yuzTE && window.yuzTE.defaultLang) || '';
+          return this.currentLanguage || (window.yuztraTE && window.yuztraTE.defaultLang) || '';
         },
 
         // ---------- Bootstrap ---------- (BLOC C)
@@ -3088,7 +3077,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               const data = r.data || {};
               let langs = Array.isArray(data.languages) ? data.languages : (Array.isArray(data.langs) ? data.langs : []);
               if (!Array.isArray(langs) || !langs.length) {
-                const CFG = window.yuzTraSettings || {};
+                const CFG = window.yuztraSettings || {};
                 const SGEN = CFG?.settings?.general || {};
                 const GEN = CFG?.general || {};
 
@@ -3113,11 +3102,11 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                 }
 
                 if (!langs.length) {
-                  let codes = Array.isArray(SGEN.yuz_tra_translatable_languages)
-                    ? SGEN.yuz_tra_translatable_languages.slice()
+                  let codes = Array.isArray(SGEN.yuztra_translatable_languages)
+                    ? SGEN.yuztra_translatable_languages.slice()
                     : [];
-                  if (!codes.length && Array.isArray(GEN.yuz_tra_translatable_languages)) {
-                    codes = GEN.yuz_tra_translatable_languages.slice();
+                  if (!codes.length && Array.isArray(GEN.yuztra_translatable_languages)) {
+                    codes = GEN.yuztra_translatable_languages.slice();
                   }
                   if (!codes.length && Array.isArray(window.__yuz_boot_langs__)) {
                     codes = window.__yuz_boot_langs__.slice();
@@ -3149,8 +3138,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                   console.log('[YUZ-DIAG] fallback-langs', {
                     from_meta: Array.isArray(CFG.language_meta) && CFG.language_meta.length,
                     from_translation_langs: Array.isArray(CFG.translation_langs) && CFG.translation_langs.length,
-                    from_settings_general: Array.isArray(SGEN.yuz_tra_translatable_languages) && SGEN.yuz_tra_translatable_languages.length,
-                    from_general: Array.isArray(GEN.yuz_tra_translatable_languages) && GEN.yuz_tra_translatable_languages.length,
+                    from_settings_general: Array.isArray(SGEN.yuztra_translatable_languages) && SGEN.yuztra_translatable_languages.length,
+                    from_general: Array.isArray(GEN.yuztra_translatable_languages) && GEN.yuztra_translatable_languages.length,
                     from_boot: Array.isArray(window.__yuz_boot_langs__) && window.__yuz_boot_langs__.length,
                     resolved_count: langs.length
                   });
@@ -3188,7 +3177,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                 .map(it => {
                   const cleaned = stripCssJsNoise(it.original || '');
                   // jette ce qui reste du code/bruit
-                  if (!cleaned || yuzLooksLikeCode(cleaned)) return null;
+                  if (!cleaned || yuztraLooksLikeCode(cleaned)) return null;
                   return { ...it, original: cleaned }; // on écrase l'original par la version nettoyée
                 })
                 .filter(Boolean);
@@ -3204,7 +3193,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               });
 
               const pruned = (data?.strings?.length || data?.results?.length || 0) - this.items.length;
-              const IS_DEBUG = /\b(?:\?|&)yuz_debug=1\b/.test(window.location.search);
+              const IS_DEBUG = /\b(?:\?|&)yuztra_debug=1\b/.test(window.location.search);
               if (IS_DEBUG && pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', pruned); } catch (_) { } }
 
               this.ensureDefaultFromOption();
@@ -3321,7 +3310,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
           this.loading++;
           try {
-            const r = await ajaxPromise('yuz_tra_tm_search', {
+            const r = await ajaxPromise('yuztra_tm_search', {
               q,
               target_lang,
               source_lang: this.sourceLanguage,
@@ -3669,7 +3658,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           if (!this.current) { return false; }
           const index = this.index;
           const original = stripCssJsNoise((this.current.original || '').toString());
-          const srcRaw = this.sourceLanguage || window.yuzTraSettings?.source_language || 'auto';
+          const srcRaw = this.sourceLanguage || window.yuztraSettings?.source_language || 'auto';
           const targetRaw = this.getCurrentLanguage();
           if (index < 0) { toast('Select an item first.', 'warning'); return false; }
           if (!original) { toast('Original text is empty.', 'warning'); return false; }
@@ -3752,7 +3741,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           const item = this.current;
           if (!item) return;
           const target = this.getCurrentLanguage();
-          const source = this.sourceLanguage || window.yuzTraSettings?.source_language || 'auto';
+          const source = this.sourceLanguage || window.yuztraSettings?.source_language || 'auto';
           if (!target || target === source) return;
 
           // Anti-rafale : ignorer les déclenchements répétés sur la même paire item/lang dans un laps très court
@@ -3902,7 +3891,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               for (const entry of slice) {
                 const translatedText = (map[entry.index] || '').trim();
 
-                if (!translatedText || yuzShouldSkip(entry.originalText)) {
+                if (!translatedText || yuztraShouldSkip(entry.originalText)) {
                   stats.skipped++; yuzProgress(this, stats); continue;
                 }
 
@@ -3953,8 +3942,8 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             const hasQueue = publishQueue.length > 0;
             if (hasQueue) {
               const ids = publishQueue.map(item => item.id);
-              if (window.YUZ_Editor && typeof window.YUZ_Editor.notifyAutoTranslateDone === 'function') {
-                window.YUZ_Editor.notifyAutoTranslateDone(publishQueue, { ids, origin: 'machine', isBatch: true });
+              if (window.YUZTRA_Editor && typeof window.YUZTRA_Editor.notifyAutoTranslateDone === 'function') {
+                window.YUZTRA_Editor.notifyAutoTranslateDone(publishQueue, { ids, origin: 'machine', isBatch: true });
               } else {
                 document.dispatchEvent(new CustomEvent('yuz:autoTranslateDone', {
                   detail: {
@@ -3966,14 +3955,14 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                 }));
               }
               const attemptShowDock = (label) => {
-                if (!(window.YUZ_PUBLISH && typeof window.YUZ_PUBLISH.showDockReview === 'function')) {
+                if (!(window.YUZTRA_PUBLISH && typeof window.YUZTRA_PUBLISH.showDockReview === 'function')) {
                   return false;
                 }
                 try {
-                  if (window.YUZ_PUBLISH.state && Array.isArray(window.YUZ_PUBLISH.state.pending)) {
-                    window.YUZ_PUBLISH.state.pending = ids.slice();
+                  if (window.YUZTRA_PUBLISH.state && Array.isArray(window.YUZTRA_PUBLISH.state.pending)) {
+                    window.YUZTRA_PUBLISH.state.pending = ids.slice();
                   }
-                  window.YUZ_PUBLISH.showDockReview(ids, publishQueue);
+                  window.YUZTRA_PUBLISH.showDockReview(ids, publishQueue);
                   try {
                     console.info('[YUZ][TE] review dock displayed', { batchId, idsCount: ids.length, phase: label || 'direct' });
                   } catch (_) { }
@@ -4012,7 +4001,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
                 pipelineProbe('review_panel_missing', {
                   batchId,
                   idsCount: ids.length,
-                  reason: 'yuz_publish_unavailable'
+                  reason: 'yuztra_publish_unavailable'
                 });
               }
               toast(`Auto-translate ready for review (${stats.done}/${stats.total})`, 'info');
@@ -4102,7 +4091,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           } catch (_) { }
 
           this._boundDomScan = () => this.mapDomToItems();
-          window.addEventListener('yuz_iframe_page_updated', this._boundDomScan);
+          window.addEventListener('yuztra_iframe_page_updated', this._boundDomScan);
           document.addEventListener('mouseup', this.onMouseUpSelect);
           this._domBridgeBound = true;
           this.mapDomToItems();
@@ -4111,7 +4100,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
         teardownDomBridge() {
           if (!this._domBridgeBound) return;
           if (this._boundDomScan) {
-            window.removeEventListener('yuz_iframe_page_updated', this._boundDomScan);
+            window.removeEventListener('yuztra_iframe_page_updated', this._boundDomScan);
           }
           document.removeEventListener('mouseup', this.onMouseUpSelect);
           this._boundDomScan = null;
@@ -4404,11 +4393,11 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
           detach('[data-yuz-te-candidate]');
           this._unmappedMap = new Map();
 
-          const baseSkip = (window.YUZ_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,#yuz-inspector-dock,[data-yuz="no-translate"]');
+          const baseSkip = (window.YUZTRA_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,#yuz-inspector-dock,[data-yuz="no-translate"]');
           const SKIP = '#yuz-workspace,#yuz-dock,#yuz-editor-container .yuz-modal,#wpadminbar,' + baseSkip;
 
           const canon = (s) => this.normalizeInspectorText(s);
-          const looksLikeCode = window.yuzLooksLikeCode || function (s) {
+          const looksLikeCode = window.yuztraLooksLikeCode || function (s) {
             if (!s) return false;
             s = String(s);
             return /<[a-z][^>]*>/i.test(s) || /:[^;]+;/.test(s) || /{[^}]*}/.test(s) ||
@@ -4673,11 +4662,11 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
               : range.commonAncestorContainer.parentElement;
 
             // Unifiés
-            const baseSkip = (window.YUZ_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,#yuz-inspector-dock,[data-yuz="no-translate"]');
+            const baseSkip = (window.YUZTRA_SKIP_SELECTORS || 'style,script,noscript,template,textarea,code,pre,[hidden],[aria-hidden="true"],#wpadminbar,#yuz-editor-container,#yuz-translation-editor,#yuz-inspector-dock,[data-yuz="no-translate"]');
             const SKIP = '#yuz-workspace,#yuz-dock,#yuz-editor-container .yuz-modal,#wpadminbar,' + baseSkip;
             if (common && common.closest && common.closest(SKIP)) return;
 
-            const scanner = window.yuzEditorVisibleText || function (root) {
+            const scanner = window.yuztraEditorVisibleText || function (root) {
               if (!root) return '';
               const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
                 acceptNode: (n) => (n.parentElement && !n.parentElement.closest(SKIP) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT)
@@ -4688,7 +4677,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
             };
             const canon = (s) => String(s || '').replace(/\s+/g, ' ').trim();
             const stripNoise = window.stripCssJsNoise || ((s) => s);
-            const looksLikeCode = window.yuzLooksLikeCode || function (s) {
+            const looksLikeCode = window.yuztraLooksLikeCode || function (s) {
               if (!s) return false;
               s = String(s);
               return /<[a-z][^>]*>/i.test(s) || /:[^;]+;/.test(s) || /{[^}]*}/.test(s) ||
@@ -5112,7 +5101,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
       `
     });
 
-    window.YUZ_EDITOR_APP = app;
+    window.YUZTRA_EDITOR_APP = app;
     const initialMode = options && options.mode ? canonicalMode(options.mode) : null;
     if (initialMode) {
       app.$yuzCompact = initialMode === 'essential';
@@ -5142,14 +5131,14 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
   };
 
   const cleanupOverlay = () => {
-    const hadApp = !!window.YUZ_EDITOR_APP || currentOverlayMode !== null;
-    try { window.YUZ_EDITOR_APP?.unmount?.(); } catch (e) { }
-    try { window.YUZ_EDITOR_APP?.$destroy?.(); } catch (e) { }
+    const hadApp = !!window.YUZTRA_EDITOR_APP || currentOverlayMode !== null;
+    try { window.YUZTRA_EDITOR_APP?.unmount?.(); } catch (e) { }
+    try { window.YUZTRA_EDITOR_APP?.$destroy?.(); } catch (e) { }
     const modal = document.querySelector('#yuz-editor-container .yuz-modal');
     if (modal) modal.remove();
     const host = document.getElementById('yuz-editor-container');
     if (host) host.remove();
-    window.YUZ_EDITOR_APP = null;
+    window.YUZTRA_EDITOR_APP = null;
     currentOverlayMode = null;
     try { delete document.documentElement.dataset.yuzEdit; } catch (_) { }
     if (hadApp) { try { console.log('[YUZ-TE] unmounted'); } catch (_) { } }
@@ -5169,7 +5158,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
       cleanupOverlay();
       return;
     }
-    if (currentOverlayMode === desired && window.YUZ_EDITOR_APP) {
+    if (currentOverlayMode === desired && window.YUZTRA_EDITOR_APP) {
       assignOverlayUnmount();
       return;
     }
@@ -5227,7 +5216,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
     cleanupOverlay();
   };
 
-  if (window.YUZ_UI) {
+  if (window.YUZTRA_UI) {
     document.addEventListener('yuz:ui:mount', onMount);
     if (window.__YUZ_UI_ACTIVE__ && window.__YUZ_UI_ACTIVE__.id) {
       onMount({ detail: { mode: window.__YUZ_UI_ACTIVE__.id } });
@@ -5345,7 +5334,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
   function ensurePhaseState(app) {
     const configured = (() => {
-      const cfg = window.yuzTraSettings && window.yuzTraSettings.smart_search_phase_order;
+      const cfg = window.yuztraSettings && window.yuztraSettings.smart_search_phase_order;
       if (Array.isArray(cfg)) return cfg;
       if (typeof cfg === 'string') return cfg.split(/[,\s]+/).filter(Boolean);
       return [];
@@ -5469,7 +5458,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
   let lastApp = null;
   const hydrate = () => {
-    const current = window.YUZ_EDITOR_APP;
+    const current = window.YUZTRA_EDITOR_APP;
     if (current && current !== lastApp) {
       lastApp = current;
       installSmartSearch(current);
@@ -5487,10 +5476,10 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
 
 // === INSTANT INGEST (persist) — non-ESM, exposé dev ===
 (function () {
-  var Y = window.yuzTE || {};
-  var app = window.YUZ_EDITOR_APP || {};
+  var Y = window.yuztraTE || {};
+  var app = window.YUZTRA_EDITOR_APP || {};
   var from = app.sourceLanguage || 'auto';
-  var to = (app.getCurrentLanguage && app.getCurrentLanguage()) || (window.yuzTraSettings?.translation_langs?.[0] || '');
+  var to = (app.getCurrentLanguage && app.getCurrentLanguage()) || (window.yuztraSettings?.translation_langs?.[0] || '');
 
   async function instantIngest(list) {
     var clean = s => String(s || '').replace(/[\r\n\t]+/g, ' ').trim();
@@ -5512,7 +5501,7 @@ html[data-yuz-edit="1"] #yuz-floating-switcher{display:none !important}
     };
 
     try {
-      var response = await yuzPost('yuz_tra_tm_translate', params);
+      var response = await yuztraPost('yuztra_tm_translate', params);
       if (typeof response === 'string') {
         try { response = JSON.parse(response); } catch (_) { response = { raw: response }; }
       }

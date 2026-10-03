@@ -2,7 +2,7 @@
 defined('ABSPATH') || exit;
 
 /** Local/private Ollama chat protocol. No remote fallback and no automatic publication. */
-final class YUZ_Ollama_Translate_Adapter implements \YUZTRA\Interfaces\TranslateAdapterInterface {
+final class YUZTRA_Ollama_Translate_Adapter implements \YUZTRA\Interfaces\TranslateAdapterInterface {
     public const PROMPT_VERSION = 'translation-1';
     public function translate(string $text, string $source_lang, string $target_lang, array $settings): ?string {
         global $wpdb;
@@ -14,7 +14,7 @@ final class YUZ_Ollama_Translate_Adapter implements \YUZTRA\Interfaces\Translate
         try {
             $num_ctx=min(8192,max(1024,(int)($settings['num_ctx'] ?? 2048)));
             $num_predict=min(2048,max(64,(int)($settings['num_predict'] ?? 512)));
-            $usage=YUZ_Translation_Budget::usage();
+            $usage=YUZTRA_Translation_Budget::usage();
             $token_limit=max(1,(int)($settings['daily_token_limit'] ?? 100000));
             if ($usage['input_tokens']+$usage['output_tokens']+$num_ctx+$num_predict>$token_limit) throw new RuntimeException('daily_token_limit');
             $memory=$settings['retrieved_context'] ?? [];
@@ -45,7 +45,7 @@ final class YUZ_Ollama_Translate_Adapter implements \YUZTRA\Interfaces\Translate
             if (wp_remote_retrieve_response_code($response)!==200) throw new RuntimeException('ollama_http_'.wp_remote_retrieve_response_code($response));
             $body=json_decode(wp_remote_retrieve_body($response),true);
             if (isset($body['prompt_eval_count'],$body['eval_count'])) {
-                YUZ_Translation_Budget::record_metrics(max(0,(int)$body['prompt_eval_count']),max(0,(int)$body['eval_count']),(int)round(1000*(microtime(true)-$started)));
+                YUZTRA_Translation_Budget::record_metrics(max(0,(int)$body['prompt_eval_count']),max(0,(int)$body['eval_count']),(int)round(1000*(microtime(true)-$started)));
             }
             if (!is_array($body) || ($body['done'] ?? false)!==true || ($body['done_reason'] ?? '')==='length') throw new RuntimeException('ollama_incomplete_response');
             $output=json_decode($body['message']['content'] ?? '',true);

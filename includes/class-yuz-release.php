@@ -2,9 +2,11 @@
 /** Local release metadata; no remote requests or automatic updater. */
 defined('ABSPATH') || exit;
 
-final class YUZ_Release {
+final
+
+class YUZTRA_Release {
     public static function render(): void {
-        $file = defined('YUZ_TRA_PLUGIN_FILE') ? YUZ_TRA_PLUGIN_FILE : dirname(__DIR__) . '/yuz-tra.php';
+        $file = defined('YUZTRA_PLUGIN_FILE') ? YUZTRA_PLUGIN_FILE : dirname(__DIR__) . '/yuz-tra.php';
         $header = get_file_data($file, ['version' => 'Version', 'description' => 'Description'], 'plugin');
         $path = dirname($file) . '/version.json';
         $manifest = is_readable($path) ? json_decode(file_get_contents($path), true) : null;

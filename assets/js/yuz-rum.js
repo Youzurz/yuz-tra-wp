@@ -1,102 +1,25 @@
-// assets/js/yuz-rum.js
+// Explicit administrator-only diagnostics. No messages, URLs or customer content.
 (function () {
-  const endpoint = '/wp-json/yuz/v1/jslog';
-
-  function ship(payload) {
-    try {
-      const body = JSON.stringify(payload);
-      if (navigator.sendBeacon) {
-        const blob = new Blob([body], { type: 'application/json' });
-        if (navigator.sendBeacon(endpoint, blob)) {
-          return;
-        }
-      }
-      if (typeof fetch === 'function') {
-        fetch(endpoint, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body,
-          keepalive: true,
-        }).catch(() => {});
-      }
-    } catch (err) {
-      if (console && console.debug) {
-        console.debug('[YUZ][RUM] ship failed', err);
-      }
-    }
+  const config = window.yuztraRum;
+  if (!config || config.enabled !== true || typeof config.endpoint !== 'string' ||
+      typeof config.nonce !== 'string' || !config.nonce) return;
+  let endpoint;
+  try {
+    endpoint = new URL(config.endpoint, location.href);
+    if (endpoint.origin !== location.origin || !/^https?:$/.test(endpoint.protocol)) return;
+  } catch (_) { return; }
+  let sent = 0;
+  function ship(kind) {
+    if (sent >= 10 || typeof fetch !== 'function') return;
+    sent++;
+    fetch(endpoint.href, {
+      method: 'POST', credentials: 'same-origin', keepalive: true,
+      headers: { 'content-type': 'application/json', 'X-WP-Nonce': config.nonce },
+      body: JSON.stringify({ t: kind })
+    }).catch(() => {});
   }
-
-  const now = () => new Date().toISOString();
-
-  function pushRum(evt, shipPayload) {
-    try {
-      const entry = {
-        ts: now(),
-        kind: evt.kind,
-        msg: evt.msg || evt.message || '',
-        src: evt.src || evt.filename || '',
-        ln: evt.ln || evt.lineno || 0,
-        col: evt.col || evt.colno || 0,
-        href: location.href,
-        extra: evt.extra || {}
-      };
-      if (typeof window.YUZ_SAFE_REPORT === 'function') {
-        window.YUZ_SAFE_REPORT().events.push(entry);
-      } else {
-        const fallback = window.YUZ_DETECTOR_REPORT = window.YUZ_DETECTOR_REPORT || { ts: now(), checks: {}, events: [], scripts: [] };
-        fallback.events = Array.isArray(fallback.events) ? fallback.events : [];
-        fallback.scripts = Array.isArray(fallback.scripts) ? fallback.scripts : [];
-        fallback.events.push(entry);
-      }
-      if (console && console.debug) console.debug('[YUZ][RUM]', entry);
-      if (shipPayload) {
-        ship(shipPayload);
-      }
-    } catch (_) {}
-  }
-
-  window.addEventListener('error', function (e) {
-    pushRum(
-      { kind: 'error', message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno },
-      { t: 'error', msg: String(e.message || ''), src: e.filename || '', ln: e.lineno || 0, col: e.colno || 0 }
-    );
-  });
-
-  window.addEventListener('unhandledrejection', function (e) {
-    const reason = String(e.reason || '');
-    pushRum(
-      { kind: 'unhandledrejection', msg: reason },
-      { t: 'promise', msg: reason }
-    );
-  });
-
-  window.addEventListener('securitypolicyviolation', function (e) {
-    const message = e.violatedDirective + ' blocked ' + (e.blockedURI || '');
-    pushRum(
-      {
-        kind: 'securitypolicyviolation',
-        msg: message,
-        src: e.sourceFile || '',
-        ln: e.lineNumber || 0,
-        col: e.columnNumber || 0,
-        extra: { directive: e.violatedDirective || '', blocked: e.blockedURI || '' }
-      },
-      {
-        t: 'csp',
-        msg: message,
-        src: e.sourceFile || '',
-        ln: e.lineNumber || 0,
-        col: e.columnNumber || 0,
-        directive: e.violatedDirective || ''
-      }
-    );
-  }, { passive: true });
-
-  document.addEventListener('yuz:switch:ajaxError', function (e) {
-    const detail = e.detail || {};
-    pushRum(
-      { kind: 'switcher', msg: String(detail.message || ''), extra: detail },
-      { t: 'switcher', stage: 'ajaxError', detail }
-    );
-  });
+  window.addEventListener('error', () => ship('error'));
+  window.addEventListener('unhandledrejection', () => ship('promise'));
+  window.addEventListener('securitypolicyviolation', () => ship('csp'), { passive: true });
+  document.addEventListener('yuz:switch:ajaxError', () => ship('switcher'));
 })();

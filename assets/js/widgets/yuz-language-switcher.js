@@ -3,11 +3,11 @@
  * Front-end language switcher (shortcode/menu/floating).
  *
  * Discipline:
- *  - ACT-03: utilise uniquement les données localisées (yuzSW) et ses nonces par action
+ *  - ACT-03: utilise uniquement les données localisées (yuztraSW) et ses nonces par action
  *  - ACT-05: ne dépend d’aucun autre module/onglet
  *
  * Localisation attendue (côté PHP - handle: yuz-language-switcher):
- *   window.yuzSW = {
+ *   window.yuztraSW = {
  *     ajax_url: "...",
  *     nonces: { yuz_tra_sw_switch_language: "..." },
  *     switcher: {
@@ -31,8 +31,8 @@
 
   // ---- Guards minimales
   if (!window || !document) return;
-  if (!window.yuzSW) {
-    console.warn('[YUZ][SWITCHER] window.yuzSW absent. Aborting.');
+  if (!window.yuztraSW) {
+    console.warn('[YUZ][SWITCHER] window.yuztraSW absent. Aborting.');
     return;
   }
 
@@ -60,7 +60,7 @@
     });
   }
 
-  const Y = window.yuzSW || {};
+  const Y = window.yuztraSW || {};
 
   const ROOT_SELECTOR = '.yuz-language-switcher';
   const BUTTON_SELECTOR = '.yuz-current-lang';
@@ -167,7 +167,7 @@
     document.querySelectorAll(`${ROOT_SELECTOR}.open`).forEach((root) => computeDropdownDirection(root));
   }
 
-  const STEALTH_STORAGE_KEY = 'yuz_sw_stealth_mode';
+  const STEALTH_STORAGE_KEY = 'yuztra_sw_stealth_mode';
   const STEALTH_CLASS = 'yuz-stealth-mode';
   const STEALTH_TOGGLE_CLASS = 'yuz-switcher-stealth-toggle';
 
@@ -254,7 +254,7 @@
      level === 'warning'  ? console.warn  : console.log)(s);
   }
 
-  const ACTION_RESOLVE = (Y && Y.endpoints && Y.endpoints.resolve_url) || 'yuz_tra_sw_resolve_url';
+  const ACTION_RESOLVE = (Y && Y.endpoints && Y.endpoints.resolve_url) || 'yuztra_sw_resolve_url';
 
   function resolveCanonicalUrl(code, currentUrl) {
     return new Promise((resolve) => {
@@ -355,7 +355,7 @@
     const attr = rootEl?.getAttribute('data-languages');
     let codes = attr ? attr.split(',').map(c => c.trim()).filter(Boolean) : null;
 
-    // 2) Sinon, essaye depuis yuzSW.translation_langs
+    // 2) Sinon, essaye depuis yuztraSW.translation_langs
     if (!codes || !codes.length) {
       if (Array.isArray(Y.translation_langs) && Y.translation_langs.length) {
         codes = Y.translation_langs.slice();
@@ -456,7 +456,7 @@
 
     function doAjaxSwitch(code) {
       if (!ajaxUrl || !nonce) return false;
-      const action = 'yuz_tra_sw_switch_language';
+      const action = 'yuztra_sw_switch_language';
       $.ajax({
         url: ajaxUrl,
         type: 'POST',
@@ -546,7 +546,7 @@
       const langs = resolveLanguageList(node);
       const cur   = currentLangCode();
       const ajax  = Y.ajax_url || window.ajaxurl || '';
-      const nonce = nonceFor('yuz_tra_sw_switch_language');
+      const nonce = nonceFor('yuztra_sw_switch_language');
 
       // Nettoie contenu puis monte React
       try { node.replaceChildren(); } catch(_) { node.innerHTML=''; }
@@ -646,7 +646,7 @@
       }
 
       const ajax = Y.ajax_url || window.ajaxurl || '';
-      const nonce = nonceFor('yuz_tra_sw_switch_language');
+      const nonce = nonceFor('yuztra_sw_switch_language');
 
       const navigate = (url) => {
         const fallbackTarget = url || href || (code ? addOrReplaceQuery(window.location.href, 'lang', code) : window.location.href);
@@ -656,7 +656,7 @@
       closeSwitcher(root);
 
       if (ajax && nonce && code) {
-        $.post(ajax, { action: 'yuz_tra_sw_switch_language', nonce, lang: code, language_code: code }, function (resp) {
+        $.post(ajax, { action: 'yuztra_sw_switch_language', nonce, lang: code, language_code: code }, function (resp) {
           if (resp && resp.success && resp.data && resp.data.url) {
             navigate(resp.data.url);
           } else {

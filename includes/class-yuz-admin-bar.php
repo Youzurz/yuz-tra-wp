@@ -68,8 +68,8 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Contrats + fallbacks uniquement (dépendances légères)
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 
 use YUZTRA\Interfaces\AdminBarInterface;
 use YUZTRA\Interfaces\LoggerInterface;
@@ -79,8 +79,9 @@ use YUZTRA\Fallbacks\NullAjax;
 use YUZTRA\Fallbacks\NullTranslationManager;
 use YUZTRA\Fallbacks\NullLanguageManager;
 
-if (!class_exists('YUZ_Admin_Bar')) {
-    class YUZ_Admin_Bar implements AdminBarInterface
+if (!class_exists('YUZTRA_Admin_Bar')) {
+
+class YUZTRA_Admin_Bar implements AdminBarInterface
     {
         private LoggerInterface $logger;
 
@@ -92,13 +93,13 @@ if (!class_exists('YUZ_Admin_Bar')) {
         public static function init(): void
         {
             // Logger robuste
-            $logger = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
+            $logger = class_exists('YUZTRA_Logger') ? new \YUZTRA_Logger() : new NullLogger();
 
             // ⚠️ Ne PAS appeler runtime_flags() en statique
             $flags = [];
             try {
-                if (class_exists('YUZ_Settings')) {
-                    $settings = new \YUZ_Settings(
+                if (class_exists('YUZTRA_Settings')) {
+                    $settings = new \YUZTRA_Settings(
                         new NullLanguages(),
                         new NullAjax(),
                         new NullTranslationManager(),
@@ -110,20 +111,20 @@ if (!class_exists('YUZ_Admin_Bar')) {
                     }
                 }
             } catch (\Throwable $e) {
-                error_log('🟥 [CRITICAL] YUZ_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
+                yuztra_debug_log('🟥 [CRITICAL] YUZTRA_Admin_Bar::init runtime_flags failed: ' . $e->getMessage());
             }
 
             // Flag optionnel : par défaut on laisse l’admin-bar activée
             $adminbar_enabled = isset($flags['adminbar_enabled']) ? (bool) $flags['adminbar_enabled'] : true;
 
             if (!$adminbar_enabled || !is_admin_bar_showing()) {
-                $logger->log('info', 'YUZ_Admin_Bar: disabled by flags or admin bar hidden — skipping init');
+                $logger->log('info', 'YUZTRA_Admin_Bar: disabled by flags or admin bar hidden — skipping init');
                 return;
             }
 
             $instance = new self($logger);
             $instance->register_hooks();
-            $logger->log('success', 'YUZ_Admin_Bar initialized');
+            $logger->log('success', 'YUZTRA_Admin_Bar initialized');
         }
 
         private function register_hooks(): void
@@ -142,17 +143,17 @@ public function add_admin_items($wp_admin_bar): void
     }
 
     // ⚠️ Capacité requise : seuls les utilisateurs autorisés voient le menu + "Traduire cette page"
-    $can_translate = class_exists('YUZ_Capabilities')
-        ? \YUZ_Capabilities::user_is_translator()
-        : (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
+    $can_translate = class_exists('YUZTRA_Capabilities')
+        ? \YUZTRA_Capabilities::user_is_translator()
+        : (current_user_can('manage_options') || current_user_can('yuztra_translate_content'));
     if ( ! $can_translate ) {
         return;
     }
 
     // URL de contexte fiable (front = URL courante ; admin = home)
     $scheme      = is_ssl() ? 'https' : 'http';
-    $host        = $_SERVER['HTTP_HOST']  ?? wp_parse_url( home_url(), PHP_URL_HOST );
-    $uri         = $_SERVER['REQUEST_URI'] ?? '/';
+    $host        = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : wp_parse_url( home_url(), PHP_URL_HOST );
+    $uri         = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
     $current_url = $scheme . '://' . $host . $uri;
 
     $target = is_admin() ? home_url('/') : $current_url;
@@ -165,7 +166,7 @@ public function add_admin_items($wp_admin_bar): void
 
     // Racine “YUZ-TRA”
     $wp_admin_bar->add_menu([
-        'id'    => 'yuz_translation',
+        'id'    => 'yuztra_translation',
         'title' => 'YUZ-TRA',
         'href'  => add_query_arg(
             [ 'page' => 'yuz-translation-settings', 'tab' => 'translate-site' ],
@@ -176,8 +177,8 @@ public function add_admin_items($wp_admin_bar): void
 
     // Enfant 1 : Translate Page (ouvre directement l’éditeur)
     $wp_admin_bar->add_menu([
-        'id'     => 'yuz_translate_now',
-        'parent' => 'yuz_translation',
+        'id'     => 'yuztra_translate_now',
+        'parent' => 'yuztra_translation',
         'title'  => __( 'Translate Page', 'yuz-tra' ),
         'href'   => esc_url($editor_url),
         'meta'   => [
@@ -193,8 +194,8 @@ public function add_admin_items($wp_admin_bar): void
     );
 
     $wp_admin_bar->add_menu([
-        'id'     => 'yuz_translation_settings',
-        'parent' => 'yuz_translation',
+        'id'     => 'yuztra_translation_settings',
+        'parent' => 'yuztra_translation',
         'title'  => __( 'Translation Settings', 'yuz-tra' ),
         'href'   => esc_url($settings_url),
         'meta'   => [ 'class' => 'yuz-translation-settings' ],
@@ -203,8 +204,8 @@ public function add_admin_items($wp_admin_bar): void
     // Enfant 3 : Traduire l’admin (ouvre l’éditeur de chaînes), si activé par flags
     $show_admin_item = true;
     try {
-        if (class_exists('YUZ_Settings')) {
-            $settings = new \YUZ_Settings(new NullLanguages(), new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), $this->logger);
+        if (class_exists('YUZTRA_Settings')) {
+            $settings = new \YUZTRA_Settings(new NullLanguages(), new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), $this->logger);
             if (method_exists($settings, 'runtime_flags')) {
                 $f = (array)$settings->runtime_flags();
                 $show_admin_item = !empty($f['translate_admin_enabled']);
@@ -218,8 +219,8 @@ public function add_admin_items($wp_admin_bar): void
             admin_url('admin.php')
         );
         $wp_admin_bar->add_menu([
-            'id'     => 'yuz_translate_admin',
-            'parent' => 'yuz_translation',
+            'id'     => 'yuztra_translate_admin',
+            'parent' => 'yuztra_translation',
             'title'  => __( 'Strings', 'yuz-tra' ),
             'href'   => esc_url($admin_url),
             'meta'   => [ 'class' => 'yuz-translate-admin' ],
@@ -231,4 +232,4 @@ public function add_admin_items($wp_admin_bar): void
 }
 
 // Hook d’initialisation après `init` (textdomain déjà chargé)
-add_action('init', ['YUZ_Admin_Bar', 'init'], 40);
+add_action('init', ['YUZTRA_Admin_Bar', 'init'], 40);

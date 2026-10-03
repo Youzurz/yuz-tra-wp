@@ -14,25 +14,25 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
     }
 
     // Si déjà initialisé, on ne rebinde rien (évite les collisions)
-    if (window.YUZ_PUBLISH && window.YUZ_PUBLISH.__v93hardened) {
+    if (window.YUZTRA_PUBLISH && window.YUZTRA_PUBLISH.__v93hardened) {
         try {
-            console.info('[YUZ_PUBLISH] Déjà initialisé, on saute le bootstrap dupliqué.');
+            console.info('[YUZTRA_PUBLISH] Déjà initialisé, on saute le bootstrap dupliqué.');
         } catch (_) { }
         return;
     }
 
-    const settings = window.yuzTraSettings || {};
+    const settings = window.yuztraSettings || {};
     const ajaxUrl = settings.ajax_url;
-    const nonceStore = window.yuzNonce || {};
+    const nonceStore = window.yuztraNonce || {};
 
     if (typeof window.__yuzInitPipelineProbe !== 'function') {
         window.__yuzInitPipelineProbe = function initPipelineProbe(originLabel = 'pc') {
             const search = window.location.search || '';
             const forcedOff = /\byuzprobe=0\b/.test(search);
             const forcedOn = /\byuzprobe=1\b/.test(search);
-            const telemetryFlag = window.yuzTraSettings?.telemetry?.pipeline_probe;
-            const enabled = !forcedOff && (forcedOn || telemetryFlag === true || window.YUZ_DEBUG === true);
-            const configuredEndpoint = window.yuzTraSettings?.ajax_url || window.ajaxurl || '/wp-admin/admin-ajax.php';
+            const telemetryFlag = window.yuztraSettings?.telemetry?.pipeline_probe;
+            const enabled = !forcedOff && (forcedOn || telemetryFlag === true || window.YUZTRA_ASSETS_DEBUG === true);
+            const configuredEndpoint = window.yuztraSettings?.ajax_url || window.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
             const endpoint = (() => {
                 try {
                     const parsed = new URL(configuredEndpoint, window.location.href);
@@ -74,7 +74,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
                 return value;
             };
 
-            const alias = window.YUZ_PARAMS?.alias || window.yuzTraSettings?.current_user || '';
+            const alias = window.YUZTRA_PARAMS?.alias || window.yuztraSettings?.current_user || '';
 
             const send = (event, detail = {}) => {
                 try {
@@ -88,10 +88,12 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
                         context.ids = limitArray(ids);
                     }
                     const payload = new URLSearchParams({
-                        action: 'yuz_dom_log',
+                        action: 'yuztra_dom_log',
+                        nonce: window.yuztraSettings?.nonces?.yuztra_log_nonce || '',
                         event: `pipeline:${event}`,
                         context: JSON.stringify(context)
                     });
+                    if (!payload.get('nonce')) return;
                     const data = payload.toString();
                     if (navigator.sendBeacon) {
                         navigator.sendBeacon(endpoint, new Blob([data], { type: 'application/x-www-form-urlencoded' }));
@@ -113,13 +115,13 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
     }
 
     const pipelineProbe = (() => {
-        if (typeof window.YUZ_PIPE_PROBE === 'function') {
-            return window.YUZ_PIPE_PROBE;
+        if (typeof window.YUZTRA_PIPE_PROBE === 'function') {
+            return window.YUZTRA_PIPE_PROBE;
         }
         const factory = window.__yuzInitPipelineProbe;
         if (typeof factory === 'function') {
             const fn = factory('publish-controller');
-            window.YUZ_PIPE_PROBE = fn;
+            window.YUZTRA_PIPE_PROBE = fn;
             return fn;
         }
         const noop = () => { };
@@ -128,19 +130,19 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
     })();
 
     const fromBucket = (bucket) => {
-        if (typeof window.yuzGetNonce === 'function') {
-            return window.yuzGetNonce(bucket) || '';
+        if (typeof window.yuztraGetNonce === 'function') {
+            return window.yuztraGetNonce(bucket) || '';
         }
         return nonceStore[bucket] || '';
     };
 
-    const defaultNonce = fromBucket('yuz_tra_nonce');
+    const defaultNonce = fromBucket('yuztra_nonce');
 
     const ACTION_NONCES = {
-        yuz_publish_translations: fromBucket('yuz_con_nonce'),
-        yuz_mass_publish: fromBucket('yuz_con_nonce'),
-        yuz_get_pending_translations: fromBucket('yuz_int_nonce'),
-        yuz_get_publish_review: fromBucket('yuz_int_nonce')
+        yuztra_publish_translations: fromBucket('yuztra_con_nonce'),
+        yuztra_mass_publish: fromBucket('yuztra_con_nonce'),
+        yuztra_get_pending_translations: fromBucket('yuztra_int_nonce'),
+        yuztra_get_publish_review: fromBucket('yuztra_int_nonce')
     };
 
     const NONCE_KEYS = ['nonce', '_ajax_nonce', 'security'];
@@ -289,7 +291,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
     // Contrôleur principal YUZ_PUBLISH
     // =======================================================
 
-    window.YUZ_PUBLISH = (() => {
+    window.YUZTRA_PUBLISH = (() => {
         if (!ajaxUrl) {
             return {
                 state: { mode: 'manual', pending: [] },
@@ -362,7 +364,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
 
         async function publishBatch(ids = [], options = {}) {
             const normalized = normalizeIds(ids);
-            console.debug('[YUZ_PUBLISH] publishBatch called', {
+            console.debug('[YUZTRA_PUBLISH] publishBatch called', {
                 ids: normalized,
                 options,
                 now: Date.now(),
@@ -371,7 +373,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
             pipelineProbe('publish_attempt', {
                 count: normalized.length,
                 ids: normalized,
-                action: options.action || 'yuz_publish_translations'
+                action: options.action || 'yuztra_publish_translations'
             });
 
             if (!normalized.length) {
@@ -399,7 +401,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
                 toast(AUTH_ERROR_MESSAGE, true);
                 pipelineProbe('publish_skip', { reason: 'not_logged_in', message: authError?.message || '' });
                 try {
-                    console.warn('[YUZ_PUBLISH] Authentication check failed', {
+                    console.warn('[YUZTRA_PUBLISH] Authentication check failed', {
                         message: authError?.message,
                         code: authError?.code,
                         status: authError?.status
@@ -422,11 +424,11 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
             lastPublishAt = nowTs;
 
             try {
-                const action = options.action || 'yuz_publish_translations';
+                const action = options.action || 'yuztra_publish_translations';
                 const payload = new URLSearchParams({ action });
                 applyNonce(payload, getActionNonce(action));
 
-                if (action === 'yuz_mass_publish') {
+                if (action === 'yuztra_mass_publish') {
                     payload.set('ids', normalized.join(','));
                 } else {
                     payload.set('ids', JSON.stringify(normalized));
@@ -462,7 +464,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
                 lastPublishAt = 0;
                 toast('Erreur réseau : ' + error.message, true);
                 pipelineProbe('publish_error', {
-                    action: options.action || 'yuz_publish_translations',
+                    action: options.action || 'yuztra_publish_translations',
                     message: error?.message || 'network_error'
                 });
                 return { success: false, error };
@@ -508,7 +510,7 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
             }
 
             try {
-                console.info('[YUZ_PUBLISH] showDockReview called', {
+                console.info('[YUZTRA_PUBLISH] showDockReview called', {
                     idsCount: normalizedIds.length,
                     sample: normalizedIds.slice(0, 5)
                 });
@@ -676,8 +678,8 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
         if (!ajaxUrl) return;
 
         const toast = (msg, err = false) => {
-            if (window.YUZ_PUBLISH) {
-                window.YUZ_PUBLISH.toast(msg, err);
+            if (window.YUZTRA_PUBLISH) {
+                window.YUZTRA_PUBLISH.toast(msg, err);
             } else {
                 alert(msg);
             }
@@ -734,12 +736,12 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
         <button id="yuzReviewSel">Publier la sélection</button>
         <button id="yuzReviewClose">Fermer</button>`;
             actions.querySelector('#yuzReviewAll').onclick = async () => {
-                await window.YUZ_PUBLISH.publishBatch(rows.map(r => r.id));
+                await window.YUZTRA_PUBLISH.publishBatch(rows.map(r => r.id));
                 modal.remove();
             };
             actions.querySelector('#yuzReviewSel').onclick = async () => {
                 const ids = [...list.querySelectorAll('input:checked')].map(i => i.dataset.id);
-                await window.YUZ_PUBLISH.publishBatch(ids);
+                await window.YUZTRA_PUBLISH.publishBatch(ids);
                 modal.remove();
             };
             actions.querySelector('#yuzReviewClose').onclick = () => modal.remove();
@@ -752,31 +754,31 @@ console.log("🗞️ yuz-publish-controller.js chargé avec succès ✊", new Da
             if (!normalized.length) {
                 return toast('Aucune chaîne à réviser.', true);
             }
-            const res = await ajax('yuz_get_pending_translations', { ids: normalized.join(',') });
+            const res = await ajax('yuztra_get_pending_translations', { ids: normalized.join(',') });
             if (!res.success || !Array.isArray(res.data) || !res.data.length) {
                 return toast('Aucune chaîne à réviser.', true);
             }
             showReviewModal(res.data);
         };
 
-        window.YUZ_CONTEXT = window.YUZ_CONTEXT || {};
+        window.YUZTRA_CONTEXT = window.YUZTRA_CONTEXT || {};
 
         // Ici, on ne fait QUE mémoriser la dernière série d’IDs,
         // on ne touche pas au workflow de sauvegarde du TE.
         document.addEventListener('yuz:autoTranslateDone', e => {
             const detail = (e && e.detail) || {};
-            window.YUZ_CONTEXT.mode = 'auto_translate';
-            window.YUZ_CONTEXT.lastAutoSet = normalizeIds(detail.ids || []);
+            window.YUZTRA_CONTEXT.mode = 'auto_translate';
+            window.YUZTRA_CONTEXT.lastAutoSet = normalizeIds(detail.ids || []);
         });
 
         document.addEventListener('click', async e => {
             const btn = e.target.closest('#yuzPublishBtn');
             if (!btn) return;
 
-            const pending = (window.YUZ_CONTEXT.lastAutoSet && window.YUZ_CONTEXT.lastAutoSet.length)
-                ? window.YUZ_CONTEXT.lastAutoSet
-                : (window.YUZ_PUBLISH && Array.isArray(window.YUZ_PUBLISH.state.pending)
-                    ? window.YUZ_PUBLISH.state.pending
+            const pending = (window.YUZTRA_CONTEXT.lastAutoSet && window.YUZTRA_CONTEXT.lastAutoSet.length)
+                ? window.YUZTRA_CONTEXT.lastAutoSet
+                : (window.YUZTRA_PUBLISH && Array.isArray(window.YUZTRA_PUBLISH.state.pending)
+                    ? window.YUZTRA_PUBLISH.state.pending
                     : []);
 
             if (pending.length) {

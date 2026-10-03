@@ -4,8 +4,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-final class YUZ_Settings_Service {
-    public const OPTION = 'yuz_tra_all_settings';
+final class YUZTRA_Settings_Service {
+    public const OPTION = 'yuztra_all_settings';
 
     /**
      * Returns the consolidated settings array as stored in the SSOT.
@@ -29,8 +29,8 @@ final class YUZ_Settings_Service {
         $next['__meta']           = $nextMeta;
 
         update_option(self::OPTION, $next, false);
-        if (function_exists('yuz_settings_runtime_flush')) {
-            yuz_settings_runtime_flush();
+        if (function_exists('yuztra_settings_runtime_flush')) {
+            yuztra_settings_runtime_flush();
         }
 
         return $next;
@@ -51,8 +51,8 @@ final class YUZ_Settings_Service {
      * Builds a versioned cache key (object cache namespace).
      */
     public static function cache_key(string $key): string {
-        if (function_exists('yuz_settings_cache_key')) {
-            return yuz_settings_cache_key($key);
+        if (function_exists('yuztra_settings_cache_key')) {
+            return yuztra_settings_cache_key($key);
         }
 
         $key     = ltrim($key, ':');
@@ -65,8 +65,8 @@ final class YUZ_Settings_Service {
      * Builds a transient key safe for the options table while keeping versioned namespace.
      */
     public static function transient_key(string $key): string {
-        if (function_exists('yuz_settings_transient_key')) {
-            return yuz_settings_transient_key($key);
+        if (function_exists('yuztra_settings_transient_key')) {
+            return yuztra_settings_transient_key($key);
         }
 
         $raw        = self::cache_key($key);

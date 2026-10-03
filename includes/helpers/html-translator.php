@@ -7,8 +7,8 @@
 
 defined('ABSPATH') || exit;
 
-if (!class_exists('YUZ_HTML_Translator')) {
-    class YUZ_HTML_Translator {
+if (!class_exists('YUZTRA_HTML_Translator')) {
+    class YUZTRA_HTML_Translator {
         /** @var \YUZ_Translation_Manager|\YUZTRA\Interfaces\TranslationManagerInterface|null */
         private $translation_manager;
 

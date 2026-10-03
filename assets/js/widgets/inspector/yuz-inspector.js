@@ -274,11 +274,25 @@
 
   const isScheduleModal = (modalId) => canonicalModalKey(modalId).indexOf('scheduleus') >= 0;
 
+  // Optional host integration: the host supplies URLs; no theme directory is assumed.
+  const themeScriptUrl = (key) => {
+    const config = global.yuzInspectorConfig || {};
+    const src = config.theme_scripts && config.theme_scripts[key];
+    if (typeof src !== 'string' || !src.trim()) return '';
+    try {
+      const url = new URL(src, document.baseURI);
+      if (!/^https?:$/.test(url.protocol) || url.origin !== global.location.origin || url.username || url.password) return '';
+      return url.href;
+    } catch (_) { return ''; }
+  };
+
   const ensureThemeFormsLoaded = async () => {
     if (global.yuzForms && typeof global.yuzForms.loadScriptIfNeeded === 'function') return true;
+    const src = themeScriptUrl('forms');
+    if (!src) return false;
     try {
       await loadStandaloneScript(
-        '/wp-content/themes/twentytwentyfive-child/assets/js/yuz-forms.js',
+        src,
         () => !!(global.yuzForms && typeof global.yuzForms.loadScriptIfNeeded === 'function')
       );
     } catch (_) { }
@@ -287,6 +301,8 @@
 
   const ensureScheduleScriptLoaded = async () => {
     if (global.scheduleUS && typeof global.scheduleUS.init === 'function') return true;
+    const src = themeScriptUrl('schedule');
+    if (!src) return false;
     if (!(await ensureThemeFormsLoaded())) return false;
     const forms = global.yuzForms;
     if (!forms || typeof forms.loadScriptIfNeeded !== 'function') return false;
@@ -296,7 +312,7 @@
         : {};
       await forms.loadScriptIfNeeded(
         'scheduleUS',
-        '/wp-content/themes/twentytwentyfive-child/assets/js/schedule-us.js',
+        src,
         options
       );
     } catch (_) { }
@@ -399,7 +415,7 @@
 
     // Opt-in fallback modals can be provided via settings instead of hard-coding site-specific IDs.
     const cfg =
-      (global.yuzTraSettings && global.yuzTraSettings.inspector && global.yuzTraSettings.inspector.fallback_modals)
+      (global.yuztraSettings && global.yuztraSettings.inspector && global.yuztraSettings.inspector.fallback_modals)
       || (global.yuzInspectorConfig && global.yuzInspectorConfig.fallbackModals)
       || [];
 
@@ -616,7 +632,7 @@
     // Optional probe hook (ex: window.__YUZ_INSPECTOR_PROBE = (evt, data)=>console.log(evt,data))
     const probe = (event, detail = {}) => {
       try {
-        const tap = window.__YUZ_INSPECTOR_PROBE || window.YUZ_INSPECTOR_PROBE;
+        const tap = window.__YUZ_INSPECTOR_PROBE || window.YUZTRA_INSPECTOR_PROBE;
         if (typeof tap === 'function') tap(event, detail);
       } catch (_) { /* silent */ }
     };

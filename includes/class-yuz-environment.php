@@ -66,12 +66,12 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 use YUZTRA\Interfaces\LanguagesInterface;
 use YUZTRA\Interfaces\EnvironmentInterface;
-if (!class_exists('YUZ_Environment')) {
-class YUZ_Environment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_Environment')) {
+class YUZTRA_Environment implements EnvironmentInterface {
 /** @var LanguagesInterface|null */
 protected static $lang_manager;
 /**
@@ -81,13 +81,13 @@ protected static $lang_manager;
          * @return void
          */
 public static function init(LanguagesInterface $lang_manager = null): void {
-$flags = YUZ_Settings::runtime_flags();
+$flags = YUZTRA_Settings::runtime_flags();
 if (!$flags['switcher_enabled']) {
 return;
             }
 self::$lang_manager = $lang_manager;
-add_action('wp_ajax_yuz_detect_user_environment', [__CLASS__, 'detect_user_environment']);
-add_action('wp_ajax_nopriv_yuz_detect_user_environment', [__CLASS__, 'detect_user_environment']);
+add_action('wp_ajax_yuztra_detect_user_environment', [__CLASS__, 'detect_user_environment']);
+add_action('wp_ajax_nopriv_yuztra_detect_user_environment', [__CLASS__, 'detect_user_environment']);
         }
 /**
          * Répond via AJAX avec la langue détectée
@@ -95,11 +95,11 @@ add_action('wp_ajax_nopriv_yuz_detect_user_environment', [__CLASS__, 'detect_use
          * @return void
          */
 public static function detect_user_environment(): void {
-if (!check_ajax_referer('yuz_tra_nonce', 'nonce', false)) {
+if (!check_ajax_referer('yuztra_nonce', 'nonce', false)) {
 wp_send_json_error(['message' => __('Invalid nonce', 'yuz-tra')]);
             }
 // Préférences du navigateur
-$accept = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+$accept = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_ACCEPT_LANGUAGE'])) : '';
 $browser_pref = [];
 foreach (explode(',', $accept) as $segment) {
 if (preg_match('/^([a-zA-Z\-]+)/', $segment, $m)) {
@@ -107,7 +107,8 @@ $browser_pref[] = str_replace('-', '_', $m[1]);
                 }
             }
 // No visitor IP is sent to an external service by default.
-$country = (string) apply_filters('yuz_tra_detected_country', '');
+
+$country = (string) apply_filters('yuztra_detected_country', '');
 // Liste des langues activées
 $all = self::$lang_manager ? self::$lang_manager->get_translatable_languages() : [];
 $matches = [];
@@ -137,7 +138,7 @@ break;
 // Fallback
 $detected = !empty($matches)
                 ? $matches[0]
-                : apply_filters('yuz_tra_default_language', get_locale());
+                : apply_filters('yuztra_default_language', get_locale());
 wp_send_json_success([
 'language' => $detected,
 'browser_lang' => $browser_pref,
@@ -165,15 +166,15 @@ return false;
     }
 }
 // Fallback si l'interface manque
-if (!class_exists('NullEnvironment')) {
-class NullEnvironment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_NullEnvironment')) {
+class YUZTRA_NullEnvironment implements EnvironmentInterface {
 public static function init(LanguagesInterface $lang_manager = null): void {}
 public static function detect_user_environment(): void {
 wp_send_json_success([
 'language' => get_locale(),
 'browser_lang' => [],
 'country' => '',
-'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+'ip' => sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '')),
             ]);
         }
 public function getEnv(string $key): mixed { return null; }

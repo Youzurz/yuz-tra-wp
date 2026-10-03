@@ -2,7 +2,7 @@
 defined('ABSPATH') || exit;
 
 /** Central, contextual product catalog. Services remain optional and external. */
-final class YUZ_Product_Catalog {
+final class YUZTRA_Product_Catalog {
     public static function all(): array {
         $products = [
             'yuz-tra' => [
@@ -31,11 +31,11 @@ final class YUZ_Product_Catalog {
         ];
         foreach ($products as &$product) $product['installed'] = (bool) ($product['installed'] ?? false);
         unset($product);
-        return (array) apply_filters('yuz_product_catalog', $products);
+        return (array) apply_filters('yuztra_product_catalog', $products);
     }
 
     public static function current_offers(): array {
-        return (array) apply_filters('yuz_tra_product_offers', [
+        return (array) apply_filters('yuztra_product_offers', [
             ['slug' => 'personal', 'name' => 'Personal', 'price' => '9 € / mois', 'summary' => 'Un site et traduction assistée.'],
             ['slug' => 'pro', 'name' => 'Pro', 'price' => '29 € / mois', 'summary' => 'Traitements de masse, glossaire et mémoire.'],
             ['slug' => 'agency', 'name' => 'Agency', 'price' => '79 € / mois', 'summary' => 'Équipes, multi-sites et accompagnement.'],

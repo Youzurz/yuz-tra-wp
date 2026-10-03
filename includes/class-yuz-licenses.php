@@ -66,8 +66,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // Contrats + Fallbacks (idempotents)
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 use YUZTRA\Interfaces\RendererInterface;
 use YUZTRA\Interfaces\SettingsInterface;
 use YUZTRA\Interfaces\LoggerInterface;
@@ -80,8 +80,9 @@ use YUZTRA\Fallbacks\NullTranslationManager;
 use YUZTRA\Fallbacks\NullLanguageManager;
 use YUZTRA\Fallbacks\NullDB;
 use YUZTRA\Fallbacks\NullHealthCheck;
-if (!class_exists('YUZ_Licenses')) {
-class YUZ_Licenses {
+if (!class_exists('YUZTRA_Licenses')) {
+
+class YUZTRA_Licenses {
 private RendererInterface $renderer;
 private SettingsInterface $settings;
 private LoggerInterface $logger;
@@ -104,28 +105,28 @@ if (self::$booted) {
 }
 self::$booted = true;
 // Gardes minimales
-if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_Licenses::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
+if (!defined('YUZTRA_INCLUDES') || !defined('YUZTRA_PLUGIN_FILE')) {
+yuztra_debug_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZTRA_Licenses::init at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
 wp_die(esc_html__('Critical error: YUZ-TRA constants missing.', 'yuz-tra'));
             }
         // Logger
-        $logger = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
+        $logger = class_exists('YUZTRA_Logger') ? new \YUZTRA_Logger() : new NullLogger();
         // DB + Languages d'abord (YUZ_Ajax exige un DBInterface)
-        $db = class_exists('YUZ_DB')
-                ? new \YUZ_DB($logger, (class_exists('YUZ_Health_Check') ? new \YUZ_Health_Check($logger) : new NullHealthCheck()))
+        $db = class_exists('YUZTRA_DB')
+                ? new \YUZTRA_DB($logger, (class_exists('YUZTRA_Health_Check') ? new \YUZTRA_Health_Check($logger) : new NullHealthCheck()))
                 : new NullDB();
-        $languages = class_exists('YUZ_Languages') ? new \YUZ_Languages(new NullSettings(), $db) : new NullLanguages();
+        $languages = class_exists('YUZTRA_Languages') ? new \YUZTRA_Languages(new NullSettings(), $db) : new NullLanguages();
         // Ajax minimal avec DB fourni (signature à 3 arguments)
-        $ajax = class_exists('YUZ_Ajax')
-                ? new \YUZ_Ajax(new NullTranslationManager(), new NullLanguageManager(), $db)
+        $ajax = class_exists('YUZTRA_Ajax')
+                ? new \YUZTRA_Ajax(new NullTranslationManager(), new NullLanguageManager(), $db)
                 : new NullAjax();
         // Settings “légers” dépendant de $ajax et $languages
-        $settings = class_exists('YUZ_Settings')
-                ? new \YUZ_Settings($languages, $ajax, new NullTranslationManager(), new NullLanguageManager(), $logger)
+        $settings = class_exists('YUZTRA_Settings')
+                ? new \YUZTRA_Settings($languages, $ajax, new NullTranslationManager(), new NullLanguageManager(), $logger)
                 : new NullSettings();
         // Renderer (ou fallback)
-        $renderer = class_exists('YUZ_Renderer')
-                ? new \YUZ_Renderer($ajax, $settings, $logger, $languages)
+        $renderer = class_exists('YUZTRA_Renderer')
+                ? new \YUZTRA_Renderer($ajax, $settings, $logger, $languages)
                 : new NullRenderer();
 // Instance + hooks
 $instance = new self($renderer, $settings, $logger);
@@ -135,7 +136,7 @@ add_action('yuz-tra_page_yuz-translation-licenses', [$instance, 'render_tab']);
 if (method_exists($instance, 'enqueue_scripts')) {
 // LEGACY→YUZ_Assets: add_action('admin_enqueue_scripts', [$instance, 'enqueue_scripts']);
             }
-$logger->log('success', 'YUZ_Licenses initialized (hooked to yuz-tra_page_yuz-translation-licenses)');
+$logger->log('success', 'YUZTRA_Licenses initialized (hooked to yuz-tra_page_yuz-translation-licenses)');
         }
 /**
          * Rendu de l’onglet Licenses

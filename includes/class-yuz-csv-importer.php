@@ -71,14 +71,15 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Assume class-yuz-contracts.php contains CsvImporterInterface and LanguageManagerInterface
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 
 use YUZTRA\Interfaces\CsvImporterInterface;
 use YUZTRA\Interfaces\LanguageManagerInterface;
 
-if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
+if ( ! class_exists( 'YUZTRA_CSV_Importer' ) ) {
 
-    class YUZ_CSV_Importer implements CsvImporterInterface {
+
+class YUZTRA_CSV_Importer implements CsvImporterInterface {
         /** @var LanguageManagerInterface */
         private $language_manager;
         /** @var YUZ_Logger */
@@ -88,7 +89,7 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
          * @param LanguageManagerInterface $language_manager
          * @param YUZ_Logger               $logger
          */
-        public function __construct( LanguageManagerInterface $language_manager, YUZ_Logger $logger ) {
+        public function __construct( LanguageManagerInterface $language_manager, YUZTRA_Logger $logger ) {
             $this->language_manager = $language_manager;
             $this->logger           = $logger;
         }
@@ -116,13 +117,13 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
             }
 
             // Check for transient messages
-            $success_message = get_transient( 'yuz_import_success' );
-            $error_message = get_transient( 'yuz_import_error' );
+            $success_message = get_transient( 'yuztra_import_success' );
+            $error_message = get_transient( 'yuztra_import_error' );
             if ( $success_message ) {
-                delete_transient( 'yuz_import_success' );
+                delete_transient( 'yuztra_import_success' );
             }
             if ( $error_message ) {
-                delete_transient( 'yuz_import_error' );
+                delete_transient( 'yuztra_import_error' );
             }
             ?>
             <div class="wrap">
@@ -139,8 +140,8 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
                 <?php endif; ?>
 
                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
-                    <?php wp_nonce_field( 'yuz_hvy_nonce', 'nonce' ); ?>
-                    <input type="hidden" name="action" value="yuz_import_csv">
+                    <?php wp_nonce_field( 'yuztra_hvy_nonce', 'nonce' ); ?>
+                    <input type="hidden" name="action" value="yuztra_import_csv">
                     <table class="form-table">
                         <tr>
                             <th scope="row"><label for="csv_file"><?php esc_html_e( 'CSV File', 'yuz-tra' ); ?></label></th>
@@ -157,44 +158,58 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
          * Handles the import POST request.
          */
         public function handle_import(): void {
-            if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'yuz_hvy_nonce', 'nonce' ) ) {
+            if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'yuztra_hvy_nonce', 'nonce' ) ) {
                 wp_die( esc_html__( 'Unauthorized', 'yuz-tra' ) );
             }
 
-            if ( empty( $_FILES['csv_file'] ) || empty( $_FILES['csv_file']['tmp_name'] ) ) {
-                set_transient( 'yuz_import_error', __( 'No file uploaded.', 'yuz-tra' ), 30 );
-                wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
+            $redirect_url = admin_url( 'admin.php?page=yuz-import-csv' );
+            $upload       = isset( $_FILES['csv_file'] ) && is_array( $_FILES['csv_file'] )
+                ? $_FILES['csv_file'] // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each upload field is validated below.
+                : [];
+            $upload_error = isset( $upload['error'] ) ? (int) $upload['error'] : UPLOAD_ERR_NO_FILE;
+            $tmp_name     = isset( $upload['tmp_name'] ) && is_string( $upload['tmp_name'] ) ? $upload['tmp_name'] : '';
+
+            if ( UPLOAD_ERR_OK !== $upload_error || '' === $tmp_name || ! is_uploaded_file( $tmp_name ) ) {
+                set_transient( 'yuztra_import_error', __( 'No file uploaded.', 'yuz-tra' ), 30 );
+                wp_safe_redirect( $redirect_url );
                 exit;
             }
 
-            // Validate file type
-            $file_info = wp_check_filetype( basename( $_FILES['csv_file']['name'] ) );
+            $file_name = isset( $upload['name'] ) && is_string( $upload['name'] )
+                ? sanitize_file_name( wp_unslash( $upload['name'] ) )
+                : '';
+            $file_info = wp_check_filetype_and_ext(
+                $tmp_name,
+                $file_name,
+                [ 'csv' => 'text/csv' ]
+            );
             if ( ! $file_info || 'csv' !== $file_info['ext'] ) {
-                set_transient( 'yuz_import_error', __( 'Invalid file type. Please upload a CSV file.', 'yuz-tra' ), 30 );
-                wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
+                set_transient( 'yuztra_import_error', __( 'Invalid file type. Please upload a CSV file.', 'yuz-tra' ), 30 );
+                wp_safe_redirect( $redirect_url );
                 exit;
             }
 
             // Check file size against max upload size
             $max_size = wp_max_upload_size();
-            if ( $_FILES['csv_file']['size'] > $max_size ) {
+            $file_size = isset( $upload['size'] ) ? max( 0, (int) $upload['size'] ) : 0;
+            if ( 0 === $file_size || $file_size > $max_size ) {
                 /* translators: %s: maximum upload size. */
-                set_transient( 'yuz_import_error', sprintf( __( 'File too large. Maximum size is %s.', 'yuz-tra' ), size_format( $max_size ) ), 30 );
-                wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
+                set_transient( 'yuztra_import_error', sprintf( __( 'File too large. Maximum size is %s.', 'yuz-tra' ), size_format( $max_size ) ), 30 );
+                wp_safe_redirect( $redirect_url );
                 exit;
             }
 
-            $result = $this->import_csv( $_FILES['csv_file']['tmp_name'] );
+            $result = $this->import_csv( $tmp_name );
 
             if ( $result['success'] ) {
                 /* translators: %d: number of imported languages. */
-                set_transient( 'yuz_import_success', sprintf( __( 'Import completed. %d languages imported.', 'yuz-tra' ), $result['count'] ), 30 );
+                set_transient( 'yuztra_import_success', sprintf( __( 'Import completed. %d languages imported.', 'yuz-tra' ), $result['count'] ), 30 );
             } else {
                 /* translators: %s: import error messages. */
-                set_transient( 'yuz_import_error', sprintf( __( 'Import failed. Errors: %s', 'yuz-tra' ), implode( '; ', $result['errors'] ) ), 30 );
+                set_transient( 'yuztra_import_error', sprintf( __( 'Import failed. Errors: %s', 'yuz-tra' ), implode( '; ', $result['errors'] ) ), 30 );
             }
 
-            wp_redirect( admin_url( 'admin.php?page=yuz-import-csv' ) );
+            wp_safe_redirect( $redirect_url );
             exit;
         }
 
@@ -268,16 +283,16 @@ if ( ! class_exists( 'YUZ_CSV_Importer' ) ) {
     }
 }
 
-if ( ! class_exists( 'NullCsvImporter' ) ) {
-    class NullCsvImporter implements CsvImporterInterface {
+if ( ! class_exists( 'YUZTRA_NullCsvImporter' ) ) {
+    class YUZTRA_NullCsvImporter implements CsvImporterInterface {
         public function import_csv( string $file_path ): bool {
-            ( new YUZ_Logger() )->log( 'warning', 'CSV importer unavailable' );
+            ( new YUZTRA_Logger() )->log( 'warning', 'CSV importer unavailable' );
             return false;
         }
     }
 }
 
 // Note: Remove the add_action('plugins_loaded', ...) here. Instead, in YUZ_Core::init(), after instantiating $settings, $db, $language_manager, $logger:
-// $csv_importer = class_exists('YUZ_CSV_Importer') ? new YUZ_CSV_Importer($language_manager, $logger) : new NullCsvImporter();
+// $csv_importer = class_exists('YUZ_CSV_Importer') ? new YUZ_CSV_Importer($language_manager, $logger) : new YUZTRA_NullCsvImporter();
 // add_action('admin_menu', [$csv_importer, 'add_import_page']);
-// add_action('admin_post_yuz_import_csv', [$csv_importer, 'handle_import']);
+// add_action('admin_post_yuztra_import_csv', [$csv_importer, 'handle_import']);

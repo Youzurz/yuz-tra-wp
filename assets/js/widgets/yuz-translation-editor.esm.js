@@ -23,10 +23,10 @@ import $ from 'jquery';
   if (!window || !document) return;
 
   // Charge la config runtime (nonces, ajax_url, etc.)
-  let Y = window.yuzTE;
+  let Y = window.yuztraTE;
   if (!Y) {
     document.addEventListener('DOMContentLoaded', function () {
-      // si yuzTE n'est toujours pas présent, on reste silencieux
+      // si yuztraTE n'est toujours pas présent, on reste silencieux
     });
     return;
   }
@@ -38,15 +38,15 @@ import $ from 'jquery';
 
   const NONCES = (Y && Y.nonces) || {};
   const NONCE_ROUTES = {
-    yuz_get_pending_translations: ['int', 'yuz_int_nonce', 'yuz_get_pending_translations'],
-    yuz_publish_translations: ['con', 'yuz_con_nonce', 'yuz_publish_translations', 'yuz_publish_controller'],
-    yuz_mass_publish: ['con', 'yuz_con_nonce', 'yuz_publish_controller'],
-    yuz_translate: ['hvy', 'yuz_hvy_nonce', 'yuz_translate', 'yuz_api_nonce'],
-    yuz_tra_tm_translate: ['hvy', 'yuz_hvy_nonce', 'yuz_tra_tm_translate', 'yuz_api_nonce'],
-    yuz_tra_tm_del_translation: ['del', 'yuz_del_nonce', 'yuz_tra_tm_del_translation', 'yuz_tra_delete_translation'],
-    yuz_tra_delete_translation: ['del', 'yuz_del_nonce', 'yuz_tra_delete_translation'],
-    yuz_tra_tm_test_api: ['api', 'yuz_api_nonce', 'yuz_tra_tm_test_api'],
-    yuz_tra_ws_get_languages: ['tra', 'yuz_tra_nonce', 'yuz_tra_ws_get_languages']
+    yuztra_get_pending_translations: ['int', 'yuztra_int_nonce', 'yuztra_get_pending_translations'],
+    yuztra_publish_translations: ['con', 'yuztra_con_nonce', 'yuztra_publish_translations', 'yuztra_publish_controller'],
+    yuztra_mass_publish: ['con', 'yuztra_con_nonce', 'yuztra_publish_controller'],
+    yuztra_translate: ['hvy', 'yuztra_hvy_nonce', 'yuztra_translate', 'yuztra_api_nonce'],
+    yuztra_tm_translate: ['hvy', 'yuztra_hvy_nonce', 'yuztra_tm_translate', 'yuztra_api_nonce'],
+    yuztra_tm_del_translation: ['del', 'yuztra_del_nonce', 'yuztra_tm_del_translation', 'yuztra_delete_translation'],
+    yuztra_delete_translation: ['del', 'yuztra_del_nonce', 'yuztra_delete_translation'],
+    yuztra_tm_test_api: ['api', 'yuztra_api_nonce', 'yuztra_tm_test_api'],
+    yuztra_ws_get_languages: ['tra', 'yuztra_nonce', 'yuztra_ws_get_languages']
   };
   const pickNonce = (action) => {
     const route = NONCE_ROUTES[action] || [];
@@ -55,7 +55,7 @@ import $ from 'jquery';
         return NONCES[key];
       }
     }
-    return NONCES.tra || NONCES.yuz_tra_nonce || '';
+    return NONCES.tra || NONCES.yuztra_nonce || '';
   };
 
   // Gèle les nonces contre les mutations tardives
@@ -81,19 +81,19 @@ import $ from 'jquery';
     } catch (_) {}
   };
 
-  const CFG = window.yuzTraSettings || {};
+  const CFG = window.yuztraSettings || {};
   const TRACE = CFG.trace || Math.random().toString(16).slice(2);
 
   const TRANSLATE_ENDPOINT = (() => {
-    const raw = (Y && Y.ajax_url) || (typeof window !== 'undefined' && window.ajaxurl) || '/wp-admin/admin-ajax.php';
+    const raw = (Y && Y.ajax_url) || (typeof window !== 'undefined' && window.ajaxurl) || Y.ajax_url;
     try { return new URL(raw, window.location.origin).toString(); }
-    catch (_) { return '/wp-admin/admin-ajax.php'; }
+    catch (_) { return Y.ajax_url; }
   })();
 
-  const TRANSLATE_NONCE = pickNonce('yuz_translate');
+  const TRANSLATE_NONCE = pickNonce('yuztra_translate');
 
   function nonceForTM() {
-    return pickNonce('yuz_tra_tm_translate');
+    return pickNonce('yuztra_tm_translate');
   }
 
   function stripCssJsNoise(text) {
@@ -208,7 +208,7 @@ import $ from 'jquery';
 
   // Appel AJAX TM (batch ou single) + canonisation des codes + retry 1× + logs
   async function tmTranslateAjax(params = {}) {
-    const url = window.yuzTE?.ajax_url || TRANSLATE_ENDPOINT;
+    const url = window.yuztraTE?.ajax_url || TRANSLATE_ENDPOINT;
     const nonce = nonceForTM();
     if (!nonce) throw new Error('Missing TM nonce');
 
@@ -245,19 +245,19 @@ import $ from 'jquery';
     const to0 = (typeof params.to === 'string' ? params.to.trim()
               : (typeof params.target === 'string' ? params.target.trim() : ''));
 
-    const fromCanon = canonLT(from0 || window.yuzTraSettings?.source_language || 'auto');
-    const toCanon = canonLT(to0 || window.yuzTraSettings?.translatable_languages?.[0] || '');
+    const fromCanon = canonLT(from0 || window.yuztraSettings?.source_language || 'auto');
+    const toCanon = canonLT(to0 || window.yuztraSettings?.translatable_languages?.[0] || '');
     if (!toCanon) throw new Error('missing_target');
 
     const body = new URLSearchParams();
-    body.set('action', 'yuz_tra_tm_translate');
+    body.set('action', 'yuztra_tm_translate');
     body.set('_ajax_nonce', nonce);
     body.set('nonce', nonce);
-    body.set('yuz_tra_nonce', nonce);
+    body.set('yuztra_nonce', nonce);
     body.set('req_id', reqId);
     body.set('payload', JSON.stringify(items));
     if (params.persist !== undefined) body.set('persist', params.persist ? '1' : '0');
-    if (TRACE) body.set('yuz_trace', TRACE);
+    if (TRACE) body.set('yuztra_trace', TRACE);
 
     async function postOnce(src, tgt) {
       body.set('source', src || 'auto');
@@ -323,17 +323,17 @@ import $ from 'jquery';
 
   const ACTION = {
   // fetch/search → tra
-  TM_GET: 'yuz_tra_tm_get_translations',
-  TM_SEARCH: 'yuz_tra_tm_search',
+  TM_GET: 'yuztra_tm_get_translations',
+  TM_SEARCH: 'yuztra_tm_search',
   // save/bulk → int
-  TE_SAVE: 'yuz_save_translation',
-  TE_PUBLISH: 'yuz_tra_te_upd_publish',
-  TE_CREATE: 'yuz_tra_te_cre_translation',
+  TE_SAVE: 'yuztra_save_translation',
+  TE_PUBLISH: 'yuztra_te_upd_publish',
+  TE_CREATE: 'yuztra_te_cre_translation',
   // optional maintenance
-  TM_DEL: 'yuz_tra_tm_del_translation',
-  TM_CREATE_PAGE: 'yuz_tra_tm_cre_page',
+  TM_DEL: 'yuztra_tm_del_translation',
+  TM_CREATE_PAGE: 'yuztra_tm_cre_page',
   // suggest_ai → hvy (si présent)
-  AI_SUGGEST_BATCH: 'yuz_ai_batch_translate'
+  AI_SUGGEST_BATCH: 'yuztra_ai_batch_translate'
 };
 
 
@@ -485,15 +485,15 @@ import $ from 'jquery';
       return $.Deferred().reject(e).promise();
     }
 
-    let urlStr = Y.ajax_url || '/wp-admin/admin-ajax.php';
+    let urlStr = Y.ajax_url || Y.ajax_url;
     let url;
-    try { url = new URL(urlStr, window.location.origin); } catch (_) { url = new URL('/wp-admin/admin-ajax.php', window.location.origin); }
+    try { url = new URL(urlStr, window.location.origin); } catch (_) { url = new URL(Y.ajax_url, window.location.origin); }
     if (url.origin !== window.location.origin) {
       log('critical','[YUZ][TE] ajax_url cross-origin — bloqué', { ajax_url: urlStr });
       return $.Deferred().reject(new Error('CROSS_ORIGIN')).promise();
     }
 
-    const data = { action, nonce: n, yuz_tra_nonce: n, _ajax_nonce: n, ...payload };
+    const data = { action, nonce: n, yuztra_nonce: n, _ajax_nonce: n, ...payload };
     try { console.debug('[YUZ][TE][POST]', { url: url.toString(), ...data }); } catch(_) {}
 
     return $.ajax({
@@ -674,7 +674,7 @@ import $ from 'jquery';
         },
 
         getCurrentLanguage(){
-          return this.currentLanguage || (window.yuzTE && window.yuzTE.defaultLang) || '';
+          return this.currentLanguage || (window.yuztraTE && window.yuztraTE.defaultLang) || '';
         },
 
         // ---------- Bootstrap ----------
@@ -724,7 +724,7 @@ import $ from 'jquery';
   .map(it => {
     const cleaned = stripCssJsNoise(it.original || '');
     // jette ce qui reste du code/bruit
-    if (!cleaned || yuzLooksLikeCode(cleaned)) return null;
+    if (!cleaned || yuztraLooksLikeCode(cleaned)) return null;
     return { ...it, original: cleaned }; // on écrase l'original par la version nettoyée
   })
   .filter(Boolean);
@@ -968,7 +968,7 @@ if (pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', prun
             }
           } catch(_){ }
 
-          window.addEventListener('yuz_iframe_page_updated', () => this.mapDomToItems());
+          window.addEventListener('yuztra_iframe_page_updated', () => this.mapDomToItems());
           document.addEventListener('mouseup', this.onMouseUpSelect);
         },
 
@@ -1225,7 +1225,7 @@ if (pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', prun
 
   function ensurePhaseState(app) {
     const configured = (() => {
-      const cfg = window.yuzTraSettings && window.yuzTraSettings.smart_search_phase_order;
+      const cfg = window.yuztraSettings && window.yuztraSettings.smart_search_phase_order;
       if (Array.isArray(cfg)) return cfg;
       if (typeof cfg === 'string') return cfg.split(/[,\s]+/).filter(Boolean);
       return [];
@@ -1357,7 +1357,7 @@ if (pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', prun
 
   let lastApp = null;
   const hydrate = () => {
-    const current = window.YUZ_EDITOR_APP;
+    const current = window.YUZTRA_EDITOR_APP;
     if (current && current !== lastApp) {
       lastApp = current;
       installSmartSearch(current);
@@ -1380,10 +1380,10 @@ if (pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', prun
 
 // === INSTANT INGEST (persist) — ESM ===
 (() => {
-  const Y   = window.yuzTE || {};
-  const app = window.YUZ_EDITOR_APP || {};
-  const ajaxURL = Y.ajax_url || '/wp-admin/admin-ajax.php';
-  const nonce   = pickNonce('yuz_tra_tm_translate');
+  const Y   = window.yuztraTE || {};
+  const app = window.YUZTRA_EDITOR_APP || {};
+  const ajaxURL = Y.ajax_url || Y.ajax_url;
+  const nonce   = pickNonce('yuztra_tm_translate');
   const from    = app.sourceLanguage || 'auto';
   const to      = (app.getCurrentLanguage && app.getCurrentLanguage()) || 'en_US';
 
@@ -1392,10 +1392,10 @@ if (pruned > 0) { try { console.warn('[YUZ][filter] pruned noisy entries:', prun
     const payload = (list || []).map((t,i) => ({ i, text: clean(t) })).filter(r => r.text);
 
     const body = new URLSearchParams();
-    body.set('action','yuz_tra_tm_translate');
+    body.set('action','yuztra_tm_translate');
     body.set('_ajax_nonce', nonce);
     body.set('nonce',       nonce);
-    body.set('yuz_tra_nonce', nonce);
+    body.set('yuztra_nonce', nonce);
     body.set('req_id', (crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)));
     body.set('payload', JSON.stringify(payload));
     body.set('source', from || 'auto');

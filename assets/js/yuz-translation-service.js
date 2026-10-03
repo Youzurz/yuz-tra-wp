@@ -13,7 +13,7 @@
 
 const DEFAULT_API_CONFIG = Object.freeze({ RATE_LIMIT: 20, CACHE_TTL: 30_000 });
 const DEFAULT_AJAX_OPTIONS_FOR = (_action) => ({ timeout: 12_000 });
-const DEFAULT_NONCE_FIELDS = (_action) => ({ nonce: '', yuz_tra_nonce: '', _ajax_nonce: '' });
+const DEFAULT_NONCE_FIELDS = (_action) => ({ nonce: '', yuztra_nonce: '', _ajax_nonce: '' });
 const DEFAULT_TRANSLATE_NOW = (..._args) => {
   throw new Error('[YUZ] translateNow indisponible (charge d’abord yuz-translation-service.js)');
 };
@@ -22,10 +22,10 @@ const DEFAULT_TRANSLATE_NOW = (..._args) => {
 const API_CFG                = DEFAULT_API_CONFIG;
 const ajaxOptionsForEffective = DEFAULT_AJAX_OPTIONS_FOR;
 const nonceFieldsLocal        = (action) => {
-  const matrix = (typeof window !== 'undefined' && window.yuzNonceMatrix) || {};
-  const bucket = matrix[action] || 'yuz_tra_nonce';
+  const matrix = (typeof window !== 'undefined' && window.yuztraNonceMatrix) || {};
+  const bucket = matrix[action] || 'yuztra_nonce';
   const n = getNonce(bucket);
-  return { nonce: n, yuz_tra_nonce: n, _ajax_nonce: n };
+  return { nonce: n, yuztra_nonce: n, _ajax_nonce: n };
 };
 const nonceFieldsEffective   = nonceFieldsLocal;
 let translateNowEffective  = DEFAULT_TRANSLATE_NOW;
@@ -228,8 +228,8 @@ async function startTranslation(opts = {}) {
   // Endpoint: paramètre explicite > global WP > fallback standard
   const ep =
     endpoint
-    || (typeof window !== 'undefined' && window.yuzTraSettings && window.yuzTraSettings.ajax_url)
-    || '/wp-admin/admin-ajax.php';
+    || (typeof window !== 'undefined' && window.yuztraSettings && window.yuztraSettings.ajax_url)
+    || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
 
   // Nonces alignés (via shim si dispo, sinon fallback local)
   const nf = nonceFieldsEffective(action);
@@ -256,7 +256,7 @@ async function startTranslation(opts = {}) {
 
 // Expose en global pour les scripts non-ESM
 (() => {
-  const G = (typeof window !== 'undefined' ? (window.YUZ_TranslationService = window.YUZ_TranslationService || {}) : {});
+  const G = (typeof window !== 'undefined' ? (window.YUZTRA_TranslationService = window.YUZTRA_TranslationService || {}) : {});
   G.API_CONFIG      = API_CFG;
   G.ajaxOptionsFor  = ajaxOptionsForEffective;
   G.nonceFields     = nonceFieldsEffective;      // pour cohérence avec l’ESM shim
@@ -271,23 +271,23 @@ async function startTranslation(opts = {}) {
 // pour compatibilité immédiate avec l’Admin Bar (pas d’ESM requis).
 try {
   translateNowEffective = async function ({ page_url, target_langs, text }) {
-    const action  = 'yuz_start_translation';
-    const endpoint = (typeof window !== 'undefined' && window.yuzTraSettings && window.yuzTraSettings.ajax_url) || '/wp-admin/admin-ajax.php';
+    const action  = 'yuztra_start_translation';
+    const endpoint = (typeof window !== 'undefined' && window.yuztraSettings && window.yuztraSettings.ajax_url) || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
     return startTranslation({ action, page_url, target_langs, text, endpoint });
   };
   if (typeof window !== 'undefined') {
     window.translateNow = translateNowEffective;
-    if (window.YUZ_TranslationService) {
-      window.YUZ_TranslationService.translateNow = translateNowEffective;
+    if (window.YUZTRA_TranslationService) {
+      window.YUZTRA_TranslationService.translateNow = translateNowEffective;
     }
   }
 } catch (_) {}
 function getNonce(bucket) {
   if (typeof window === 'undefined') return '';
-  const key = bucket || 'yuz_tra_nonce';
-  if (typeof window.yuzGetNonce === 'function') {
-    return window.yuzGetNonce(key) || '';
+  const key = bucket || 'yuztra_nonce';
+  if (typeof window.yuztraGetNonce === 'function') {
+    return window.yuztraGetNonce(key) || '';
   }
-  const store = window.yuzNonce || {};
+  const store = window.yuztraNonce || {};
   return store[key] || '';
 }

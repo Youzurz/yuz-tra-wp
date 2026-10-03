@@ -10,8 +10,8 @@
   }
 
   async function postAjax(action, payload) {
-    const Y = window.yuzTraSettings || {};
-    const nonce = (Y.nonces && (Y.nonces[action] || Y.nonces.yuz_tra_nonce)) || Y.nonce;
+    const Y = window.yuztraSettings || {};
+    const nonce = (Y.nonces && (Y.nonces[action] || Y.nonces.yuztra_nonce)) || Y.nonce;
     const body = new URLSearchParams({ action, nonce });
     Object.entries(payload || {}).forEach(([k,v])=> body.append(k, typeof v==='boolean'? (v? '1':'0') : (v ?? '')));
     const r = await fetch(Y.ajax_url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body });
@@ -21,25 +21,25 @@
   // Public helpers: canonical update + re-fetch SSOT
   async function ssotUpdate(section, data) {
     // n447 canonical endpoint
-    await postAjax('yuz_settings_update', { section, data: JSON.stringify(data||{}) });
+    await postAjax('yuztra_settings_update', { section, data: JSON.stringify(data||{}) });
     // immediately re-fetch full config so UI reads the bumped version
-    const fresh = await postAjax('yuz_get_all', {});
+    const fresh = await postAjax('yuztra_get_all', {});
     if (fresh && fresh.success && fresh.data) {
-      window.yuzTraSettings = fresh.data;
+      window.yuztraSettings = fresh.data;
     }
     return fresh;
   }
 
   ready(() => {
-    const Y = window.yuzTraSettings || {};
+    const Y = window.yuztraSettings || {};
     // Build a flat compat view that proxies to SSOT
     const compat = new Proxy({}, {
       get(_, key){
         switch (key) {
           // General
-          case 'source_lang':              return alias(Y, 'general.yuz_tra_source_language', '');
-          case 'default_lang':             return alias(Y, 'general.yuz_tra_default_language', '');
-          case 'translatable_languages':   return alias(Y, 'general.yuz_tra_translatable_languages', []);
+          case 'source_lang':              return alias(Y, 'general.yuztra_source_language', '');
+          case 'default_lang':             return alias(Y, 'general.yuztra_default_language', '');
+          case 'translatable_languages':   return alias(Y, 'general.yuztra_translatable_languages', []);
 
           // Settings (UI)
           case 'url_to_load':              return alias(Y, 'settings.url_to_load', '');
@@ -82,19 +82,19 @@
     });
 
     // Expose compat view + save shims the widget can call (legacy names preserved)
-    window.yuzShim = {
+    window.yuztraShim = {
       compat,    // reads on old flat keys
       saveGeneral:   (data)=> ssotUpdate('general',       data),
       saveSettings:  (data)=> ssotUpdate('settings',      data),
       saveSwitcher:  (data)=> ssotUpdate('switcher',      data),
       saveSite:      (data)=> ssotUpdate('site_settings', data),
       saveAPI:       (data)=> ssotUpdate('api_settings',  data),
-      refreshAll:    ()=> postAjax('yuz_get_all', {}).then(j=>{ if(j?.success&&j.data){ window.yuzTraSettings=j.data; } return j; }),
+      refreshAll:    ()=> postAjax('yuztra_get_all', {}).then(j=>{ if(j?.success&&j.data){ window.yuztraSettings=j.data; } return j; }),
     };
 
     // Last step: for “zero-touch” legacy code, mirror flat reads:
-    // Any code that does window.yuzTraSettings.<flat> will still work for GET (not for SET).
-    Object.defineProperties(window.yuzTraSettings, {
+    // Any code that does window.yuztraSettings.<flat> will still work for GET (not for SET).
+    Object.defineProperties(window.yuztraSettings, {
       source_lang:             { get(){ return compat.source_lang; } },
       default_lang:            { get(){ return compat.default_lang; } },
       translatable_languages:  { get(){ return compat.translatable_languages; } },

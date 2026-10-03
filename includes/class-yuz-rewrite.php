@@ -61,9 +61,9 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-url-converter.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-url-converter.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 
 use YUZTRA\Interfaces\LanguagesInterface;
 use YUZTRA\Interfaces\SettingsInterface;
@@ -76,60 +76,60 @@ use YUZTRA\Fallbacks\NullAjax;
 use YUZTRA\Fallbacks\NullLanguageManager;
 use YUZTRA\Fallbacks\NullTranslationManager;
 
-if (!class_exists('YUZ_Rewrite')) {
-class YUZ_Rewrite implements RewriteInterface {
+if (!class_exists('YUZTRA_Rewrite')) {
+class YUZTRA_Rewrite implements RewriteInterface {
     private $languages;
     private $settings;
     private $db;
     private $url_converter;
     private $is_converting = false;
 
-    public function __construct(LanguagesInterface $languages, SettingsInterface $settings, YUZ_DB $db) {
+    public function __construct(LanguagesInterface $languages, SettingsInterface $settings, YUZTRA_DB $db) {
         $this->languages = $languages;
         $this->settings  = $settings;
         $this->db        = $db;
-        $this->url_converter = new YUZ_Url_Converter($settings);
-        (new YUZ_Logger())->log('info', 'YUZ_Rewrite instantiated with dependencies');
+        $this->url_converter = new YUZTRA_Url_Converter($settings);
+        (new YUZTRA_Logger())->log('info', 'YUZTRA_Rewrite instantiated with dependencies');
     }
 
     public static function init() {
-        $logger = new YUZ_Logger();
-        $health = new YUZ_Health_Check($logger);
-        $db     = new YUZ_DB($logger, $health);
+        $logger = new YUZTRA_Logger();
+        $health = new YUZTRA_Health_Check($logger);
+        $db     = new YUZTRA_DB($logger, $health);
 
         // 1) Languages — privilégie la factory centrale
-        if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'languages')) {
-            $languages = YUZ_Services::languages();
+        if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'languages')) {
+            $languages = YUZTRA_Services::languages();
         } else {
-            $languages = class_exists('YUZ_Languages')
-                ? new YUZ_Languages(new NullSettings(), $db)
+            $languages = class_exists('YUZTRA_Languages')
+                ? new YUZTRA_Languages(new NullSettings(), $db)
                 : new NullLanguages();
         }
 
         // 2) Settings — privilégie la factory centrale (sinon provisoire)
-        if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'settings')) {
-            $settings = YUZ_Services::settings();
-        } elseif (class_exists('YUZ_Settings')) {
+        if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'settings')) {
+            $settings = YUZTRA_Services::settings();
+        } elseif (class_exists('YUZTRA_Settings')) {
             // provisoire: Ajax/TM seront recâblés après création du TM réel
-            $settings = new YUZ_Settings($languages, new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), $logger);
+            $settings = new YUZTRA_Settings($languages, new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), $logger);
         } else {
             $settings = new NullSettings();
         }
 
         // 3) Translation Manager — standard via Services::tm() si possible
-        if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'tm')) {
-            $translationManager = YUZ_Services::tm();
-        } elseif (class_exists('YUZ_API_Manager')) {
+        if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'tm')) {
+            $translationManager = YUZTRA_Services::tm();
+        } elseif (class_exists('YUZTRA_API_Manager')) {
             // Adaptateurs
             $adapters = [
-                'custom'         => class_exists('YUZ_Custom_Translate_Adapter') ? new YUZ_Custom_Translate_Adapter()   : new NullTranslateAdapter(),
-                'libretranslate' => class_exists('YUZ_Libre_Translate_Adapter')  ? new YUZ_Libre_Translate_Adapter()    : new NullTranslateAdapter(),
-                'deepl'          => class_exists('YUZ_DeepL_Translate_Adapter')  ? new YUZ_DeepL_Translate_Adapter()    : new NullTranslateAdapter(),
-                'google'         => class_exists('YUZ_Google_Translate_Adapter') ? new YUZ_Google_Translate_Adapter()   : new NullTranslateAdapter(),
+                'custom'         => class_exists('YUZTRA_Custom_Translate_Adapter') ? new YUZTRA_Custom_Translate_Adapter()   : new NullTranslateAdapter(),
+                'libretranslate' => class_exists('YUZTRA_Libre_Translate_Adapter')  ? new YUZTRA_Libre_Translate_Adapter()    : new NullTranslateAdapter(),
+                'deepl'          => class_exists('YUZTRA_DeepL_Translate_Adapter')  ? new YUZTRA_DeepL_Translate_Adapter()    : new NullTranslateAdapter(),
+                'google'         => class_exists('YUZTRA_Google_Translate_Adapter') ? new YUZTRA_Google_Translate_Adapter()   : new NullTranslateAdapter(),
             ];
 
             // ✅ Signature officielle: (adapters, SettingsInterface, LanguagesInterface, AjaxInterface|null, DBInterface, LoggerInterface)
-            $translationManager = new YUZ_API_Manager(
+            $translationManager = new YUZTRA_API_Manager(
                 $adapters,
                 $settings,    // ✅ 2) Settings
                 $languages,   // ✅ 3) Languages
@@ -142,13 +142,13 @@ class YUZ_Rewrite implements RewriteInterface {
         }
 
         // 4) Language Manager (corrige le nom de classe)
-        $languageManager = class_exists('YUZ_Language_Manager')
-            ? new YUZ_Language_Manager()
+        $languageManager = class_exists('YUZTRA_Language_Manager')
+            ? new YUZTRA_Language_Manager()
             : new NullLanguageManager();
 
         // 5) Ajax central (sans inline JS)
-        $ajax = class_exists('YUZ_Ajax')
-            ? new YUZ_Ajax($translationManager, $languageManager, $db)
+        $ajax = class_exists('YUZTRA_Ajax')
+            ? new YUZTRA_Ajax($translationManager, $languageManager, $db)
             : new NullAjax();
 
         // 6) Branchement Ajax → TM (setter camelCase)
@@ -157,8 +157,8 @@ class YUZ_Rewrite implements RewriteInterface {
         }
 
         // 7) Si Settings n’est pas issu de Services, on le recâble proprement avec les deps réelles
-        if (!(class_exists('YUZ_Services') && method_exists('YUZ_Services', 'settings')) && class_exists('YUZ_Settings') && !($settings instanceof NullSettings)) {
-            $settings = new YUZ_Settings($languages, $ajax, $translationManager, $languageManager, $logger);
+        if (!(class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'settings')) && class_exists('YUZTRA_Settings') && !($settings instanceof NullSettings)) {
+            $settings = new YUZTRA_Settings($languages, $ajax, $translationManager, $languageManager, $logger);
         }
 
         // 8) Instance + hooks
@@ -170,7 +170,7 @@ class YUZ_Rewrite implements RewriteInterface {
         add_action('pre_get_posts',     [$instance, 'ensure_front_page_slug']);
         add_action('parse_request',     [$instance, 'guard_front_request'], 1);
         add_action('admin_init',  [$instance, 'maybe_flush_rules']);
-        add_action('wp_ajax_yuz_tra_rw_flush_rules', [$instance, 'ajax_flush_rules']);
+        add_action('wp_ajax_yuztra_rw_flush_rules', [$instance, 'ajax_flush_rules']);
 
         add_filter('home_url',               [$instance, 'filter_home_url'], 10, 4);
         add_filter('post_type_link',         [$instance, 'filter_post_link'], 10, 4);
@@ -181,63 +181,63 @@ class YUZ_Rewrite implements RewriteInterface {
         add_filter('paginate_links',         [$instance, 'filter_paginate_links']);
         add_filter('walker_nav_menu_start_el', [$instance, 'filter_nav_menu_item'], 10, 4);
 
-        $logger->log('success', 'YUZ_Rewrite class initialized successfully');
+        $logger->log('success', 'YUZTRA_Rewrite class initialized successfully');
     }
 
     public function register_rewrite_rules(): void {
-        (new YUZ_Logger())->log('info', 'Registering rewrite rules');
+        (new YUZTRA_Logger())->log('info', 'Registering rewrite rules');
 
-        $settings = $this->settings->get_option('yuz_tra_settings');
+        $settings = $this->settings->get_option('yuztra_settings');
         if (!is_array($settings)) {
             $settings = [];
-            (new YUZ_Logger())->log('warning', 'yuz_tra_settings is not an array, using defaults');
+            (new YUZTRA_Logger())->log('warning', 'yuztra_settings is not an array, using defaults');
         }
         if ($this->should_auto_enable_subdirectories($settings)) {
             $settings['use_subdirectory'] = true;
         }
         if (!isset($settings['use_subdirectory'])) {
             $settings['use_subdirectory'] = false;
-            (new YUZ_Logger())->log('info', 'use_subdirectory not set, defaulting to false');
+            (new YUZTRA_Logger())->log('info', 'use_subdirectory not set, defaulting to false');
         }
         if (empty($settings['use_subdirectory'])) {
-            (new YUZ_Logger())->log('info', 'use_subdirectory disabled, skipping subdirectory rules');
+            (new YUZTRA_Logger())->log('info', 'use_subdirectory disabled, skipping subdirectory rules');
             return;
         }
 
         $this->db->ensure_tables();
         global $wpdb;
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
-            (new YUZ_Logger())->log('critical', 'Language table missing after recreation attempt');
+        if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
+            (new YUZTRA_Logger())->log('critical', 'Language table missing after recreation attempt');
             return;
         }
 
-        $general_settings = $this->settings->get_option('yuz_tra_general');
+        $general_settings = $this->settings->get_option('yuztra_general');
         if (!is_array($general_settings) || empty($general_settings)) {
-            $general_settings = get_option('yuz_tra_general', []);
+            $general_settings = get_option('yuztra_general', []);
         }
         $slug_map = [];
-        if (is_array($general_settings) && isset($general_settings['yuz_tra_slug']) && is_array($general_settings['yuz_tra_slug'])) {
-            $slug_map = array_filter($general_settings['yuz_tra_slug']);
+        if (is_array($general_settings) && isset($general_settings['yuztra_slug']) && is_array($general_settings['yuztra_slug'])) {
+            $slug_map = array_filter($general_settings['yuztra_slug']);
         }
 
         $languages = [];
         $attempts  = 3;
         while ($attempts > 0) {
-            $languages = $wpdb->get_results("SELECT language_code, slug FROM {$table_name} WHERE is_translatable = 1");
+            $languages = $wpdb->get_results($wpdb->prepare('SELECT language_code, slug FROM %i WHERE is_translatable = 1', $table_name));
             if ($languages !== null) {
                 break;
             }
             $attempts--;
-            (new YUZ_Logger())->log('warning', "Retry attempt for fetching translatable languages, attempts left: {$attempts}");
+            (new YUZTRA_Logger())->log('warning', "Retry attempt for fetching translatable languages, attempts left: {$attempts}");
             usleep(100000);
         }
         if ($wpdb->last_error) {
-            (new YUZ_Logger())->log('critical', 'Database query failed: ' . $wpdb->last_error);
+            (new YUZTRA_Logger())->log('critical', 'Database query failed: ' . $wpdb->last_error);
             return;
         }
         if (empty($languages)) {
-            (new YUZ_Logger())->log('info', 'No translatable languages found, skipping rewrite rules');
+            (new YUZTRA_Logger())->log('info', 'No translatable languages found, skipping rewrite rules');
             return;
         }
 
@@ -248,7 +248,7 @@ class YUZ_Rewrite implements RewriteInterface {
         foreach ($languages as $lang) {
             $lang_code = sanitize_text_field($lang->language_code);
             if (empty($lang_code)) {
-                (new YUZ_Logger())->log('warning', 'Invalid language code: ' . print_r($lang, true));
+                (new YUZTRA_Logger())->log('warning', 'Invalid language code', ['language_code' => '']);
                 continue;
             }
 
@@ -285,13 +285,13 @@ class YUZ_Rewrite implements RewriteInterface {
 
             add_rewrite_rule("^{$regex_slug}/?$", $front_rule, 'top');
 
-            (new YUZ_Logger())->log('info', 'Added rewrite rule for language', [
+            (new YUZTRA_Logger())->log('info', 'Added rewrite rule for language', [
                 'code' => $lang_code,
                 'slug' => $slug,
             ]);
         }
 
-        (new YUZ_Logger())->log('success', 'Rewrite rules registered for ' . count($languages) . ' languages');
+        (new YUZTRA_Logger())->log('success', 'Rewrite rules registered for ' . count($languages) . ' languages');
     }
 
     private function should_auto_enable_subdirectories(array $settings): bool {
@@ -307,7 +307,7 @@ class YUZ_Rewrite implements RewriteInterface {
 
     public function add_query_vars(array $vars): array {
         $vars[] = 'lang';
-        (new YUZ_Logger())->log('info', 'Added query var: lang');
+        (new YUZTRA_Logger())->log('info', 'Added query var: lang');
         return $vars;
     }
 
@@ -477,8 +477,8 @@ class YUZ_Rewrite implements RewriteInterface {
 
     private function get_default_locale(): string
     {
-        $general = (array) $this->settings->get_option('yuz_tra_general');
-        $default = $general['yuz_tra_default_language'] ?? get_locale();
+        $general = (array) $this->settings->get_option('yuztra_general');
+        $default = $general['yuztra_default_language'] ?? get_locale();
         return is_string($default) && $default !== '' ? $default : get_locale();
     }
 
@@ -493,7 +493,7 @@ class YUZ_Rewrite implements RewriteInterface {
             return $url;
         }
 
-        $settings    = (array) $this->settings->get_option('yuz_tra_settings');
+        $settings    = (array) $this->settings->get_option('yuztra_settings');
         $use_subdir  = !empty($settings['use_subdirectory']);
         $force_param = !empty($settings['force_lang_in_links']);
 
@@ -509,7 +509,7 @@ class YUZ_Rewrite implements RewriteInterface {
             return $this->url_converter->get_url_for_language($active_locale, $url, $context);
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[YUZ-TRA][WARN] convert_url failed: ' . $e->getMessage());
+                yuztra_debug_log('[YUZ-TRA][WARN] convert_url failed: ' . $e->getMessage());
             }
             return $url;
         } finally {
@@ -536,8 +536,8 @@ class YUZ_Rewrite implements RewriteInterface {
 
     private function slug_for_locale(string $locale): string
     {
-        $general = (array) $this->settings->get_option('yuz_tra_general');
-        $map     = (array) ($general['yuz_tra_slug'] ?? []);
+        $general = (array) $this->settings->get_option('yuztra_general');
+        $map     = (array) ($general['yuztra_slug'] ?? []);
 
         if (!empty($map[$locale])) {
             return sanitize_title($map[$locale]);
@@ -551,19 +551,19 @@ class YUZ_Rewrite implements RewriteInterface {
     }
 
     public function force_lang_in_links(): void {
-        $settings = $this->settings->get_option('yuz_tra_settings');
+        $settings = $this->settings->get_option('yuztra_settings');
         if (!is_array($settings)) {
             $settings = [];
-            (new YUZ_Logger())->log('warning', 'yuz_tra_settings is not an array in force_lang_in_links, using defaults');
+            (new YUZTRA_Logger())->log('warning', 'yuztra_settings is not an array in force_lang_in_links, using defaults');
         }
         if (!isset($settings['force_lang_in_links'])) {
             $settings['force_lang_in_links'] = false;
-            (new YUZ_Logger())->log('info', 'force_lang_in_links not set, defaulting to false');
+            (new YUZTRA_Logger())->log('info', 'force_lang_in_links not set, defaulting to false');
         }
 
-        YUZ_Health_Check::ensure(
+        YUZTRA_Health_Check::ensure(
             is_array($settings) && isset($settings['force_lang_in_links']),
-            'Invalid yuz_tra_settings configuration for force_lang_in_links',
+            'Invalid yuztra_settings configuration for force_lang_in_links',
             __METHOD__
         );
 
@@ -578,7 +578,7 @@ class YUZ_Rewrite implements RewriteInterface {
                 $target         = $this->url_converter->get_url_for_language($requested_lang, $base_url);
 
                 if (!empty($target) && $target !== $current_url) {
-                    (new YUZ_Logger())->log('info', 'Redirecting param lang URL to canonical slug', [
+                    (new YUZTRA_Logger())->log('info', 'Redirecting param lang URL to canonical slug', [
                         'from' => $current_url,
                         'to'   => $target,
                     ]);
@@ -588,7 +588,7 @@ class YUZ_Rewrite implements RewriteInterface {
             }
 
             if ($this->should_skip_canonical_redirect()) {
-                (new YUZ_Logger())->log('info', 'Skipping canonical redirect due to current context');
+                (new YUZTRA_Logger())->log('info', 'Skipping canonical redirect due to current context');
                 return;
             }
 
@@ -603,7 +603,7 @@ class YUZ_Rewrite implements RewriteInterface {
                 if ($expected && strcasecmp($first_seg, $expected) !== 0) {
                     $target = $this->url_converter->get_url_for_language($active_locale, $current_url);
                     if (!empty($target) && $target !== $current_url) {
-                        (new YUZ_Logger())->log('info', 'Redirecting to canonical slug for active locale', [
+                        (new YUZTRA_Logger())->log('info', 'Redirecting to canonical slug for active locale', [
                             'from' => $current_url,
                             'to'   => $target,
                         ]);
@@ -617,23 +617,23 @@ class YUZ_Rewrite implements RewriteInterface {
         }
 
         if (empty($settings['force_lang_in_links'])) {
-            (new YUZ_Logger())->log('info', 'force_lang_in_links disabled, skipping');
+            (new YUZTRA_Logger())->log('info', 'force_lang_in_links disabled, skipping');
             return;
         }
 
         $current_lang = get_query_var('lang');
         if ($current_lang) {
-            (new YUZ_Logger())->log('info', "Current language already set: $current_lang");
+            (new YUZTRA_Logger())->log('info', "Current language already set: $current_lang");
             return;
         }
 
-        $general      = $this->settings->get_option('yuz_tra_general');
-        $default_lang = !empty($general['yuz_tra_default_language'])
-            ? $general['yuz_tra_default_language']
+        $general      = $this->settings->get_option('yuztra_general');
+        $default_lang = !empty($general['yuztra_default_language'])
+            ? $general['yuztra_default_language']
             : $this->languages->get_default_language();
 
         if (!$this->is_valid_language($default_lang)) {
-            (new YUZ_Logger())->log('warning', "Invalid default language '$default_lang' in force_lang_in_links, no redirection performed");
+            (new YUZTRA_Logger())->log('warning', "Invalid default language '$default_lang' in force_lang_in_links, no redirection performed");
             return;
         }
 
@@ -645,38 +645,38 @@ class YUZ_Rewrite implements RewriteInterface {
             exit;
         }
 
-        (new YUZ_Logger())->log('success', "Redirected to URL with lang parameter: $new_url");
+        (new YUZTRA_Logger())->log('success', "Redirected to URL with lang parameter: $new_url");
     }
 
     public function maybe_flush_rules(): void {
-        $last_flush       = $this->settings->get_option('yuz_rewrite_flush_version', '0');
+        $last_flush       = $this->settings->get_option('yuztra_rewrite_flush_version', '0');
         $current_version  = '1.0.3';
-        $settings         = $this->settings->get_option('yuz_tra_settings');
+        $settings         = $this->settings->get_option('yuztra_settings');
 
-        YUZ_Health_Check::ensure(
+        YUZTRA_Health_Check::ensure(
             is_array($settings),
-            'Invalid yuz_tra_settings configuration in maybe_flush_rules',
+            'Invalid yuztra_settings configuration in maybe_flush_rules',
             __METHOD__
         );
 
         $settings_hash       = md5(json_encode($settings));
-        $last_settings_hash  = $this->settings->get_option('yuz_rewrite_settings_hash', '');
+        $last_settings_hash  = $this->settings->get_option('yuztra_rewrite_settings_hash', '');
 
         if ($last_flush === $current_version && $last_settings_hash === $settings_hash) {
-            (new YUZ_Logger())->log('info', 'No need to flush rewrite rules');
+            (new YUZTRA_Logger())->log('info', 'No need to flush rewrite rules');
             return;
         }
 
         flush_rewrite_rules();
-        $this->settings->update_option('yuz_rewrite_flush_version', $current_version);
-        $this->settings->update_option('yuz_rewrite_settings_hash', $settings_hash);
+        $this->settings->update_option('yuztra_rewrite_flush_version', $current_version);
+        $this->settings->update_option('yuztra_rewrite_settings_hash', $settings_hash);
 
-        (new YUZ_Logger())->log('success', "Rewrite rules flushed and version updated to $current_version");
+        (new YUZTRA_Logger())->log('success', "Rewrite rules flushed and version updated to $current_version");
     }
 
     public function ajax_flush_rules(): void {
         // Sécurité standard AJAX sans dépendre de YUZ_Ajax
-        check_ajax_referer('yuz_con_nonce', 'nonce');
+        check_ajax_referer('yuztra_con_nonce', 'nonce');
         if (!current_user_can('manage_options')) {
             wp_send_json_error([
                 'code'    => 'unauthorized',
@@ -694,8 +694,8 @@ class YUZ_Rewrite implements RewriteInterface {
         $this->db->ensure_tables();
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
 
-        if (!$wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
-            (new YUZ_Logger())->log('critical', 'Language table missing after recreation attempt');
+        if (!$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name)))) {
+            (new YUZTRA_Logger())->log('critical', 'Language table missing after recreation attempt');
             return false;
         }
 
@@ -703,19 +703,20 @@ class YUZ_Rewrite implements RewriteInterface {
         $attempts = 3;
         while ($attempts > 0) {
             $count = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table_name} WHERE language_code = %s AND is_translatable = 1",
+                "SELECT COUNT(*) FROM %i WHERE language_code = %s AND is_translatable = 1",
+                $table_name,
                 $lang_code
             ));
             if ($count !== null) {
                 break;
             }
             $attempts--;
-            (new YUZ_Logger())->log('warning', "Retry attempt for validating language code {$lang_code}, attempts left: {$attempts}");
+            (new YUZTRA_Logger())->log('warning', "Retry attempt for validating language code {$lang_code}, attempts left: {$attempts}");
             usleep(100000);
         }
 
         if ($wpdb->last_error) {
-            (new YUZ_Logger())->log('critical', 'Database query failed in is_valid_language: ' . $wpdb->last_error);
+            (new YUZTRA_Logger())->log('critical', 'Database query failed in is_valid_language: ' . $wpdb->last_error);
             return false;
         }
 
@@ -724,7 +725,7 @@ class YUZ_Rewrite implements RewriteInterface {
 
     private function should_skip_canonical_redirect(): bool
     {
-        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        $method = strtoupper(sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? 'GET')));
 
         // A canonical redirect must never consume a form or payment payload.
         if (!in_array($method, ['GET', 'HEAD'], true)) {
@@ -755,7 +756,7 @@ class YUZ_Rewrite implements RewriteInterface {
     }
 
     public function applyRules(array $rules): string {
-        (new YUZ_Logger())->log('info', 'Applying rewrite rules');
+        (new YUZTRA_Logger())->log('info', 'Applying rewrite rules');
         return implode(',', $rules);
     }
 
@@ -785,17 +786,17 @@ class YUZ_Rewrite implements RewriteInterface {
             return;
         }
 
-        $request_path = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $request_path = wp_parse_url(sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')), PHP_URL_PATH);
         $path_is_root = $request_path === null || $request_path === '' || $request_path === '/';
         if (!$path_is_root) {
             return;
         }
 
         $lang = '';
-        if (isset($wp->query_vars['lang'])) {
-            $lang = (string) $wp->query_vars['lang'];
-        } elseif (isset($_GET['lang'])) {
-            $lang = (string) $_GET['lang'];
+        if (isset($wp->query_vars['lang']) && is_string($wp->query_vars['lang'])) {
+            $lang = sanitize_text_field($wp->query_vars['lang']);
+        } elseif (isset($_GET['lang']) && is_string($_GET['lang'])) {
+            $lang = sanitize_text_field(wp_unslash((string) $_GET['lang']));
         }
 
         $has_page = !empty($wp->query_vars['page_id']) || !empty($wp->query_vars['pagename']);
@@ -806,7 +807,7 @@ class YUZ_Rewrite implements RewriteInterface {
         $wp->query_vars['page_id']  = $front_id;
         $wp->query_vars['pagename'] = $front_slug;
 
-        (new YUZ_Logger())->log('info', 'Guard front request: injected front page for root + lang', [
+        (new YUZTRA_Logger())->log('info', 'Guard front request: injected front page for root + lang', [
             'lang' => $lang,
             'path' => $request_path,
             'front_id' => $front_id,
@@ -816,9 +817,9 @@ class YUZ_Rewrite implements RewriteInterface {
 
     public function ensure_front_page_slug($query): void
     {
-        $logger = new YUZ_Logger();
+        $logger = new YUZTRA_Logger();
         $requested_lang = $query->get('lang');
-        $request_path   = wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $request_path   = wp_parse_url(sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'] ?? '')), PHP_URL_PATH);
         $path_is_root   = $request_path === null || $request_path === '' || $request_path === '/';
 
         if (!($query instanceof \WP_Query)) {
@@ -900,9 +901,9 @@ class YUZ_Rewrite implements RewriteInterface {
 }
 }
 
-if ( class_exists( 'YUZ_Rewrite' ) ) {
-    add_action( 'init', [ 'YUZ_Rewrite', 'init' ], 20 );
-    (new YUZ_Logger())->log( 'info', 'YUZ_Rewrite init hooked on init at ' . current_time( 'mysql' ) );
+if ( class_exists( 'YUZTRA_Rewrite' ) ) {
+    add_action( 'init', [ 'YUZTRA_Rewrite', 'init' ], 20 );
+    (new YUZTRA_Logger())->log( 'info', 'YUZTRA_Rewrite init hooked on init at ' . current_time( 'mysql' ) );
 } else {
-    (new YUZ_Logger())->log( 'critical', 'Failed to create YUZ_Rewrite class' );
+    (new YUZTRA_Logger())->log( 'critical', 'Failed to create YUZTRA_Rewrite class' );
 }

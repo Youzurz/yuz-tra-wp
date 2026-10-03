@@ -7,8 +7,8 @@
 
 defined('ABSPATH') || exit;
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 
 use YUZTRA\Interfaces\TranslateAdapterInterface;
 use YUZTRA\Interfaces\TranslationManagerInterface;
@@ -26,8 +26,8 @@ use YUZTRA\Fallbacks\NullLogger;
 use YUZTRA\Fallbacks\NullTranslationManager;
 use YUZTRA\Fallbacks\NullLanguageManager;
 
-if (!class_exists('YUZ_API_Manager')) {
-class YUZ_API_Manager implements TranslationManagerInterface {
+if (!class_exists('YUZTRA_API_Manager')) {
+class YUZTRA_API_Manager implements TranslationManagerInterface {
     private $adapters = [];
     private SettingsInterface $settings;
     private array $api_settings = [];
@@ -52,12 +52,12 @@ class YUZ_API_Manager implements TranslationManagerInterface {
         $this->db = $db ?? new NullDB();
         $this->logger = $logger ?? new NullLogger();
         $this->register_adapters();
-        $this->logger->log('info', 'YUZ_API_Manager instancié', ['class' => __CLASS__]);
+        $this->logger->log('info', 'YUZTRA_API_Manager instancié', ['class' => __CLASS__]);
     }
 
     public static function init(): void {
-        $logger = class_exists('YUZ_Logger') ? new YUZ_Logger() : new NullLogger();
-        $logger->log('info', 'YUZ_API_Manager init: hooks set.', ['class' => __CLASS__]);
+        $logger = class_exists('YUZTRA_Logger') ? new YUZTRA_Logger() : new NullLogger();
+        $logger->log('info', 'YUZTRA_API_Manager init: hooks set.', ['class' => __CLASS__]);
     }
 
     public function setAjax(AjaxInterface $ajax): void { $this->ajax = $ajax; }
@@ -69,7 +69,7 @@ class YUZ_API_Manager implements TranslationManagerInterface {
     private function get_language_code(int $lang_id): ?string {
         global $wpdb;
         $table = $wpdb->prefix . 'yuz_tra_languages';
-        return $wpdb->get_var($wpdb->prepare("SELECT language_code FROM $table WHERE id = %d", $lang_id));
+        return $wpdb->get_var($wpdb->prepare('SELECT language_code FROM %i WHERE id = %d', $table, $lang_id));
     }
 
     private function get_language_id_with_retry(string $language_code): ?int {
@@ -93,8 +93,8 @@ class YUZ_API_Manager implements TranslationManagerInterface {
         $attempts = 3;
         while ($attempts > 0) {
             $existing = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM $table_name WHERE post_id = %d AND context = 'content' AND language_code = %s",
-                $post_id, $target_language
+                'SELECT COUNT(*) FROM %i WHERE post_id = %d AND context = %s AND language_code = %s',
+                $table_name, $post_id, 'content', $target_language
             ));
             if ($existing !== null) return (int)$existing;
             $attempts--; usleep(100000);
@@ -152,6 +152,13 @@ class YUZ_API_Manager implements TranslationManagerInterface {
             ?? null;
 
         if ($provider) {
+            $allowed_providers = function_exists('yuztra_allowed_remote_providers')
+                ? yuztra_allowed_remote_providers()
+                : ['libretranslate', 'google', 'deepl', 'custom', 'ollama', 'openai'];
+            if (!in_array($provider, $allowed_providers, true)) {
+                unset($normalized['api_type'], $normalized['provider'], $normalized['api_provider']);
+                return $normalized;
+            }
             if (!empty($normalized['api_type']) && $normalized['api_type'] !== $provider) {
                 unset($normalized['endpoint'], $normalized['api_key']);
             }
@@ -189,6 +196,7 @@ class YUZ_API_Manager implements TranslationManagerInterface {
                         ? 'https://api-free.deepl.com/v2/translate'
                         : 'https://api.deepl.com/v2/translate';
                 } elseif ($provider === 'openai') {
+                    // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Default endpoint is used only after the administrator selects the allowlisted provider.
                     $normalized['endpoint'] = 'https://api.openai.com/v1/chat/completions';
                 }
             }
@@ -208,9 +216,9 @@ class YUZ_API_Manager implements TranslationManagerInterface {
             return array_merge($current, $explicit);
         }
 
-        $stored = get_option('yuz_tra_at_settings', []);
+        $stored = get_option('yuztra_at_settings', []);
         if (!is_array($stored) || empty($stored)) {
-            $stored = get_option('yuz_tra_api_settings', []);
+            $stored = get_option('yuztra_api_settings', []);
         }
 
         if (!is_array($stored)) {
@@ -237,9 +245,9 @@ class YUZ_API_Manager implements TranslationManagerInterface {
         if (strcasecmp($source, $target) === 0) return $text;
         $api = $this->resolve_api_settings();
         $provider = $api['api_type'] ?? '';
-        require_once YUZ_TRA_INCLUDES . 'class-yuz-translation-budget.php';
+        require_once YUZTRA_INCLUDES . 'class-yuz-translation-budget.php';
         $context = array_intersect_key($context, array_flip(['domain','context','original','placeholders','deadline']));
-        $retrieved = YUZ_Translation_Memory::retrieve($text,$source,$target,$context);
+        $retrieved = YUZTRA_Translation_Memory::retrieve($text,$source,$target,$context);
         if ($retrieved['exact'] !== null) {
             return strtr($retrieved['exact'], array_flip($context['placeholders'] ?? []));
         }
@@ -252,11 +260,11 @@ class YUZ_API_Manager implements TranslationManagerInterface {
             'custom_auth','custom_method','custom_format','translation_context','retrieved_context']));
         unset($cache_api['deadline'],$cache_api['translation_context']['deadline']);
         $fingerprint = wp_json_encode([$provider,hash('sha256',wp_json_encode($cache_api)), $source, $target, 'translation-1']);
-        return YUZ_Translation_Budget::run($text, $fingerprint, function () use ($text,$source,$target,$api,$provider) {
+        return YUZTRA_Translation_Budget::run($text, $fingerprint, function () use ($text,$source,$target,$api,$provider) {
             $result=$this->adapters[$provider]->translate($text, $source, $target, $api);
             if (!is_string($result) || trim($result)==='') throw new RuntimeException('empty_provider_translation');
             if (strlen($result)>40000) throw new RuntimeException('translation_output_too_large');
-            if (YUZ_String_Catalog::tokens($text)!==YUZ_String_Catalog::tokens($result)) throw new RuntimeException('provider_changed_placeholder');
+            if (YUZTRA_String_Catalog::tokens($text)!==YUZTRA_String_Catalog::tokens($result)) throw new RuntimeException('provider_changed_placeholder');
             preg_match_all('/YUZKEEP[0-9]+TOKEN/',$text,$before);
             preg_match_all('/YUZKEEP[0-9]+TOKEN/',$result,$after);
             sort($before[0]); sort($after[0]);
@@ -329,7 +337,7 @@ class YUZ_API_Manager implements TranslationManagerInterface {
             return [ 'success' => false, 'message' => 'Provider connection test unavailable' ];
         } catch (\Throwable $e) {
             if (class_exists('WP_Error')) {
-                return new \WP_Error('yuz_api_test', $e->getMessage());
+                return new \WP_Error('yuztra_api_test', $e->getMessage());
             }
             return [ 'success' => false, 'message' => $e->getMessage() ];
         }
@@ -338,12 +346,12 @@ class YUZ_API_Manager implements TranslationManagerInterface {
     public function run_full_site_translation(): void {
         // WP-Cron already owns the worker at this point; do not requeue a no-op.
         if (function_exists("wp_doing_cron") && wp_doing_cron()
-            && class_exists("YUZ_Cron") && method_exists("YUZ_Cron", "run_batch")) {
-            \YUZ_Cron::run_batch();
+            && class_exists("YUZTRA_Cron") && method_exists("YUZTRA_Cron", "run_batch")) {
+            \YUZTRA_Cron::run_batch();
             return;
         }
-        if (method_exists("YUZ_Automatic_Translation", "queue_full_site")) {
-            try { \YUZ_Automatic_Translation::queue_full_site(); } catch (\Throwable $e) {
+        if (method_exists("YUZTRA_Automatic_Translation", "queue_full_site")) {
+            try { \YUZTRA_Automatic_Translation::queue_full_site(); } catch (\Throwable $e) {
                 if ($this->logger) {
                     $this->logger->log("warning", "[API] Unable to queue full-site translation", ["error" => $e->getMessage()]);
                 }

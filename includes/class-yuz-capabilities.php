@@ -5,34 +5,34 @@
 
 defined('ABSPATH') || exit;
 
-if (!class_exists('YUZ_Capabilities')) {
-    class YUZ_Capabilities {
-        public const CAP_TRANSLATE_CONTENT    = 'yuz_translate_content';
-        public const CAP_TRANSLATE_STRINGS    = 'yuz_translate_strings';
-        public const CAP_MANAGE_SLUGS         = 'yuz_manage_slugs';
-        public const CAP_PUBLISH              = 'yuz_publish_translations';
-        public const CAP_MANAGE_SETTINGS      = 'yuz_manage_settings';
+if (!class_exists('YUZTRA_Capabilities')) {
+    class YUZTRA_Capabilities {
+        public const CAP_TRANSLATE_CONTENT    = 'yuztra_translate_content';
+        public const CAP_TRANSLATE_STRINGS    = 'yuztra_translate_strings';
+        public const CAP_MANAGE_SLUGS         = 'yuztra_manage_slugs';
+        public const CAP_PUBLISH              = 'yuztra_publish_translations';
+        public const CAP_MANAGE_SETTINGS      = 'yuztra_manage_settings';
 
         /**
          * Legacy capability slugs kept for backward compatibility.
          */
         private const LEGACY_CAPS = [
-            'yuz_translate',
-            'yuz_translate_posts',
-            'yuz_translate_publish',
-            'yuz_translate_settings',
-            'yuz_translate_core',
+            'yuztra_translate',
+            'yuztra_translate_posts',
+            'yuztra_translate_publish',
+            'yuztra_translate_settings',
+            'yuztra_translate_core',
         ];
 
         /**
          * Fallback map so we keep recognizing legacy caps until every site is resynced.
          */
         private const LEGACY_FALLBACK = [
-            self::CAP_TRANSLATE_CONTENT => ['yuz_translate'],
-            self::CAP_TRANSLATE_STRINGS => ['yuz_translate_posts', 'yuz_translate'],
-            self::CAP_MANAGE_SLUGS      => ['yuz_translate_posts', 'yuz_translate'],
-            self::CAP_PUBLISH           => ['yuz_translate_publish', 'yuz_translate'],
-            self::CAP_MANAGE_SETTINGS   => ['yuz_translate_settings', 'yuz_translate_core'],
+            self::CAP_TRANSLATE_CONTENT => ['yuztra_translate'],
+            self::CAP_TRANSLATE_STRINGS => ['yuztra_translate_posts', 'yuztra_translate'],
+            self::CAP_MANAGE_SLUGS      => ['yuztra_translate_posts', 'yuztra_translate'],
+            self::CAP_PUBLISH           => ['yuztra_translate_publish', 'yuztra_translate'],
+            self::CAP_MANAGE_SETTINGS   => ['yuztra_translate_settings', 'yuztra_translate_core'],
         ];
 
         private const TRANSLATOR_CAPS = [
@@ -67,9 +67,6 @@ if (!class_exists('YUZ_Capabilities')) {
          * @param array|null $allowed_roles Optional allowed role slugs.
          */
         public static function sync_role_matrix(?array $allowed_roles = null): void {
-            if (!function_exists('get_role')) {
-                require_once ABSPATH . 'wp-admin/includes/user.php';
-            }
             if (!function_exists('wp_roles')) {
                 return;
             }
@@ -178,12 +175,12 @@ if (!class_exists('YUZ_Capabilities')) {
          * @return array
          */
         private static function normalise_allowed_roles(?array $roles): array {
-            $allowed = is_array($roles) ? $roles : (array) get_option('yuz_tra_allowed_roles', []);
+            $allowed = is_array($roles) ? $roles : (array) get_option('yuztra_allowed_roles', []);
             $allowed = array_map('sanitize_key', $allowed);
             $allowed = array_filter($allowed);
 
-            if (empty($allowed) && function_exists('yuz_tra_default_allowed_roles')) {
-                $allowed = yuz_tra_default_allowed_roles();
+            if (empty($allowed) && function_exists('yuztra_default_allowed_roles')) {
+                $allowed = yuztra_default_allowed_roles();
             }
 
             $ensure = ['administrator', 'editor'];
@@ -201,6 +198,10 @@ if (!class_exists('YUZ_Capabilities')) {
          */
         private static function grant_caps(\WP_Role $role, array $caps): void {
             foreach ($caps as $cap) {
+                // A migrated explicit denial is not a missing default grant.
+                if (array_key_exists($cap, $role->capabilities) && $role->capabilities[$cap] === false) {
+                    continue;
+                }
                 $role->add_cap($cap);
             }
         }
@@ -218,6 +219,12 @@ if (!class_exists('YUZ_Capabilities')) {
          * Wrapper for capability lookups.
          */
         private static function user_has_cap(string $cap, ?int $user_id = null): bool {
+            $user = $user_id !== null && function_exists('get_userdata')
+                ? get_userdata($user_id)
+                : (function_exists('wp_get_current_user') ? wp_get_current_user() : null);
+            if ($user instanceof \WP_User && array_key_exists($cap, $user->allcaps) && $user->allcaps[$cap] === false) {
+                return false;
+            }
             if ($user_id !== null && function_exists('user_can')) {
                 if (user_can($user_id, $cap)) {
                     return true;
@@ -247,5 +254,5 @@ if (!class_exists('YUZ_Capabilities')) {
         }
     }
 
-    YUZ_Capabilities::bootstrap();
+    YUZTRA_Capabilities::bootstrap();
 }

@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 /**
  * Data helpers for auxiliary translation entities (gettext, slugs, emails).
  */
-class YUZ_String_Service {
+class YUZTRA_String_Service {
 
     private static function md5bin(string $text): string {
         return function_exists('hash') ? pack('H*', md5($text)) : md5($text, true);
@@ -12,7 +12,7 @@ class YUZ_String_Service {
 
     public static function save_gettext(array $row): int {
         global $wpdb;
-        $table = $wpdb->prefix . 'yuz_tra_gettext';
+        $table = $wpdb->prefix . 'yuztra_gettext';
         $defaults = [
             'domain'     => '',
             'context'    => '',
@@ -35,7 +35,8 @@ class YUZ_String_Service {
         ];
 
         $existing = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$table} WHERE domain=%s AND context=%s AND original_md5=%s AND lang=%s",
+            'SELECT id FROM %i WHERE domain=%s AND context=%s AND original_md5=%s AND lang=%s',
+            $table,
             $record['domain'],
             $record['context'],
             $record['original_md5'],

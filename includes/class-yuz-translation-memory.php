@@ -2,12 +2,12 @@
 defined('ABSPATH') || exit;
 
 /** Approved records only. Per-site tables and exact locale/domain/context boundaries. */
-final class YUZ_Translation_Memory {
+final class YUZTRA_Translation_Memory {
     public static function approve(int $id, string $lang, array $expected): void {
         global $wpdb;
         $user=get_current_user_id();
         if (!$user) throw new RuntimeException('human_approval_required');
-        $s=YUZ_String_Catalog::source($id);
+        $s=YUZTRA_String_Catalog::source($id);
         $t=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}yuz_tra_string_targets WHERE source_id=%d AND lang=%s",$id,$lang),ARRAY_A);
         if (!$s || !$t || !in_array((int)$t['status'],[3,4],true) || json_decode($t['forms'],true)!==$expected) {
             throw new RuntimeException('save_reviewed_translation_before_approval');
@@ -20,7 +20,7 @@ final class YUZ_Translation_Memory {
     /** Editing, archiving or changing source language invalidates an approval automatically. */
     public static function records(string $source, string $target, string $domain, string $context, string $original = ''): array {
         global $wpdb;
-        if (!YUZ_DB::ensure_string_tables()) throw new RuntimeException('memory_storage_unavailable');
+        if (!YUZTRA_DB::ensure_string_tables()) throw new RuntimeException('memory_storage_unavailable');
         return $wpdb->get_results($wpdb->prepare("SELECT s.id,s.original,s.plural_original,m.forms,m.approved_by,m.approved_at
             FROM {$wpdb->prefix}yuz_tra_approved_memory m
             JOIN {$wpdb->prefix}yuz_tra_string_sources s ON s.id=m.source_id
@@ -63,26 +63,43 @@ final class YUZ_Translation_Memory {
     /** CSV header: source_lang,target_lang,domain,context,source,target. Atomic validated import. */
     public static function import_csv(string $csv): int {
         global $wpdb;
-        if (strlen($csv)>200000 || !get_current_user_id()) throw new InvalidArgumentException('invalid_glossary_import');
-        $lines=preg_split('/\r\n|\r|\n/',trim($csv));
-        $header=str_getcsv((string)array_shift($lines),',','"','');
+        if (strlen($csv)>200000 || !get_current_user_id() || preg_match('//u',$csv)!==1
+            || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/',$csv)) throw new InvalidArgumentException('invalid_glossary_import');
+        // Parse records, not physical lines: quoted terms may contain newlines.
+        // Both uploaded and pasted CSV reach the same field validation unchanged.
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Fixed PHP temporary stream for RFC CSV records; no filesystem path or external resource.
+        $stream=fopen('php://temp','w+');
+        if ($stream===false) throw new RuntimeException('glossary_stream_failed');
+        try {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- Bounded CSV written only to the fixed temporary parsing stream.
+        if (fwrite($stream,$csv) !== strlen($csv)) throw new RuntimeException('glossary_stream_write_failed');
+        rewind($stream);
+        $header=fgetcsv($stream,0,',','"','');
         if ($header!==['source_lang','target_lang','domain','context','source','target']) throw new InvalidArgumentException('invalid_glossary_header');
         $rows=[];
-        foreach ($lines as $line) {
-            if (trim($line)==='') continue;
-            $row=str_getcsv($line,',','"','');
+        while (($row=fgetcsv($stream,0,',','"',''))!==false) {
+            if ($row===[null]) continue;
             if (count($row)!==6 || count($rows)>=500) throw new InvalidArgumentException('invalid_glossary_rows');
             [$src,$tgt,$domain,$ctx,$text,$translation]=$row;
-            foreach ([$src,$tgt] as $lang) if (!preg_match('/^[a-zA-Z]{2,3}(?:[_-][a-zA-Z0-9]+)*$/D',$lang)) throw new InvalidArgumentException('invalid_glossary_locale');
+            foreach ([$src,$tgt] as $lang) if (strlen($lang)>20 || !preg_match('/^[a-zA-Z]{2,3}(?:[_-][a-zA-Z0-9]+)*$/D',$lang)) throw new InvalidArgumentException('invalid_glossary_locale');
             if (!preg_match('/^[a-zA-Z0-9_.-]{1,191}$/D',$domain) || $text==='' || $translation==='' || strlen($text)>1000 || strlen($translation)>2000 || strlen($ctx)>1000) throw new InvalidArgumentException('invalid_glossary_term');
-            if (YUZ_String_Catalog::tokens($text)!==YUZ_String_Catalog::tokens($translation)) throw new InvalidArgumentException('glossary_placeholder_mismatch');
+            // Context is a plain-text identity; source/target are safe rich text.
+            // Reject sanitizer changes instead of silently corrupting exact-match keys,
+            // markup or placeholders. SQL-looking prose and Unicode remain valid text.
+            if (wp_strip_all_tags($ctx,false)!==trim($ctx) || !YUZTRA_String_Catalog::safe_form($text)
+                || !YUZTRA_String_Catalog::safe_form($translation)) throw new InvalidArgumentException('invalid_glossary_content');
+            if (YUZTRA_String_Catalog::tokens($text)!==YUZTRA_String_Catalog::tokens($translation)) throw new InvalidArgumentException('glossary_placeholder_mismatch');
             $src=str_replace('-','_',$src); $tgt=str_replace('-','_',$tgt);
             $rows[]=['identity_hash'=>hash('sha256',wp_json_encode([$src,$tgt,$domain,$ctx,$text])),
                 'source_lang'=>$src,'target_lang'=>$tgt,'domain'=>$domain,'context'=>$ctx,
                 'source_text'=>$text,'target_text'=>$translation,'approved_by'=>get_current_user_id(),'approved_at'=>gmdate('Y-m-d H:i:s')];
         }
+        } finally {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Release the temporary parsing stream on success and failure.
+            fclose($stream);
+        }
         if (!$rows) throw new InvalidArgumentException('empty_glossary');
-        if (!YUZ_DB::ensure_string_tables()) throw new RuntimeException('memory_storage_unavailable');
+        if (!YUZTRA_DB::ensure_string_tables()) throw new RuntimeException('memory_storage_unavailable');
         $wpdb->query('START TRANSACTION');
         try {
             foreach ($rows as $row) if ($wpdb->replace($wpdb->prefix.'yuz_tra_glossary',$row)===false) throw new RuntimeException('glossary_write_failed');

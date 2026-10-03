@@ -65,8 +65,8 @@
  */
 
 defined('ABSPATH') || exit;
-if (!class_exists('YUZ_Services')):
-class YUZ_Services {
+if (!class_exists('YUZTRA_Services')):
+class YUZTRA_Services {
 /* =========================
          * FAIL-SAFE (hard defaults)
          * ========================= */
@@ -80,62 +80,62 @@ const MAX_RETRIES_PER_CHUNK_DEFAULT= 2;
 /* =========================
          * SINGLETONS LÉGERS
          * ========================= */
-public static function settings(): YUZ_Settings { static $i; return $i ??= new YUZ_Settings(
+public static function settings(): YUZTRA_Settings { static $i; return $i ??= new YUZTRA_Settings(
 new \YUZTRA\Fallbacks\NullLanguages(),
 new \YUZTRA\Fallbacks\NullAjax(),
 new \YUZTRA\Fallbacks\NullTranslationManager(),
 new \YUZTRA\Fallbacks\NullLanguageManager(),
 new \YUZTRA\Fallbacks\NullLogger()
         ); }
-public static function db(): YUZ_DB { static $i; return $i ??= new YUZ_DB(new YUZ_Logger(), new YUZ_Health_Check(new YUZ_Logger())); }
-public static function languages(): YUZ_Languages { static $i; return $i ??= new YUZ_Languages(self::settings(), self::db()); }
-public static function translations(): YUZ_Query { static $i; return $i ??= new YUZ_Query(self::db()); }
+public static function db(): YUZTRA_DB { static $i; return $i ??= new YUZTRA_DB(new YUZTRA_Logger(), new YUZTRA_Health_Check(new YUZTRA_Logger())); }
+public static function languages(): YUZTRA_Languages { static $i; return $i ??= new YUZTRA_Languages(self::settings(), self::db()); }
+public static function translations(): YUZTRA_Query { static $i; return $i ??= new YUZTRA_Query(self::db()); }
 /* =========================
          * LAZY FACTORY TM (Phase 6: factory lazy tm(), remove early, inject LanguageManager)
          * ========================= */
 /* =========================
  * LAZY FACTORY TM
  * ========================= */
-private static ?YUZ_API_Manager $tm = null;
+private static ?YUZTRA_API_Manager $tm = null;
 
-public static function tm(): YUZ_API_Manager {
+public static function tm(): YUZTRA_API_Manager {
     if (self::$tm === null) {
         // S'assurer que la classe TM est chargée avant instanciation
-        $tm_file = YUZ_TRA_INCLUDES . 'class-yuz-api-manager.php';
-        if (!class_exists('YUZ_API_Manager') && file_exists($tm_file)) {
+        $tm_file = YUZTRA_INCLUDES . 'class-yuz-api-manager.php';
+        if (!class_exists('YUZTRA_API_Manager') && file_exists($tm_file)) {
             require_once $tm_file;
         }
 
         // Deps partagées (réelles)
-        $logger    = new YUZ_Logger();
-        $health    = new YUZ_Health_Check($logger);
+        $logger    = new YUZTRA_Logger();
+        $health    = new YUZTRA_Health_Check($logger);
         $db        = self::db();               // YUZ_DB réel
         $languages = self::languages();        // YUZ_Languages réel (implémente LanguageManagerInterface)
         $settings  = self::settings();         // ✅ Settings réel (SettingsInterface)
 
         // Adapters (garde tes require_once si besoin)
          $adapterFiles = [
-             YUZ_TRA_INCLUDES . 'class-yuz-custom-translate-adapter.php',
-             YUZ_TRA_INCLUDES . 'class-yuz-libre-translate-adapter.php',
-             YUZ_TRA_INCLUDES . 'class-yuz-deepl-translate-adapter.php',
-             YUZ_TRA_INCLUDES . 'class-yuz-google-translate-adapter.php',
-             YUZ_TRA_INCLUDES . 'class-yuz-ollama-translate-adapter.php',
-             YUZ_TRA_INCLUDES . 'class-yuz-openai-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-custom-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-libre-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-deepl-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-google-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-ollama-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-openai-translate-adapter.php',
          ];
         foreach ($adapterFiles as $f) { if (file_exists($f)) { require_once $f; } }
 
         $adapters = [
-            'ollama'         => new YUZ_Ollama_Translate_Adapter(),
-            'openai'         => new YUZ_OpenAI_Translate_Adapter(),
-            'custom'         => class_exists('YUZ_Custom_Translate_Adapter')   ? new YUZ_Custom_Translate_Adapter()   : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
-            'libretranslate' => class_exists('YUZ_Libre_Translate_Adapter')    ? new YUZ_Libre_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
-            'deepl'          => class_exists('YUZ_DeepL_Translate_Adapter')    ? new YUZ_DeepL_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
-            'google'         => class_exists('YUZ_Google_Translate_Adapter')   ? new YUZ_Google_Translate_Adapter()   : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
+            'ollama'         => new YUZTRA_Ollama_Translate_Adapter(),
+            'openai'         => new YUZTRA_OpenAI_Translate_Adapter(),
+            'custom'         => class_exists('YUZTRA_Custom_Translate_Adapter')   ? new YUZTRA_Custom_Translate_Adapter()   : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
+            'libretranslate' => class_exists('YUZTRA_Libre_Translate_Adapter')    ? new YUZTRA_Libre_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
+            'deepl'          => class_exists('YUZTRA_DeepL_Translate_Adapter')    ? new YUZTRA_DeepL_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
+            'google'         => class_exists('YUZTRA_Google_Translate_Adapter')   ? new YUZTRA_Google_Translate_Adapter()   : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
         ];
 
         // 1) Translation Manager RÉEL — signature officielle:
         //    (array $adapters, SettingsInterface $settings, LanguagesInterface $languages, AjaxInterface $ajax, DBInterface $db, LoggerInterface $logger)
-        $tm = new YUZ_API_Manager(
+        $tm = new YUZTRA_API_Manager(
             $adapters,
             $settings,   // ✅ 2) Settings
             $languages,  // ✅ 3) Languages
@@ -146,7 +146,7 @@ public static function tm(): YUZ_API_Manager {
 
         // 2) Ajax avec les 3 ARGUMENTS REQUIS (signature confirmée dans class-yuz-ajax.php)
         //    __construct(TranslationManagerInterface, LanguageManagerInterface, DBInterface)
-        $ajax = new YUZ_Ajax($tm, $languages, $db);
+        $ajax = new YUZTRA_Ajax($tm, $languages, $db);
 
         // 3) Setter Ajax (camelCase)
         if (method_exists($tm, 'setAjax')) {
@@ -154,7 +154,7 @@ public static function tm(): YUZ_API_Manager {
         }
 
         self::$tm = $tm;
-        $logger->log('success', 'YUZ_API_Manager lazy instantiated via YUZ_Services::tm()');
+        $logger->log('success', 'YUZTRA_API_Manager lazy instantiated via YUZTRA_Services::tm()');
     }
     return self::$tm;
 }
@@ -165,11 +165,17 @@ public static function tm(): YUZ_API_Manager {
 public static function init(): void {
 // Job registration is owned by YUZ_Cron.
 // Valeurs par défaut exposées aux filtres (permet aux devs d’ajuster sans toucher DB)
-add_filter('yuz_tra_qos_max_ajax_payload', fn($v)=> $v ?: self::MAX_AJAX_PAYLOAD_DEFAULT);
-add_filter('yuz_tra_qos_max_direct_chars', fn($v)=> $v ?: self::MAX_DIRECT_CHARS_DEFAULT);
-add_filter('yuz_tra_qos_max_chunk_chars', fn($v)=> $v ?: self::MAX_CHUNK_CHARS_DEFAULT);
-add_filter('yuz_tra_qos_max_chunks_per_run', fn($v)=> $v ?: self::MAX_CHUNKS_PER_RUN_DEFAULT);
-add_filter('yuz_tra_qos_max_retries', fn($v)=> $v ?: self::MAX_RETRIES_PER_CHUNK_DEFAULT);
+// Public QoS filters are a stable extension API; each legacy hook is ignored narrowly below.
+
+add_filter('yuztra_qos_max_ajax_payload', fn($v)=> $v ?: self::MAX_AJAX_PAYLOAD_DEFAULT);
+
+add_filter('yuztra_qos_max_direct_chars', fn($v)=> $v ?: self::MAX_DIRECT_CHARS_DEFAULT);
+
+add_filter('yuztra_qos_max_chunk_chars', fn($v)=> $v ?: self::MAX_CHUNK_CHARS_DEFAULT);
+
+add_filter('yuztra_qos_max_chunks_per_run', fn($v)=> $v ?: self::MAX_CHUNKS_PER_RUN_DEFAULT);
+
+add_filter('yuztra_qos_max_retries', fn($v)=> $v ?: self::MAX_RETRIES_PER_CHUNK_DEFAULT);
         }
 /* =========================
          * CHECK: pré-vol traduction
@@ -201,7 +207,7 @@ $missing[] = 'distinct_targets';
 $missing[] = 'languages_runtime';
             }
 // C) Provider/API requis si semi/auto
-$api = get_option('yuz_tra_api_settings', []);
+$api = get_option('yuztra_api_settings', []);
 $provider = isset($api['api_provider']) ? sanitize_text_field($api['api_provider']) : null;
 if ($mode === 'semi' || $mode === 'auto' || $mode === null) {
 if (!$provider) {
@@ -237,7 +243,7 @@ if ($mode === 'manual') {
 $ok = empty($missing);
 
 // Logging ajouté: Log si preflight échoue ou a des warnings
-$logger = new YUZ_Logger();
+$logger = new YUZTRA_Logger();
 if (!$ok || !empty($warnings)) {
   $logger->log('warning', 'Preflight check completed with issues', [
     'mode' => $mode,
@@ -292,11 +298,11 @@ $qos = [
 // On lit deux options:
 // - yuz_tra_api_settings → provider sélectionné (déjà présent dans l’UI)
 // - yuz_tra_qos → NOUVELLE option (objet simple de seuils globaux  par adapter)
-$api = get_option('yuz_tra_api_settings', []);
+$api = get_option('yuztra_api_settings', []);
 if (!empty($api['api_provider'])) {
 $qos['adapter'] = sanitize_text_field($api['api_provider']);
             }
-$stored = get_option('yuz_tra_qos', []);
+$stored = get_option('yuztra_qos', []);
 if (is_array($stored)) {
 foreach (['max_ajax_payload','max_direct_chars','max_chunk_chars','max_chunks_per_run','max_retries'] as $k) {
 if (isset($stored[$k]) && is_numeric($stored[$k])) {
@@ -314,11 +320,16 @@ $qos[$k] = (int)$stored[$k];
                 }
             }
 // 4) Filtres (per-mettre aux adapters PHP d’imposer des caps dynamiques)
-$qos['max_ajax_payload'] = (int) apply_filters('yuz_tra_qos_max_ajax_payload', $qos['max_ajax_payload'], $adapter, $stored);
-$qos['max_direct_chars'] = (int) apply_filters('yuz_tra_qos_max_direct_chars', $qos['max_direct_chars'], $adapter, $stored);
-$qos['max_chunk_chars'] = (int) apply_filters('yuz_tra_qos_max_chunk_chars', $qos['max_chunk_chars'], $adapter, $stored);
-$qos['max_chunks_per_run'] = (int) apply_filters('yuz_tra_qos_max_chunks_per_run', $qos['max_chunks_per_run'], $adapter, $stored);
-$qos['max_retries'] = (int) apply_filters('yuz_tra_qos_max_retries', $qos['max_retries'], $adapter, $stored);
+
+$qos['max_ajax_payload'] = (int) apply_filters('yuztra_qos_max_ajax_payload', $qos['max_ajax_payload'], $adapter, $stored);
+
+$qos['max_direct_chars'] = (int) apply_filters('yuztra_qos_max_direct_chars', $qos['max_direct_chars'], $adapter, $stored);
+
+$qos['max_chunk_chars'] = (int) apply_filters('yuztra_qos_max_chunk_chars', $qos['max_chunk_chars'], $adapter, $stored);
+
+$qos['max_chunks_per_run'] = (int) apply_filters('yuztra_qos_max_chunks_per_run', $qos['max_chunks_per_run'], $adapter, $stored);
+
+$qos['max_retries'] = (int) apply_filters('yuztra_qos_max_retries', $qos['max_retries'], $adapter, $stored);
 // 5) Clamp & types (sécurité)
 $qos['max_ajax_payload'] = max(1000, min(1000000, $qos['max_ajax_payload']));
 $qos['max_direct_chars'] = max(100, min(50000, $qos['max_direct_chars']));
@@ -327,7 +338,7 @@ $qos['max_chunks_per_run'] = max(1, min(100, $qos['max_chunks_per_run']));
 $qos['max_retries'] = max(0, min(10, $qos['max_retries']));
 
 // Logging ajouté: Log les QoS effectives pour debug
-$logger = new YUZ_Logger();
+$logger = new YUZTRA_Logger();
 $logger->log('debug', 'QoS limits computed', ['qos' => $qos]);
 
 return $qos;
@@ -357,9 +368,9 @@ public static function translate_entrypoint(array $payload): array {
 }
 public static function enqueue_job(string $text, string $src, string $tgt, string $mode, array $meta=[], ?array $qos=null): string {
     $q=$qos ?: self::qos();
-    return YUZ_Translation_Jobs::create(self::smart_split($text,min(5000,$q['max_chunk_chars'])),$src,$tgt);
+    return YUZTRA_Translation_Jobs::create(self::smart_split($text,min(5000,$q['max_chunk_chars'])),$src,$tgt);
 }
-public static function run_job(string $jobId): void { YUZ_Translation_Jobs::run($jobId); }
+public static function run_job(string $jobId): void { YUZTRA_Translation_Jobs::run($jobId); }
 /** Split “safe” par phrases / taille (respecte max_chunk_chars) */
 private static function smart_split(string $text, int $limit): array {
 $text = trim($text);
@@ -379,7 +390,7 @@ $text = trim(mb_substr($text, $pos));
 if ($text !== '') $out[] = $text;
 
 // Logging ajouté: Log split en chunks (si text long)
-$logger = new YUZ_Logger();
+$logger = new YUZTRA_Logger();
 if (count($out) > 1) {
   $logger->log('debug', 'Text split into chunks', [
     'original_length' => mb_strlen($text),
@@ -392,7 +403,7 @@ return $out;
         }
 /** Suivi de job pour l’UI (barre de progression) */
 public static function get_job_status(string $jobId): array {
-    return YUZ_Translation_Jobs::status($jobId);
+    return YUZTRA_Translation_Jobs::status($jobId);
 }
 /* =========================
          * Validation utilitaire
@@ -405,7 +416,7 @@ $mode = (string)($payload['mode'] ?? 'semi');
 $meta = (array) ($payload['meta'] ?? []);
 
 // Logging ajouté: Log payload validé (si invalide, warning)
-$logger = new YUZ_Logger();
+$logger = new YUZTRA_Logger();
 if (empty($text) || empty($target)) {
   $logger->log('warning', 'Invalid translation payload', [
     'text_length' => mb_strlen($text),

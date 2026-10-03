@@ -2,9 +2,10 @@
 defined('ABSPATH') || exit;
 
 /** Real OpenAI-compatible Chat Completions adapter. Never falls back on failure. */
-final class YUZ_OpenAI_Translate_Adapter implements \YUZTRA\Interfaces\TranslateAdapterInterface {
+final class YUZTRA_OpenAI_Translate_Adapter implements \YUZTRA\Interfaces\TranslateAdapterInterface {
     public function translate(string $text, string $source_lang, string $target_lang, array $settings): ?string {
         $key = (string) ($settings['api_key'] ?? '');
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- This adapter is an explicit, administrator-configured provider boundary.
         $endpoint = (string) ($settings['endpoint'] ?? 'https://api.openai.com/v1/chat/completions');
         $model = (string) ($settings['model'] ?? '');
         if ($key === '' || $model === '' || !preg_match('#^https://#i', $endpoint)) throw new RuntimeException('openai_configuration_required');
@@ -15,7 +16,7 @@ final class YUZ_OpenAI_Translate_Adapter implements \YUZTRA\Interfaces\Translate
                 ['role'=>'system','content'=>'Translate faithfully between the exact locales. Preserve placeholders, HTML, numbers, negation and meaning. Return only JSON matching the requested schema.'],
                 ['role'=>'user','content'=>wp_json_encode(['source_locale'=>$source_lang,'target_locale'=>$target_lang,'text'=>$text],JSON_UNESCAPED_UNICODE)],
             ]];
-        YUZ_Translation_Budget::assert_affordable((int) ceil(strlen($text) / 4), 512);
+        YUZTRA_Translation_Budget::assert_affordable((int) ceil(strlen($text) / 4), 512);
         $started = microtime(true);
         $response = wp_remote_post($endpoint,['timeout'=>min(120,max(5,(int)($settings['provider_timeout'] ?? 45))),'redirection'=>0,'limit_response_size'=>200000,
             'headers'=>['Authorization'=>'Bearer '.$key,'Content-Type'=>'application/json'],'body'=>wp_json_encode($body)]);
@@ -24,14 +25,16 @@ final class YUZ_OpenAI_Translate_Adapter implements \YUZTRA\Interfaces\Translate
         if ($response_code !== 200) throw new RuntimeException('openai_http_failed');
         $payload=json_decode(wp_remote_retrieve_body($response),true);
         $usage=$payload['usage'] ?? [];
-        if (isset($usage['prompt_tokens'],$usage['completion_tokens'])) YUZ_Translation_Budget::record_metrics((int)$usage['prompt_tokens'],(int)$usage['completion_tokens'],(int)round(1000*(microtime(true)-$started)));
+        if (isset($usage['prompt_tokens'],$usage['completion_tokens'])) YUZTRA_Translation_Budget::record_metrics((int)$usage['prompt_tokens'],(int)$usage['completion_tokens'],(int)round(1000*(microtime(true)-$started)));
         $content=$payload['choices'][0]['message']['content'] ?? '';
         $decoded=json_decode((string)$content,true);
         if (!is_array($decoded) || !isset($decoded['translation']) || !is_string($decoded['translation']) || trim($decoded['translation'])==='') throw new RuntimeException('openai_invalid_translation');
         return $decoded['translation'];
     }
     public function test_api_conn(array $settings): bool {
-        $key=(string)($settings['api_key']??''); $endpoint=(string)($settings['endpoint']??'https://api.openai.com/v1/chat/completions');
+        $key=(string)($settings['api_key']??'');
+        // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Connection test runs only for the explicitly selected provider and never falls back silently.
+        $endpoint=(string)($settings['endpoint']??'https://api.openai.com/v1/chat/completions');
         if ($key==='' || !preg_match('#^https://#i',$endpoint)) return false;
         $base=preg_replace('#/chat/completions/?$#','',$endpoint);
         $response=wp_remote_get(rtrim($base,'/').'/models',['timeout'=>10,'redirection'=>0,'headers'=>['Authorization'=>'Bearer '.$key]]);

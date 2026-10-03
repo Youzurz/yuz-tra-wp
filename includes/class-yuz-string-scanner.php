@@ -2,7 +2,7 @@
 defined('ABSPATH') || exit;
 
 /** Bounded inventory of literal Gettext calls; never executes the scanned PHP. */
-final class YUZ_String_Scanner {
+final class YUZTRA_String_Scanner {
     public static function start(): array {
         $roots = [ABSPATH . 'wp-admin', ABSPATH . WPINC, get_template_directory(), get_stylesheet_directory()];
         $plugins = array_unique(array_merge((array)get_option('active_plugins', []), array_keys((array)get_site_option('active_sitewide_plugins', []))));
@@ -23,24 +23,24 @@ final class YUZ_String_Scanner {
             }
         }
         $state = ['files' => array_keys($files), 'offset' => 0, 'strings' => 0, 'started' => time()];
-        update_option('yuz_tra_string_scan', $state, false);
+        update_option('yuztra_string_scan', $state, false);
         return self::step();
     }
 
     public static function step(): array {
-        $state = get_option('yuz_tra_string_scan', []);
+        $state = get_option('yuztra_string_scan', []);
         if (empty($state['files'])) return ['done' => true, 'scanned' => 0, 'total' => 0, 'strings' => 0];
         $started = microtime(true); $count = 0;
         while ($state['offset'] < count($state['files']) && $count < 100 && microtime(true)-$started < 4) {
             $path = $state['files'][$state['offset']++]; $count++;
             if (!is_readable($path)) continue;
             $code = file_get_contents($path);
-            $state['strings']+=YUZ_String_Catalog::collect_many(self::extract($code, pathinfo($path, PATHINFO_EXTENSION)));
+            $state['strings']+=YUZTRA_String_Catalog::collect_many(self::extract($code, pathinfo($path, PATHINFO_EXTENSION)));
         }
         $done = $state['offset'] >= count($state['files']);
         $result = ['done' => $done, 'scanned' => $state['offset'], 'total' => count($state['files']), 'strings' => $state['strings']];
-        update_option('yuz_tra_string_scan', $done ? [] : $state, false);
-        update_option('yuz_tra_string_scan_last', $result, false);
+        update_option('yuztra_string_scan', $done ? [] : $state, false);
+        update_option('yuztra_string_scan_last', $result, false);
         return $result;
     }
 
