@@ -1,3 +1,9 @@
+# 1.5.46 — 2026-10-28 (candidate Cloud Onboarding Lot 2)
+
+- Ajout de l'adaptateur Cloud Youzurz TRS (`class-yuz-cloud-translate-adapter.php`) avec vérification automatique de connectivité et gestion des timeouts.
+- Ajout du bandeau d'onboarding Cloud (`class-yuz-cloud-onboarding.php`) strictement conforme aux règles WordPress.org §7 et §11 (consentement explicite dé-coché par défaut, dismissible, sans création silencieuse).
+- Préservation intégrale des moteurs locaux existants (LibreTranslate, Ollama, DeepL, Google).
+
 # 1.5.45 — 2026-10-01 (candidate de portabilité, non soumise)
 
 - Lecture REQUEST_URI validée, dé-slashée et assainie directement ; deux signalements supplémentaires de Plugin Check traités sans suppression globale des avertissements.

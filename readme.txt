@@ -4,7 +4,7 @@ Tags: translation, multilingual, localization, gettext, woocommerce
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.45
+Stable tag: 1.5.46
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,12 +38,18 @@ Privacy: https://github.com/Youzurz/yuz-tra-wp/blob/main/PRIVACY.md
 
 == External services ==
 
-No hosted translation subscription is included. Configure a provider deliberately
+No hosted translation subscription is included by default. Configure a provider deliberately
 before requesting translations. The provider receives source text, source/target
 language codes and its configured credentials. It can also observe the server IP.
 Never translate sensitive content without checking the provider's terms and your
 site's privacy obligations. See PRIVACY.md for retention and local storage details.
 
+* Youzurz Cloud (TRS): optional hosted translation and evaluation service operated by
+  Youzurz. Connecting to Youzurz Cloud is strictly optional and requires explicit administrator
+  consent. When activated by the administrator, the service transmits the declared contact email
+  and site URL to create an evaluation access, and receives source text and language pairs for
+  translation. Service portal: https://tra.youzurz.com ; Terms and Privacy:
+  https://youzurz.com/yuz-tra/ and https://github.com/Youzurz/yuz-tra-wp/blob/main/PRIVACY.md
 * LibreTranslate: administrator-selected endpoint; receives text and languages when
   translating. A language-discovery or connection test also contacts that endpoint.
   Self-hosting: https://github.com/LibreTranslate/LibreTranslate
@@ -109,6 +115,11 @@ logs are retained; deleting plugin files is not a data-erasure operation. Arrang
 site-specific export/erasure procedure with your administrator. See PRIVACY.md.
 
 == Changelog ==
+
+= 1.5.46 =
+* Add Youzurz Cloud (TRS) translation adapter for automated cloud translation.
+* Add dismissible, opt-in onboarding banner compliant with WordPress.org guidelines §7 and §11.
+* Preserve existing local engine configurations (LibreTranslate, Ollama, DeepL, Google).
 
 = 1.5.45 =
 * Validate and sanitize REQUEST_URI directly at its read boundary.

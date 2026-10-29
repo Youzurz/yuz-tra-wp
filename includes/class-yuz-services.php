@@ -121,10 +121,17 @@ public static function tm(): YUZTRA_API_Manager {
              YUZTRA_INCLUDES . 'class-yuz-google-translate-adapter.php',
              YUZTRA_INCLUDES . 'class-yuz-ollama-translate-adapter.php',
              YUZTRA_INCLUDES . 'class-yuz-openai-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-cloud-translate-adapter.php',
+             YUZTRA_INCLUDES . 'class-yuz-cloud-onboarding.php',
          ];
         foreach ($adapterFiles as $f) { if (file_exists($f)) { require_once $f; } }
 
+        if (class_exists('YUZTRA_Cloud_Onboarding')) {
+            YUZTRA_Cloud_Onboarding::init();
+        }
+
         $adapters = [
+            'youzurz_cloud'  => class_exists('YUZTRA_Cloud_Translate_Adapter')    ? new YUZTRA_Cloud_Translate_Adapter()    : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
             'ollama'         => new YUZTRA_Ollama_Translate_Adapter(),
             'openai'         => new YUZTRA_OpenAI_Translate_Adapter(),
             'custom'         => class_exists('YUZTRA_Custom_Translate_Adapter')   ? new YUZTRA_Custom_Translate_Adapter()   : new \YUZTRA\Fallbacks\NullTranslateAdapter(),
