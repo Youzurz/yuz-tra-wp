@@ -44,9 +44,19 @@ jobs:
             dist/yuz-tra-*.zip
             dist/yuz-tra-*.sha256
             dist/yuz-tra-*.manifest.json
+  release-gate:
+    name: Release gate
+    if: always()
+    needs: [verify]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All required controls must succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: node -e 'const n=JSON.parse(process.env.RESULTS);if(Object.values(n).some(j=>j.result!=="success"))process.exit(1)'
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: verify
+    needs: [verify, release-gate]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
