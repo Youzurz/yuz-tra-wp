@@ -1,0 +1,26 @@
+name: Proposer une évolution
+description: Expliquer un besoin et son critère de réussite.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Besoin concret
+      description: Quelle tâche souhaitez-vous accomplir, pour qui, et pourquoi ?
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Fonctionnement actuel ou solution de contournement
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Comment vérifier que le besoin est satisfait ?
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "Ne joignez aucun secret. Une demande n’est ni une commande acceptée ni une promesse de délai ; le triage reste humain."

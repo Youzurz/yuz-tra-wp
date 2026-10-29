@@ -411,6 +411,7 @@ if (!class_exists('YUZTRA_Plugin')) {
             // WordPress reads this same header; never maintain a second version literal.
             $version_header = get_file_data($plugin_file, ['version' => 'Version'], 'plugin');
             defined('YUZTRA_VERSION')     || define('YUZTRA_VERSION', $version_header['version']);
+            defined('YUZ_TRA_VERSION')    || define('YUZ_TRA_VERSION', $version_header['version']);
             defined('YUZTRA_LOG_ENABLED')     || define('YUZTRA_LOG_ENABLED', true);
             defined('YUZTRA_ASSETS_LOG_LEVEL')       || define('YUZTRA_ASSETS_LOG_LEVEL', 'warning');
             defined('YUZTRA_REWRITE_DEBUG')   || define('YUZTRA_REWRITE_DEBUG', false);
