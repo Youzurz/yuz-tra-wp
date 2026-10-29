@@ -8,8 +8,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 
 use YUZTRA\Interfaces\GeneralInterface;
 use YUZTRA\Interfaces\SettingsInterface;
@@ -28,7 +28,8 @@ use YUZTRA\Fallbacks\NullHealthCheck;
 
 if (interface_exists('YUZTRA\Interfaces\GeneralInterface')) {
 
-class YUZ_General implements GeneralInterface {
+
+class YUZTRA_General implements GeneralInterface {
     private $settings;
     private $ajax;
     private $languages;
@@ -47,7 +48,7 @@ class YUZ_General implements GeneralInterface {
         $this->ajax      = $ajax;
         $this->renderer  = $renderer;
         $this->logger    = $logger;
-        $this->logger->log('info', 'YUZ_General instantiated');
+        $this->logger->log('info', 'YUZTRA_General instantiated');
     }
 
     private static bool $booted = false;
@@ -56,29 +57,29 @@ class YUZ_General implements GeneralInterface {
         if (self::$booted) return;
         self::$booted = true;
 
-        if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-            error_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZ_General::init');
+        if (!defined('YUZTRA_INCLUDES') || !defined('YUZTRA_PLUGIN_FILE')) {
+            yuztra_debug_log('🟥 [CRITICAL] YUZ-TRA: required constants missing — halting YUZTRA_General::init');
             wp_die('Critical error: YUZ-TRA constants missing.');
         }
 
         // Fallbacks légers
-        $logger = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
+        $logger = class_exists('YUZTRA_Logger') ? new \YUZTRA_Logger() : new NullLogger();
 
-        $health = class_exists('YUZ_Health_Check') ? new \YUZ_Health_Check($logger) : new NullHealthCheck();
-        $db     = class_exists('YUZ_DB') ? new \YUZ_DB($logger, $health) : (class_exists('\YUZTRA\Fallbacks\NullDB') ? new NullDB() : null);
+        $health = class_exists('YUZTRA_Health_Check') ? new \YUZTRA_Health_Check($logger) : new NullHealthCheck();
+        $db     = class_exists('YUZTRA_DB') ? new \YUZTRA_DB($logger, $health) : (class_exists('\YUZTRA\Fallbacks\NullDB') ? new NullDB() : null);
 
-        $langs  = (class_exists('YUZ_Languages') && $db) ? new \YUZ_Languages(new NullSettings(), $db) : new NullLanguages();
+        $langs  = (class_exists('YUZTRA_Languages') && $db) ? new \YUZTRA_Languages(new NullSettings(), $db) : new NullLanguages();
 
-        $translationManager = class_exists('YUZ_Translation_Manager') ? new NullTranslationManager() : new NullTranslationManager();
-        $languageManager    = class_exists('YUZ_LanguageManager')    ? new NullLanguageManager()    : new NullLanguageManager();
-        $ajax               = class_exists('YUZ_Ajax') ? new \YUZ_Ajax($translationManager, $languageManager, $db) : new NullAjax();
+        $translationManager = class_exists('YUZTRA_Translation_Manager') ? new NullTranslationManager() : new NullTranslationManager();
+        $languageManager    = class_exists('YUZTRA_LanguageManager')    ? new NullLanguageManager()    : new NullLanguageManager();
+        $ajax               = class_exists('YUZTRA_Ajax') ? new \YUZTRA_Ajax($translationManager, $languageManager, $db) : new NullAjax();
 
-        $settings = class_exists('YUZ_Settings')
-            ? new \YUZ_Settings($langs, $ajax, $translationManager, $languageManager, $logger)
+        $settings = class_exists('YUZTRA_Settings')
+            ? new \YUZTRA_Settings($langs, $ajax, $translationManager, $languageManager, $logger)
             : new NullSettings();
 
-        $renderer = class_exists('YUZ_Renderer')
-            ? new \YUZ_Renderer($ajax, $settings, $logger, $langs)
+        $renderer = class_exists('YUZTRA_Renderer')
+            ? new \YUZTRA_Renderer($ajax, $settings, $logger, $langs)
             : new class implements \YUZTRA\Interfaces\RendererInterface {
                 public static function init(): void {}
                 public function render_tab(): void { echo '<div class="wrap"><h1>General</h1><p>Renderer unavailable.</p></div>'; }
@@ -124,19 +125,19 @@ class YUZ_General implements GeneralInterface {
 
         add_action('yuz-tra_page_yuz-translation-general', [$instance, 'render_tab']);
 
-        $logger->log('success', 'YUZ_General initialized');
+        $logger->log('success', 'YUZTRA_General initialized');
     }
 
     /**
      * Normalise le schéma attendu pour `yuz_tra_general`.
      */
     private static function normalize_general(array $g): array {
-        $def  = isset($g['yuz_tra_default_language']) ? (string) $g['yuz_tra_default_language'] : '';
-        $src  = isset($g['yuz_tra_source_language'])  ? (string) $g['yuz_tra_source_language']  : '';
-        $tgt  = isset($g['yuz_tra_translatable_languages']) && is_array($g['yuz_tra_translatable_languages']) ? array_values($g['yuz_tra_translatable_languages']) : [];
+        $def  = isset($g['yuztra_default_language']) ? (string) $g['yuztra_default_language'] : '';
+        $src  = isset($g['yuztra_source_language'])  ? (string) $g['yuztra_source_language']  : '';
+        $tgt  = isset($g['yuztra_translatable_languages']) && is_array($g['yuztra_translatable_languages']) ? array_values($g['yuztra_translatable_languages']) : [];
 
-        $slug = isset($g['yuz_tra_slug']) && is_array($g['yuz_tra_slug']) ? $g['yuz_tra_slug'] : [];
-        $code = isset($g['yuz_tra_code']) && is_array($g['yuz_tra_code']) ? $g['yuz_tra_code'] : [];
+        $slug = isset($g['yuztra_slug']) && is_array($g['yuztra_slug']) ? $g['yuztra_slug'] : [];
+        $code = isset($g['yuztra_code']) && is_array($g['yuztra_code']) ? $g['yuztra_code'] : [];
 
         // Ne garder que les entrées cohérentes (lang présentes dans la liste).
         $tgt = array_values(array_unique(array_filter(array_map('strval', $tgt))));
@@ -148,11 +149,11 @@ class YUZ_General implements GeneralInterface {
         }
 
         return [
-            'yuz_tra_default_language'       => $def,
-            'yuz_tra_source_language'        => $src,
-            'yuz_tra_translatable_languages' => $tgt,
-            'yuz_tra_slug'                   => $slugNorm,
-            'yuz_tra_code'                   => $codeNorm,
+            'yuztra_default_language'       => $def,
+            'yuztra_source_language'        => $src,
+            'yuztra_translatable_languages' => $tgt,
+            'yuztra_slug'                   => $slugNorm,
+            'yuztra_code'                   => $codeNorm,
         ];
     }
 
@@ -167,31 +168,31 @@ class YUZ_General implements GeneralInterface {
      */
     public function render_tab() {
         if (!current_user_can('manage_options')) {
-            $this->logger->log('critical', 'User lacks manage_options in YUZ_General::render_tab');
+            $this->logger->log('critical', 'User lacks manage_options in YUZTRA_General::render_tab');
             wp_die('Unauthorized');
         }
 
-        $options_general   = (array) get_option('yuz_tra_ws_settings', []);
-        $options_settings  = (array) get_option('yuz_tra_ls_settings', []);
-        $switcher_settings = (array) get_option('yuz_tra_sw_settings', []);
+        $options_general   = (array) get_option('yuztra_ws_settings', []);
+        $options_settings  = (array) get_option('yuztra_ls_settings', []);
+        $switcher_settings = (array) get_option('yuztra_sw_settings', []);
 
 
-        settings_errors('yuz_tra_general_settings_group');
+        settings_errors('yuztra_general_settings_group');
 
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('General', 'yuz-tra'); ?></h1>
 
             <form id="yuz-general-settings-form" method="post" action="options.php">
-                <?php settings_fields('yuz_tra_general_settings_group'); ?>
-                <?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
-                <input type="hidden" name="option_page" value="yuz_tra_general_settings_group" />
+                <?php settings_fields('yuztra_general_settings_group'); ?>
+                <?php wp_nonce_field('yuztra_con_nonce', 'nonce'); ?>
+                <input type="hidden" name="option_page" value="yuztra_general_settings_group" />
                 <input type="hidden" name="action" value="update" />
 
                 <!-- Sentinels -->
-                <input type="hidden" name="yuz_tra_ws_settings[_sentinel]" value="1" />
-                <input type="hidden" name="yuz_tra_ls_settings[_sentinel]" value="1" />
-                <input type="hidden" name="yuz_tra_sw_settings[_sentinel]" value="1" />
+                <input type="hidden" name="yuztra_ws_settings[_sentinel]" value="1" />
+                <input type="hidden" name="yuztra_ls_settings[_sentinel]" value="1" />
+                <input type="hidden" name="yuztra_sw_settings[_sentinel]" value="1" />
 
                 <div class="yuz-section" data-section="website_languages">
                     <h2 class="yuz-section-title"><?php esc_html_e('Website Languages', 'yuz-tra'); ?></h2>
@@ -234,19 +235,20 @@ class YUZ_General implements GeneralInterface {
         </div>
         <?php
 
-        $this->logger->log('success', 'Finished YUZ_General::render_tab');
+        $this->logger->log('success', 'Finished YUZTRA_General::render_tab');
     }
 }
 
 } else {
 
-class YUZ_General {
+
+class YUZTRA_General {
     public static function init() {
-        (new YUZ_Logger())->log('critical', 'GeneralInterface missing, disabling YUZ_General admin init');
+        (new YUZTRA_Logger())->log('critical', 'GeneralInterface missing, disabling YUZTRA_General admin init');
         add_action('admin_notices', function() {
             ?>
             <div class="notice notice-error is-dismissible">
-                <p><?php esc_html_e('Error: GeneralInterface missing. YUZ_General functionality disabled. Please check plugin files.', 'yuz-tra'); ?></p>
+                <p><?php esc_html_e('Error: GeneralInterface missing. YUZTRA_General functionality disabled. Please check plugin files.', 'yuz-tra'); ?></p>
             </div>
             <?php
         });
@@ -255,9 +257,9 @@ class YUZ_General {
 
 }
 
-if (class_exists('YUZ_General')) {
-    (new YUZ_Logger())->log('success', 'YUZ_General class created successfully at ' . current_time('mysql'));
-    add_action('admin_init', ['YUZ_General', 'init']);
+if (class_exists('YUZTRA_General')) {
+    (new YUZTRA_Logger())->log('success', 'YUZTRA_General class created successfully at ' . current_time('mysql'));
+    add_action('admin_init', ['YUZTRA_General', 'init']);
 } else {
-    (new YUZ_Logger())->log('critical', 'Failed to create YUZ_General class at ' . current_time('mysql'));
+    (new YUZTRA_Logger())->log('critical', 'Failed to create YUZTRA_General class at ' . current_time('mysql'));
 }

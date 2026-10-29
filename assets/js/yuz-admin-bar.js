@@ -1,7 +1,7 @@
 /**
  * assets/js/yuz-admin-bar.js
  * Admin bar helpers (standard).
- * Require: window.yuzAB localized with:
+ * Require: window.yuztraAB localized with:
  *  - can_manage_options:boolean, can_translate:boolean
  *  - plugin_version:string
  *  - target_languages:string[], language_names:object
@@ -12,7 +12,7 @@
 (function (window, document) {
   'use strict';
 
-  const AB = window.yuzAB || {};
+  const AB = window.yuztraAB || {};
   const log   = (...a) => console.log('[YUZ][ADMINBAR]', ...a);
   const warn  = (...a) => console.warn('[YUZ][ADMINBAR]', ...a);
   const error = (...a) => console.error('[YUZ][ADMINBAR]', ...a);
@@ -20,7 +20,7 @@
   // ---- Guards ---------------------------------------------------------------
   if (!window.jQuery) { error('jQuery unavailable, aborting'); return; }
   if (!AB || (AB.can_manage_options === false && AB.can_translate === false)) {
-    warn('yuzAB absent or no rights — exit'); return;
+    warn('yuztraAB absent or no rights — exit'); return;
   }
 
   const $ = window.jQuery;
@@ -29,29 +29,30 @@
   // ---- Remember last front page (for front-first fallback) ------------------
   try {
     if (!isAdmin) {
-      localStorage.setItem('yuz_last_page', location.href.split('#')[0]);
+      localStorage.setItem('yuztra_last_page', location.href.split('#')[0]);
     }
   } catch (_) {}
 
   // ---- Service loader (translateNow provider) -------------------------------
+  const ownScript = document.currentScript;
   const serviceUrl = (AB.urls && AB.urls.serviceModule) ||
-                     '/wp-content/plugins/yuz-tra/assets/js/yuz-translation-service.js';
+    (ownScript && ownScript.src ? new URL('./yuz-translation-service.js', ownScript.src).href : '');
   const ver = AB.plugin_version || Date.now();
   let serviceLoaded = false;
 
   async function ensureService() {
     // 0) Already available?
     if (serviceLoaded && typeof window.translateNow === 'function') return true;
-    if (window.YUZ_TranslationService && typeof window.YUZ_TranslationService.startTranslation === 'function') {
+    if (window.YUZTRA_TranslationService && typeof window.YUZTRA_TranslationService.startTranslation === 'function') {
       // Provide a thin translateNow wrapper on top of UMD
       window.translateNow = async function ({ page_url, target_langs, text }) {
-        const nonce = (AB.nonces && AB.nonces.yuz_tra_nonce) || AB.nonce || '';
-        return window.YUZ_TranslationService.startTranslation({
-          action: 'yuz_start_translation',
+        const nonce = (AB.nonces && AB.nonces.yuztra_nonce) || AB.nonce || '';
+        return window.YUZTRA_TranslationService.startTranslation({
+          action: 'yuztra_start_translation',
           page_url,
           target_langs,
           text,
-          endpoint: AB.ajax_url || (window.yuzTraSettings && window.yuzTraSettings.ajax_url) || '/wp-admin/admin-ajax.php'
+          endpoint: AB.ajax_url || (window.yuztraSettings && window.yuztraSettings.ajax_url) || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })()
         });
       };
       serviceLoaded = true;
@@ -59,11 +60,13 @@
       return true;
     }
 
+    if (!serviceUrl) { error('Service asset URL unavailable'); return false; }
+
     // 1) Try dynamic ESM import (may fail under CSP/optimizers)
     try {
       const mod = await import(`${serviceUrl}?ver=${encodeURIComponent(ver)}`);
       if (mod && typeof mod.translateNow === 'function') {
-        window.yuzService   = mod;
+        window.yuztraService   = mod;
         window.translateNow = mod.translateNow;
         serviceLoaded = true;
         log('translateNow ready (ESM)');
@@ -84,15 +87,15 @@
         s.onerror = () => reject(new Error('UMD load error'));
         document.head.appendChild(s);
       });
-      if (window.YUZ_TranslationService && typeof window.YUZ_TranslationService.startTranslation === 'function') {
+      if (window.YUZTRA_TranslationService && typeof window.YUZTRA_TranslationService.startTranslation === 'function') {
         window.translateNow = async function ({ page_url, target_langs, text }) {
-          const nonce = (AB.nonces && AB.nonces.yuz_tra_nonce) || AB.nonce || '';
-          return window.YUZ_TranslationService.startTranslation({
-            action: 'yuz_start_translation',
+          const nonce = (AB.nonces && AB.nonces.yuztra_nonce) || AB.nonce || '';
+          return window.YUZTRA_TranslationService.startTranslation({
+            action: 'yuztra_start_translation',
             page_url,
             target_langs,
             text,
-            endpoint: AB.ajax_url || (window.yuzTraSettings && window.yuzTraSettings.ajax_url) || '/wp-admin/admin-ajax.php'
+            endpoint: AB.ajax_url || (window.yuztraSettings && window.yuztraSettings.ajax_url) || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })()
           });
         };
         serviceLoaded = true;
@@ -131,7 +134,7 @@
           return frontOverlayFallback();
         }
 
-        const nonce = (AB.nonces && AB.nonces.yuz_tra_nonce) || AB.nonce || '';
+        const nonce = (AB.nonces && AB.nonces.yuztra_nonce) || AB.nonce || '';
 
         try {
           const result = await window.translateNow({
@@ -160,7 +163,7 @@
 
   function frontOverlayFallback() {
     try {
-      const last = localStorage.getItem('yuz_last_page');
+      const last = localStorage.getItem('yuztra_last_page');
       const base = (last && !/\/wp-admin\//.test(last)) ? last : '/';
       const url = new URL(base, location.origin);
       url.searchParams.set('yuz-edit-translation', '1');
@@ -197,7 +200,7 @@
     // Admin-bar WordPress (plusieurs ids selon versions/implémentations)
     document.addEventListener('click', function (e) {
       const hit = e.target.closest(
-        '#wp-admin-bar-yuz_translate_now a, ' +
+        '#wp-admin-bar-yuztra_translate_now a, ' +
         '#wp-admin-bar-yuz-translate-now a, ' +
         '.yuz-translate-now, ' +
         '[data-yuz-translate-now]'
@@ -225,4 +228,3 @@
   });
 
 })(window, document);
-

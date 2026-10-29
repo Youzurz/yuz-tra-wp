@@ -81,7 +81,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  */
 
 // Load global interface
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 
 use YUZTRA\Interfaces\LanguageManagerInterface;
 use YUZTRA\Interfaces\LanguagesInterface;
@@ -103,30 +103,30 @@ if (!class_exists('NullLanguageManager')) {
 class NullLanguageManager implements LanguageManagerInterface {
 
     public function get_translatable_languages(): array {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Languages unavailable, returning empty array', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Languages unavailable, returning empty array', ['class' => __CLASS__]);
         }
         return [];
     }
 
     public function get_all_languages(): array {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Languages unavailable, returning empty array', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Languages unavailable, returning empty array', ['class' => __CLASS__]);
         }
         return [];
     }
 
     // Signature bool — doit matcher l'interface
     public function swap_source_and_target(string $new_source_code): bool {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'NullLanguageManager::swap_source_and_target no-op', ['new' => $new_source_code]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'NullLanguageManager::swap_source_and_target no-op', ['new' => $new_source_code]);
         }
         return false; // no-op
     }
 
     public function get_source_language(): string {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Returning default locale as source language', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Returning default locale as source language', ['class' => __CLASS__]);
         }
         return get_locale();
     }
@@ -144,15 +144,15 @@ if (!class_exists('NullLanguages')) {
 class NullLanguages extends NullLanguageManager implements LanguagesInterface {
 
     public function get_by_code(string $code): ?Language {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', "No language found for code {$code}", ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', "No language found for code {$code}", ['class' => __CLASS__]);
         }
         return null;
     }
 
     public function get_default_language(): string {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Returning default locale as default language', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Returning default locale as default language', ['class' => __CLASS__]);
         }
         return get_locale();
     }
@@ -171,15 +171,15 @@ if (!class_exists('NullTranslationManager')) {
 class NullTranslationManager implements TranslationManagerInterface {
 
     public function translate(string $text, int $source_lang_id, int $target_lang_id): ?string {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'TranslationManager unavailable, returning null', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'TranslationManager unavailable, returning null', ['class' => __CLASS__]);
         }
         return null;
     }
 
     public function test_api_conn(array $settings): bool {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Translate adapter unavailable, returning false', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Translate adapter unavailable, returning false', ['class' => __CLASS__]);
         }
         return false;
     }
@@ -193,8 +193,8 @@ class NullTranslationManager implements TranslationManagerInterface {
     }
 
     public function isConfigured(): bool {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'TranslationManager unavailable, returning false for isConfigured', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'TranslationManager unavailable, returning false for isConfigured', ['class' => __CLASS__]);
         }
         return false;
     }
@@ -208,47 +208,47 @@ if (!class_exists('NullSettings')) {
 class NullSettings implements SettingsInterface {
 
     public function get_option(string $option_name) {
-        $all = function_exists('yuz_settings_get_all') ? (array) yuz_settings_get_all() : [];
-        if ($option_name === 'yuz_tra_all_settings') {
+        $all = function_exists('yuztra_settings_get_all') ? (array) yuztra_settings_get_all() : [];
+        if ($option_name === 'yuztra_all_settings') {
             return $all;
         }
         return $all[$option_name] ?? [];
     }
 
     public function sanitize_option(string $option_name, $value) {
-        if (!function_exists('yuz_settings_sanitize_section')) {
+        if (!function_exists('yuztra_settings_sanitize_section')) {
             return is_array($value) ? $value : [];
         }
-        return yuz_settings_sanitize_section($option_name, is_array($value) ? $value : []);
+        return yuztra_settings_sanitize_section($option_name, is_array($value) ? $value : []);
     }
 
     public function update_option(string $option_name, $value): bool {
-        if (!function_exists('yuz_settings_replace_section')) {
+        if (!function_exists('yuztra_settings_replace_section')) {
             return false;
         }
         $payload = is_array($value) ? $value : [];
-        return yuz_settings_replace_section($option_name, $payload);
+        return yuztra_settings_replace_section($option_name, $payload);
     }
 
     public function get_js_config(): array {
-        if (class_exists('YUZ_Translation_Manager') && method_exists('YUZ_Translation_Manager', 'build_frontend_settings')) {
-            return (array) YUZ_Translation_Manager::build_frontend_settings();
+        if (class_exists('YUZTRA_Translation_Manager') && method_exists('YUZTRA_Translation_Manager', 'build_frontend_settings')) {
+            return (array) YUZTRA_Translation_Manager::build_frontend_settings();
         }
-        return function_exists('yuz_settings_get_all') ? (array) yuz_settings_get_all() : [];
+        return function_exists('yuztra_settings_get_all') ? (array) yuztra_settings_get_all() : [];
     }
 
     public function get(string $key): mixed {
-        $all = $this->get_option('yuz_tra_all_settings');
+        $all = $this->get_option('yuztra_all_settings');
         return $all[$key] ?? null;
     }
 
     public function set(string $key, mixed $value): void {
-        $all = $this->get_option('yuz_tra_all_settings');
+        $all = $this->get_option('yuztra_all_settings');
         if (!is_array($all)) {
             $all = [];
         }
         $all[$key] = $value;
-        $this->update_option('yuz_tra_all_settings', $all);
+        $this->update_option('yuztra_all_settings', $all);
     }
 
     /**
@@ -256,8 +256,8 @@ class NullSettings implements SettingsInterface {
      * and provide safe defaults on unmanaged environments.
      */
     public function runtime_flags(): array {
-        if (class_exists('YUZ_Settings') && method_exists('YUZ_Settings', 'runtime_flags')) {
-            return YUZ_Settings::runtime_flags();
+        if (class_exists('YUZTRA_Settings') && method_exists('YUZTRA_Settings', 'runtime_flags')) {
+            return YUZTRA_Settings::runtime_flags();
         }
         $defaults = [
             'switcher_enabled'        => true,
@@ -268,7 +268,7 @@ class NullSettings implements SettingsInterface {
             'mode_semi_enabled'       => false,
             'mode_background_enabled' => false,
         ];
-        $stored = function_exists('yuz_settings_get_all') ? (array) yuz_settings_get_all() : [];
+        $stored = function_exists('yuztra_settings_get_all') ? (array) yuztra_settings_get_all() : [];
         return array_replace_recursive($defaults, $stored);
     }
 }
@@ -281,15 +281,15 @@ if (!class_exists('NullAjax')) {
 class NullAjax implements AjaxInterface {
 
     public function __handleRequest($nonce, $required, $cb, $optional = [], $admin = false) {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'AJAX unavailable, sending error response', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'AJAX unavailable, sending error response', ['class' => __CLASS__]);
         }
         wp_send_json_error(['message' => 'AJAX unavailable']);
     }
 
     public function handleRequest(string $nonce_key, array $required_params, callable $action_callback, array $optional_params = [], bool $require_admin = false): void {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', "AJAX handler unavailable, returning error for nonce {$nonce_key}", ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', "AJAX handler unavailable, returning error for nonce {$nonce_key}", ['class' => __CLASS__]);
         }
         wp_send_json([
             'success'   => false,
@@ -311,8 +311,8 @@ if (!class_exists('NullUrlConverter')) {
 class NullUrlConverter implements UrlConverterInterface {
 
     public function cur_page_url(): string {
-        if (class_exists('\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'URL converter unavailable, returning home URL', ['class' => __CLASS__]);
+        if (class_exists('\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'URL converter unavailable, returning home URL', ['class' => __CLASS__]);
         }
         return home_url();
     }
@@ -329,8 +329,8 @@ class NullUrlConverter implements UrlConverterInterface {
     }
 
     public function get_url_for_language(string $lang_code, string $current_url, array $context = []): string {
-        if (class_exists('\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'URL converter unavailable, returning original URL', ['class' => __CLASS__]);
+        if (class_exists('\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'URL converter unavailable, returning original URL', ['class' => __CLASS__]);
         }
         return $current_url;
     }
@@ -347,11 +347,11 @@ class NullUrlConverter implements UrlConverterInterface {
 if (!class_exists('NullLogger')) {
 class NullLogger implements LoggerInterface {
     public function log(string $level, string $message, array $context = []): void {
-        $enabled = (defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
+        $enabled = (defined('YUZTRA_DEBUG') && YUZTRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
         if (!$enabled) {
             return;
         }
-        error_log(sprintf('[%s] %s: %s', $level, __CLASS__, $message));
+        yuztra_debug_log(sprintf('[%s] %s: %s', $level, __CLASS__, $message));
     }
     public function setLevel(string $level): void {
         // no-op
@@ -365,14 +365,14 @@ class NullLogger implements LoggerInterface {
 if (!class_exists('NullTranslateAdapter')) {
 class NullTranslateAdapter implements TranslateAdapterInterface {
     public function translate($text, $source_lang, $target_lang, $settings): ?string {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Translate adapter unavailable, returning null', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Translate adapter unavailable, returning null', ['class' => __CLASS__]);
         }
         return null;
     }
     public function test_api_conn(array $settings): bool {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Translate adapter unavailable, returning false', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Translate adapter unavailable, returning false', ['class' => __CLASS__]);
         }
         return false;
     }
@@ -394,8 +394,8 @@ class FallbackTranslateProvider {
 
         if (!$is_canonical($source) || !$is_canonical($target)) {
             $msg = sprintf('[YUZ][FALLBACK] non-canonical req=%s src=%s tgt=%s', $req_id, $source, $target);
-            error_log($msg);
-            return new \WP_Error('yuz_non_canonical', $msg);
+            yuztra_debug_log($msg);
+            return new \WP_Error('yuztra_non_canonical', $msg);
         }
 
         $normalized = [];
@@ -416,7 +416,7 @@ class FallbackTranslateProvider {
         }
 
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log(sprintf('[YUZ][FALLBACK] req=%s src=%s tgt=%s count=%d RAW=%s',
+            yuztra_debug_log(sprintf('[YUZ][FALLBACK] req=%s src=%s tgt=%s count=%d RAW=%s',
                 $req_id,
                 $source,
                 $target,
@@ -447,14 +447,14 @@ class FallbackTranslateProvider {
 if (!class_exists('NullDB')) {
 class NullDB implements DBInterface {
     public function ensure_tables(): bool {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Database unavailable, skipping table creation', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Database unavailable, skipping table creation', ['class' => __CLASS__]);
         }
         return false;
     }
     public function store_translation($translation_data): bool {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Database unavailable, cannot store translation', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Database unavailable, cannot store translation', ['class' => __CLASS__]);
         }
         return false;
     }
@@ -467,21 +467,21 @@ class NullDB implements DBInterface {
 }
 
 /** ---------------------------
- *  NullEnvironment
+ *  YUZTRA_NullEnvironment
  *  --------------------------- */
-if (!class_exists('NullEnvironment')) {
-class NullEnvironment implements EnvironmentInterface {
+if (!class_exists('YUZTRA_NullEnvironment')) {
+class YUZTRA_NullEnvironment implements EnvironmentInterface {
     public static function init(LanguagesInterface $lang_manager = null): void { /* no-op */ }
     public static function detect_user_environment(): void { /* no-op */ }
     public function getEnv(string $key): mixed {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', sprintf('Environment unavailable, returning null for key %s', $key), ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', sprintf('Environment unavailable, returning null for key %s', $key), ['class' => __CLASS__]);
         }
         return null;
     }
     public function isProduction(): bool {
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Environment unavailable, returning false for isProduction', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Environment unavailable, returning false for isProduction', ['class' => __CLASS__]);
         }
         return false;
     }
@@ -495,236 +495,236 @@ if (!class_exists('NullRenderer')) {
 class NullRenderer implements RendererInterface {
     public static function init(): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for init', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for init', ['class' => __CLASS__]);
         }
     }
     public function render_tab(): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_tab', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_tab', ['class' => __CLASS__]);
         }
     }
     public function render_default_language_field(array $settings = []): void { // here (329)
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_default_language_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_default_language_field', ['class' => __CLASS__]);
         }
     }
     public function render_source_language_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_source_language_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_source_language_field', ['class' => __CLASS__]);
         }
     }
     public function render_translatable_languages_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_translatable_languages_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_translatable_languages_field', ['class' => __CLASS__]);
         }
     }
     public function render_native_language_name_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_native_language_name_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_native_language_name_field', ['class' => __CLASS__]);
         }
     }
     public function render_use_subdirectory_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_use_subdirectory_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_use_subdirectory_field', ['class' => __CLASS__]);
         }
     }
     public function render_force_lang_in_links_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_force_lang_in_links_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_force_lang_in_links_field', ['class' => __CLASS__]);
         }
     }
     public function render_shortcode_block(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_shortcode_block', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_shortcode_block', ['class' => __CLASS__]);
         }
     }
     public function render_menu_item_block(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_menu_item_block', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_menu_item_block', ['class' => __CLASS__]);
         }
     }
     public function render_floating_language_selection_block(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_floating_language_selection_block', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_floating_language_selection_block', ['class' => __CLASS__]);
         }
     }
     public function render_powered_by_block(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_powered_by_block', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_powered_by_block', ['class' => __CLASS__]);
         }
     }
     public function render_translate_site_button(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_translate_site_button', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_translate_site_button', ['class' => __CLASS__]);
         }
     }
     public function render_support_extra_languages_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_support_extra_languages_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_support_extra_languages_field', ['class' => __CLASS__]);
         }
     }
     public function render_youzuruz_ai_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_youzuruz_ai_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_youzuruz_ai_field', ['class' => __CLASS__]);
         }
     }
     public function render_translate_seo_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_translate_seo_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_translate_seo_field', ['class' => __CLASS__]);
         }
     }
     public function render_publish_only_complete_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_publish_only_complete_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_publish_only_complete_field', ['class' => __CLASS__]);
         }
     }
     public function render_translate_by_role_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_translate_by_role_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_translate_by_role_field', ['class' => __CLASS__]);
         }
     }
     public function render_menu_per_language_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_menu_per_language_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_menu_per_language_field', ['class' => __CLASS__]);
         }
     }
     public function render_browser_language_detect_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_browser_language_detect_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_browser_language_detect_field', ['class' => __CLASS__]);
         }
     }
     public function render_block_browser_translation_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_block_browser_translation_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_block_browser_translation_field', ['class' => __CLASS__]);
         }
     }
     public function render_enable_auto_translation_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_enable_auto_translation_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_enable_auto_translation_field', ['class' => __CLASS__]);
         }
     }
     public function render_translation_mode_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_translation_mode_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_translation_mode_field', ['class' => __CLASS__]);
         }
     }
     public function render_cron_interval_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_cron_interval_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_cron_interval_field', ['class' => __CLASS__]);
         }
     }
     public function render_api_provider_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_api_provider_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_api_provider_field', ['class' => __CLASS__]);
         }
     }
     public function render_libretranslate_fields(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_libretranslate_fields', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_libretranslate_fields', ['class' => __CLASS__]);
         }
     }
     public function render_alternatives_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_alternatives_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_alternatives_field', ['class' => __CLASS__]);
         }
     }
     public function render_google_fields(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_google_fields', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_google_fields', ['class' => __CLASS__]);
         }
     }
     public function render_deepl_fields(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_deepl_fields', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_deepl_fields', ['class' => __CLASS__]);
         }
     }
     public function render_custom_fields(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_custom_fields', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_custom_fields', ['class' => __CLASS__]);
         }
     }
     public function render_char_limit_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_char_limit_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_char_limit_field', ['class' => __CLASS__]);
         }
     }
     public function render_requests_limit_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_requests_limit_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_requests_limit_field', ['class' => __CLASS__]);
         }
     }
     public function render_block_crawlers_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_block_crawlers_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_block_crawlers_field', ['class' => __CLASS__]);
         }
     }
     public function render_log_queries_field(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_log_queries_field', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_log_queries_field', ['class' => __CLASS__]);
         }
     }
     public function render_test_api_connection(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_test_api_connection', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_test_api_connection', ['class' => __CLASS__]);
         }
     }
     public function render_monitoring_dashboard(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_monitoring_dashboard', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_monitoring_dashboard', ['class' => __CLASS__]);
         }
     }
     public function render_advanced_tab(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_advanced_tab', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_advanced_tab', ['class' => __CLASS__]);
         }
     }
     public function render_addons_tab(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_addons_tab', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_addons_tab', ['class' => __CLASS__]);
         }
     }
     public function render_licences_tab(array $settings = []): void {
         // no-op
-        if (class_exists('\\YUZ_Logger')) {
-            (new \YUZ_Logger())->log('warning', 'Renderer unavailable, no-op for render_licences_tab', ['class' => __CLASS__]);
+        if (class_exists('\\YUZTRA_Logger')) {
+            (new \YUZTRA_Logger())->log('warning', 'Renderer unavailable, no-op for render_licences_tab', ['class' => __CLASS__]);
         }
     }
 }
@@ -733,22 +733,22 @@ class NullRenderer implements RendererInterface {
 /** ---------------------------
  *  Fallback adapters aliases
  *  --------------------------- */
-if ( ! class_exists('YUZ_Custom_Translate_Adapter') ) {
-class YUZ_Custom_Translate_Adapter extends NullTranslateAdapter {}
+if ( ! class_exists('YUZTRA_Custom_Translate_Adapter') ) {
+class YUZTRA_Custom_Translate_Adapter extends NullTranslateAdapter {}
 }
-if ( ! class_exists('YUZ_Libre_Translate_Adapter') ) {
-class YUZ_Libre_Translate_Adapter extends NullTranslateAdapter {}
+if ( ! class_exists('YUZTRA_Libre_Translate_Adapter') ) {
+class YUZTRA_Libre_Translate_Adapter extends NullTranslateAdapter {}
 }
-if (!class_exists('\\YUZ_DeepL_Translate_Adapter')) {
-class YUZ_DeepL_Translate_Adapter extends NullTranslateAdapter {}
+if (!class_exists('\\YUZTRA_DeepL_Translate_Adapter')) {
+class YUZTRA_DeepL_Translate_Adapter extends NullTranslateAdapter {}
 }
-if (!class_exists('\\YUZ_Google_Translate_Adapter')) {
-class YUZ_Google_Translate_Adapter extends NullTranslateAdapter {}
+if (!class_exists('\\YUZTRA_Google_Translate_Adapter')) {
+class YUZTRA_Google_Translate_Adapter extends NullTranslateAdapter {}
 }
 
 /** ---------------------------
  *  Alias YUZ_Environment to fallback
  *  --------------------------- */
-if (!class_exists('YUZ_Environment')) {
-class YUZ_Environment extends NullEnvironment {}
+if (!class_exists('YUZTRA_Environment')) {
+class YUZTRA_Environment extends YUZTRA_NullEnvironment {}
 }

@@ -73,19 +73,19 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // MODIF: Fondations minimales (interfaces secours logs/guards) — Phase 1: stubs Null* pour casser circularités
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-logger.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-health-check.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-logger.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-health-check.php';
 // MODIF: Dépendances “PLAN” (sans exécuter de traduction) — Phase 1: aucun I/O lourde
-require_once YUZ_TRA_INCLUDES . 'class-yuz-db.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-settings.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-languages.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-environment.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-ajax.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-services.php'; // QoS worker singletons services
-require_once YUZ_TRA_INCLUDES . 'class-yuz-capabilities.php';
-class YUZ_Core {
+require_once YUZTRA_INCLUDES . 'class-yuz-db.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-settings.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-languages.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-environment.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-ajax.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-services.php'; // QoS worker singletons services
+require_once YUZTRA_INCLUDES . 'class-yuz-capabilities.php';
+class YUZTRA_Core {
 const PLUGIN_VERSION = '1.0.0';
 private static $initialized = false;
 /** Memo du PLAN pour CHECK/ACT */
@@ -125,20 +125,24 @@ self::flag_issue('Mémoire > 512MB détectée au démarrage. ADMIN-only.');
          * PLAN — préparer le terrain
          * ======================= */
 self::ensure_default_settings(); // Préconditions légères (non disruptives) : on LOG on dégrade si besoin
-if (!defined('YUZ_TRA_INCLUDES') || !defined('YUZ_TRA_PLUGIN_FILE')) {
-self::flag_issue('Constantes critiques manquantes (YUZ_TRA_INCLUDES / YUZ_TRA_PLUGIN_FILE). ADMIN-only.');
+if (!defined('YUZTRA_INCLUDES') || !defined('YUZTRA_PLUGIN_FILE')) {
+self::flag_issue('Constantes critiques manquantes (YUZTRA_INCLUDES / YUZTRA_PLUGIN_FILE). ADMIN-only.');
         }
 // DB: s’assurer des tables sans bloquer
 try {
-$logger = class_exists('YUZ_Logger') ? new YUZ_Logger() : null;
-$health = class_exists('YUZ_Health_Check') ? new YUZ_Health_Check($logger) : null;
-if (class_exists('YUZ_DB')) {
-$db = new YUZ_DB($logger, $health);
+$logger = class_exists('YUZTRA_Logger') ? new YUZTRA_Logger() : null;
+$health = class_exists('YUZTRA_Health_Check') ? new YUZTRA_Health_Check($logger) : null;
+if (class_exists('YUZTRA_DB')) {
+$db = new YUZTRA_DB($logger, $health);
 if (method_exists($db, 'ensure_tables')) {
 // MODIF: Gate sur tables_ok pour éviter DDL runtime (Phase 4)
-if (!get_option('tables_ok', false) && self::can_run_runtime_maintenance()) {
-$db->ensure_tables();
-update_option('tables_ok', true); // Flag après succès
+if (!get_option('yuztra_tables_ok', false) && self::can_run_runtime_maintenance()) {
+// Le drapeau ne doit refléter que le succès réel de la création du schéma.
+$tables_ready = (bool) $db->ensure_tables();
+update_option('yuztra_tables_ok', $tables_ready);
+if (!$tables_ready) {
+self::flag_issue('DB ensure_tables: creation du schema incomplete. Nouvelle tentative au prochain chargement administrateur.');
+                        }
                     }
                 }
             }
@@ -147,30 +151,30 @@ self::flag_issue('DB ensure_tables: '.$e->getMessage());
         }
 // QoS / Worker (enregistre filtres/worker, pas de traduction ici)
 try {
-if (class_exists('YUZ_Services') && method_exists('YUZ_Services','init')) {
-YUZ_Services::init();
+if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services','init')) {
+YUZTRA_Services::init();
             }
         } catch (\Throwable $e) {
-self::flag_issue('YUZ_Services::init: '.$e->getMessage());
+self::flag_issue('YUZTRA_Services::init: '.$e->getMessage());
         }
 // Environment (avec catalogue langues cohérent via Services si dispo)
 try {
-if (class_exists('YUZ_Environment') && method_exists('YUZ_Environment','init')) {
-if (class_exists('YUZ_Services') && method_exists('YUZ_Services','languages')) {
-YUZ_Environment::init( YUZ_Services::languages() );
+if (class_exists('YUZTRA_Environment') && method_exists('YUZTRA_Environment','init')) {
+if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services','languages')) {
+YUZTRA_Environment::init( YUZTRA_Services::languages() );
                 } else {
-YUZ_Environment::init();
+YUZTRA_Environment::init();
                 }
             }
         } catch (\Throwable $e) {
-self::flag_issue('YUZ_Environment::init: '.$e->getMessage());
+self::flag_issue('YUZTRA_Environment::init: '.$e->getMessage());
         }
 // Verrouiller contexte langues (source/default) à partir du manager DB si dispo
 $default_lang = null;
 $source_lang  = null;
 try {
-    if (class_exists('YUZ_Services') && method_exists('YUZ_Services','languages')) {
-        $L = YUZ_Services::languages();
+    if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services','languages')) {
+        $L = YUZTRA_Services::languages();
         if (is_object($L)) {
             if (method_exists($L, 'get_default_language')) { $default_lang = (string) $L->get_default_language(); }
             if (method_exists($L, 'get_source_language'))  { $source_lang  = (string) $L->get_source_language(); }
@@ -181,16 +185,16 @@ try {
 }
 // Fallback propre depuis l’option consolidée (yuz_tra_all_settings -> general)
 if (empty($default_lang) || empty($source_lang)) {
-    $all = yuz_settings_get_all();
-    $gen = is_array($all) && isset($all['yuz_tra_general']) ? (array)$all['yuz_tra_general'] : [];
-    $detectedDef = (class_exists('YUZ_Environment') && method_exists('YUZ_Environment','get_detected_default')) ? YUZ_Environment::get_detected_default() : null;
-    $default_lang = $default_lang ?: ($detectedDef ?: ($gen['yuz_tra_default_language'] ?? get_locale()));
-    $source_lang  = $source_lang  ?: ($gen['yuz_tra_source_language']  ?? $default_lang);
+    $all = yuztra_settings_get_all();
+    $gen = is_array($all) && isset($all['yuztra_general']) ? (array)$all['yuztra_general'] : [];
+    $detectedDef = (class_exists('YUZTRA_Environment') && method_exists('YUZTRA_Environment','get_detected_default')) ? YUZTRA_Environment::get_detected_default() : null;
+    $default_lang = $default_lang ?: ($detectedDef ?: ($gen['yuztra_default_language'] ?? get_locale()));
+    $source_lang  = $source_lang  ?: ($gen['yuztra_source_language']  ?? $default_lang);
 }
 $flags = ['switcher_enabled' => true];
-if (class_exists('YUZ_Settings') && method_exists('YUZ_Settings','runtime_flags')) {
+if (class_exists('YUZTRA_Settings') && method_exists('YUZTRA_Settings','runtime_flags')) {
 try {
-$flags = array_merge($flags, (array) YUZ_Settings::runtime_flags());
+$flags = array_merge($flags, (array) YUZTRA_Settings::runtime_flags());
             } catch (\Throwable $e) {
 self::flag_issue('runtime_flags: '.$e->getMessage());
             }
@@ -219,9 +223,9 @@ self::dispatch_context(self::$plan_state['flags']);
          * CHECK — analyser & tracer
          * ======================= */
 try {
-if (class_exists('YUZ_Health_Check') && method_exists('YUZ_Health_Check','ensure')) {
+if (class_exists('YUZTRA_Health_Check') && method_exists('YUZTRA_Health_Check','ensure')) {
 // Exemple : valider encore une fois la cohérence des langues (trace, pas de blocage)
-YUZ_Health_Check::ensure(!empty(self::$plan_state['default_lang']) && !empty(self::$plan_state['source_lang']), 'CHECK: défaut/source manquants', __METHOD__);
+YUZTRA_Health_Check::ensure(!empty(self::$plan_state['default_lang']) && !empty(self::$plan_state['source_lang']), 'CHECK: défaut/source manquants', __METHOD__);
             }
 self::log_colored('info', 'CHECK — plan_state', self::$plan_state);
         } catch (\Throwable $e) {
@@ -230,12 +234,13 @@ self::log_colored('warning', 'CHECK exception: '.$e->getMessage());
 /* =======================
          * ACT — amélioration continue
          * ======================= */
-do_action('yuz_core_boot_complete', [
+
+do_action('yuztra_core_boot_complete', [
 'viable' => self::$plan_state['viable'],
 'issues' => self::$plan_state['issues'],
         ]);
 // (Le PDCA manager/diagnostic est déjà chargé dans la branche ADMIN via register_admin_hooks)
-self::log_colored('success', 'YUZ_Core — bootstrap terminé (PDCA).');
+self::log_colored('success', 'YUZTRA_Core — bootstrap terminé (PDCA).');
     }
 /* ========================================================================================
      * DISPATCHER (XOR)
@@ -263,30 +268,30 @@ if (empty($flags['switcher_enabled'])) {
 self::log_colored('info', 'Frontend désactivé par flags → skip');
 return;
         }
-        if (class_exists('YUZ_Front_Buffer')) {
+        if (class_exists('YUZTRA_Front_Buffer')) {
             try {
-                YUZ_Front_Buffer::init();
+                YUZTRA_Front_Buffer::init();
             } catch (\Throwable $e) {
-                self::log_colored('warning', 'YUZ_Front_Buffer::init: ' . $e->getMessage());
+                self::log_colored('warning', 'YUZTRA_Front_Buffer::init: ' . $e->getMessage());
             }
         }
-if (class_exists('YUZ_Ajax') && method_exists('YUZ_Ajax','init')) {
+if (class_exists('YUZTRA_Ajax') && method_exists('YUZTRA_Ajax','init')) {
 try {
-YUZ_Ajax::init();
+YUZTRA_Ajax::init();
             } catch (\Throwable $e) {
-self::log_colored('warning','YUZ_Ajax::init(front): '.$e->getMessage());
+self::log_colored('warning','YUZTRA_Ajax::init(front): '.$e->getMessage());
             }
         }
         $frontend_classes = [
-            'YUZ_Assets',
-            'YUZ_Ajax',
-            'YUZ_Frontend',
-            'YUZ_Switcher',
-            'YUZ_Blocks',
-            'YUZ_Translation_Manager',
-            'YUZ_Rewrite',
-            'YUZ_Editor',
-            'YUZ_Admin_Bar',
+            'YUZTRA_Assets',
+            'YUZTRA_Ajax',
+            'YUZTRA_Frontend',
+            'YUZTRA_Switcher',
+            'YUZTRA_Blocks',
+            'YUZTRA_Translation_Manager',
+            'YUZTRA_Rewrite',
+            'YUZTRA_Editor',
+            'YUZTRA_Admin_Bar',
         ];
 self::load_and_init_classes($frontend_classes, 'frontend');
     }
@@ -298,41 +303,41 @@ if (!is_admin()) {
 return;
         }
         $admin_classes = [
-            'YUZ_Settings',
-            'YUZ_Assets',
-            'YUZ_Renderer',
-            'YUZ_General',
-            'YUZ_Languages',
-            'YUZ_Translate_Site',
-            'YUZ_Automatic_Translation',
-            'YUZ_Translation_AI',
-            'YUZ_Advanced',
-            'YUZ_Licenses',
-            'YUZ_Addons',
-            'YUZ_Blocks',
-            'YUZ_String_Admin',
-            'YUZ_Ajax',
+            'YUZTRA_Settings',
+            'YUZTRA_Assets',
+            'YUZTRA_Renderer',
+            'YUZTRA_General',
+            'YUZTRA_Languages',
+            'YUZTRA_Translate_Site',
+            'YUZTRA_Automatic_Translation',
+            'YUZTRA_Translation_AI',
+            'YUZTRA_Advanced',
+            'YUZTRA_Licenses',
+            'YUZTRA_Addons',
+            'YUZTRA_Blocks',
+            'YUZTRA_String_Admin',
+            'YUZTRA_Ajax',
             // 'YUZ_PDCA_Manager', // optional module not present; suppress warnings
         ];
         // Gate IA: prefer consolidated storage, fallback to standalone legacy
-        $all_settings  = yuz_settings_get_all();
-        $site_settings = is_array($all_settings) && isset($all_settings['yuz_tra_site_settings'])
-            ? (array)$all_settings['yuz_tra_site_settings']
-            : (array) get_option('yuz_tra_site_settings', ['enable_ai' => '0']);
+        $all_settings  = yuztra_settings_get_all();
+        $site_settings = is_array($all_settings) && isset($all_settings['yuztra_site_settings'])
+            ? (array)$all_settings['yuztra_site_settings']
+            : (array) get_option('yuztra_site_settings', ['enable_ai' => '0']);
         $ai_enabled = !empty($site_settings['enable_ai']) || !empty($site_settings['enable_youzuruz']);
         if ( $ai_enabled && interface_exists('\\YUZTRA\\Interfaces\\AIInterface') ) {
-            $admin_classes[] = 'YUZ_Translation_AI';
+            $admin_classes[] = 'YUZTRA_Translation_AI';
         } else {
             self::log_colored('info', 'AI module disabled (flag or interface missing)');
         }
 self::load_and_init_classes($admin_classes, 'admin');
 // Chargement conditionnel du sidecar Diagnostic (à la racine, pas dans includes/)
-$diag_file = plugin_dir_path(YUZ_TRA_PLUGIN_FILE) . 'yuz-tra-diagnostic.php';
+$diag_file = plugin_dir_path(YUZTRA_PLUGIN_FILE) . 'yuz-tra-diagnostic.php';
 if (file_exists($diag_file)) {
 require_once $diag_file; // sidecar
-if (class_exists('YUZ_Diagnostic') && method_exists('YUZ_Diagnostic','init')) {
-try { YUZ_Diagnostic::init(); } catch (\Throwable $e) {
-self::log_colored('warning',"YUZ_Diagnostic::init a échoué: ".$e->getMessage());
+if (class_exists('YUZTRA_Diagnostic') && method_exists('YUZTRA_Diagnostic','init')) {
+try { YUZTRA_Diagnostic::init(); } catch (\Throwable $e) {
+self::log_colored('warning',"YUZTRA_Diagnostic::init a échoué: ".$e->getMessage());
                 }
             } else {
 self::log_colored('info','Sidecar présent mais classe/init absents → no-op');
@@ -345,24 +350,24 @@ self::log_colored('info','Sidecar diagnostic non présent (optionnel) → no-op'
      * AJAX (DO ponctuel)
      * ====================================================================================== */
 private static function handle_ajax_branch(array $flags): void {
-if (class_exists('YUZ_Ajax') && method_exists('YUZ_Ajax','init')) {
+if (class_exists('YUZTRA_Ajax') && method_exists('YUZTRA_Ajax','init')) {
 try {
-YUZ_Ajax::init();
+YUZTRA_Ajax::init();
             } catch (\Throwable $e) {
-self::log_colored('warning','YUZ_Ajax::init(ajax): '.$e->getMessage());
+self::log_colored('warning','YUZTRA_Ajax::init(ajax): '.$e->getMessage());
             }
         }
-        $manager_file = YUZ_TRA_INCLUDES . 'class-yuz-api-manager.php';
+        $manager_file = YUZTRA_INCLUDES . 'class-yuz-api-manager.php';
         if (file_exists($manager_file)) {
             require_once $manager_file;
-            if (class_exists('YUZ_API_Manager') && method_exists('YUZ_API_Manager','init')) {
+            if (class_exists('YUZTRA_API_Manager') && method_exists('YUZTRA_API_Manager','init')) {
                 try {
-                    YUZ_API_Manager::init();
+                    YUZTRA_API_Manager::init();
                 } catch (\Throwable $e) {
                     self::log_colored('critical','API TM::init(ajax): '.$e->getMessage());
                 }
             } else {
-                self::log_colored('critical','YUZ_API_Manager absent ou sans init() → no-op');
+                self::log_colored('critical','YUZTRA_API_Manager absent ou sans init() → no-op');
             }
         } else {
             self::log_colored('critical','Fichier manquant: class-yuz-api-manager.php');
@@ -378,7 +383,7 @@ private static function register_cli_commands(array $flags): void {
 
     // 🔹 Warm include pour que le CLI voie les classes (utilisé par wp yuz check)
     // On garde le chargement **dans** le plugin → auto-suffisant.
-    $inc = defined('YUZ_TRA_INCLUDES') ? YUZ_TRA_INCLUDES : plugin_dir_path(YUZ_TRA_PLUGIN_FILE) . 'includes/';
+    $inc = defined('YUZTRA_INCLUDES') ? YUZTRA_INCLUDES : plugin_dir_path(YUZTRA_PLUGIN_FILE) . 'includes/';
     foreach (['class-yuz-url-converter.php', 'class-yuz-rewrite.php'] as $file) {
         $path = $inc . $file;
         if (file_exists($path)) {
@@ -387,14 +392,14 @@ private static function register_cli_commands(array $flags): void {
     }
 
     // Optionnel mais safe en CLI: initialiser la réécriture (n’envoie pas d’en-têtes en CLI)
-    if (class_exists('YUZ_Rewrite') && method_exists('YUZ_Rewrite', 'init')) {
-        try { YUZ_Rewrite::init(); } catch (\Throwable $e) {
-            self::log_colored('warning', 'YUZ_Rewrite::init (CLI) a échoué: ' . $e->getMessage());
+    if (class_exists('YUZTRA_Rewrite') && method_exists('YUZTRA_Rewrite', 'init')) {
+        try { YUZTRA_Rewrite::init(); } catch (\Throwable $e) {
+            self::log_colored('warning', 'YUZTRA_Rewrite::init (CLI) a échoué: ' . $e->getMessage());
         }
     }
 
     // Charge aussi les éventuelles commandes CLI du plugin (si présentes)
-    $cli_classes = ['YUZ_CLI_Commands']; // garde ta liste si tu en as
+    $cli_classes = ['YUZTRA_CLI_Commands']; // garde ta liste si tu en as
     self::load_and_init_classes($cli_classes, 'cli');
 }
 
@@ -402,22 +407,22 @@ private static function register_cli_commands(array $flags): void {
      * LOADER générique (inclut init) intégrité
      * ====================================================================================== */
 private static function load_and_init_classes(array $classes, string $context): void {
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 $integrity_report = [];
         $alt_files = [
             // Allow singular filename for a plural class name (backward-compat)
             // Keep alias for safety but primary file is class-yuz-licenses.php
-            'YUZ_Licenses' => 'class-yuz-licenses.php',
+            'YUZTRA_Licenses' => 'class-yuz-licenses.php',
             // Frontend loader loads the active runtime implementation.
-            'YUZ_Frontend' => 'class-yuz-frontend.php',
+            'YUZTRA_Frontend' => 'class-yuz-frontend.php',
         ];
         foreach ($classes as $class) {
             $file = 'class-' . strtolower(str_replace('_', '-', $class)) . '.php';
-            $path = YUZ_TRA_INCLUDES . $file;
+            $path = YUZTRA_INCLUDES . $file;
             if (!file_exists($path)) {
                 // Try explicit alias mapping first
                 if (isset($alt_files[$class])) {
-                    $alt = YUZ_TRA_INCLUDES . $alt_files[$class];
+                    $alt = YUZTRA_INCLUDES . $alt_files[$class];
                     if (file_exists($alt)) {
                         $path = $alt;
                         $file = basename($alt);
@@ -425,8 +430,8 @@ $integrity_report = [];
                 }
                 // Generic singularization fallback (licenses -> license)
                 if (!file_exists($path)) {
-                    $alt2 = YUZ_TRA_INCLUDES . preg_replace('/licenses(\.php)$/', 'license$1', $file);
-                    if ($alt2 !== YUZ_TRA_INCLUDES . $file && file_exists($alt2)) {
+                    $alt2 = YUZTRA_INCLUDES . preg_replace('/licenses(\.php)$/', 'license$1', $file);
+                    if ($alt2 !== YUZTRA_INCLUDES . $file && file_exists($alt2)) {
                         $path = $alt2;
                         $file = basename($alt2);
                     }
@@ -471,10 +476,10 @@ self::log_colored('critical', $msg);
 
         // Determine threshold: constant > option > WP_DEBUG > default('warning')
         $threshold = 'warning';
-        if (defined('YUZ_TRA_LOG_LEVEL') && is_string(YUZ_TRA_LOG_LEVEL) && isset($LEVELS[strtolower(YUZ_TRA_LOG_LEVEL)])) {
-            $threshold = strtolower(YUZ_TRA_LOG_LEVEL);
+        if (defined('YUZTRA_LOG_LEVEL') && is_string(YUZTRA_LOG_LEVEL) && isset($LEVELS[strtolower(YUZTRA_LOG_LEVEL)])) {
+            $threshold = strtolower(YUZTRA_LOG_LEVEL);
         } elseif (function_exists('get_option')) {
-            $opt = (string) get_option('yuz_tra_log_level', '');
+            $opt = (string) get_option('yuztra_log_level', '');
             $opt = strtolower($opt);
             if (isset($LEVELS[$opt])) { $threshold = $opt; }
             elseif (defined('WP_DEBUG') && WP_DEBUG) { $threshold = 'info'; }
@@ -496,56 +501,57 @@ self::log_colored('critical', $msg);
         $prefix = $prefixes[$requested] ?? '🟦 [INFO]';
         $log_message = "{$prefix} {$message}";
         if (!empty($context)) {
-            $log_message .= ' | Context: ' . (is_string($context) ? $context : print_r($context, true));
+            $encoded = wp_json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $log_message .= ' | Context: ' . (is_string($context) ? $context : ($encoded !== false ? $encoded : '[unencodable]'));
         }
-        error_log($log_message);
+        yuztra_debug_log($log_message);
     }
 /** N’écrase pas les valeurs déjà présentes */
     public static function ensure_default_settings(): void {
         $defaults = [
             // Do NOT enable front switcher features from here (admin core).
             // Keep legacy keys present but disabled to avoid overriding yuz_tra_switcher.
-            'yuz_floating_enabled' => false,
-            'yuz_floating_format' => 'short-names',
-            'yuz_floating_theme' => 'dark',
-            'yuz_floating_position' => 'bottom-right',
-            'yuz_menu_enabled' => false,
-            'yuz_menu_format' => 'short-names',
-            'yuz_shortcode_enabled' => false,
+            'yuztra_floating_enabled' => false,
+            'yuztra_floating_format' => 'short-names',
+            'yuztra_floating_theme' => 'dark',
+            'yuztra_floating_position' => 'bottom-right',
+            'yuztra_menu_enabled' => false,
+            'yuztra_menu_format' => 'short-names',
+            'yuztra_shortcode_enabled' => false,
             'source_language_id' => 0,
             'api_adapter' => 'libretranslate',
         ];
-        $all_settings = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
-        $current = is_array($all_settings['yuz_tra_settings'] ?? null) ? $all_settings['yuz_tra_settings'] : [];
+        $all_settings = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
+        $current = is_array($all_settings['yuztra_settings'] ?? null) ? $all_settings['yuztra_settings'] : [];
 
         if (empty($current)) {
-            yuz_settings_replace_section('yuz_tra_settings', $defaults);
+            yuztra_settings_replace_section('yuztra_settings', $defaults);
             self::log_colored('info', 'Default settings added (new option created).');
         } else {
             $updated = array_merge($defaults, $current);
             if ($updated !== $current) {
-                yuz_settings_replace_section('yuz_tra_settings', $updated); //
+                yuztra_settings_replace_section('yuztra_settings', $updated); //
                 $diffKeys = array_keys(array_diff_key($updated, $current));
                 self::log_colored('info', 'Defaults applied, new keys=' . (empty($diffKeys) ? 'none' : implode(', ', $diffKeys)));
             }
         }
 
         // One-shot migration: move legacy switcher flags from yuz_tra_settings to yuz_tra_switcher
-        $migrate_flag = 'yuz_tra_switcher_migrated';
+        $migrate_flag = 'yuztra_switcher_migrated';
         if (!get_option($migrate_flag)) {
-            $legacy = get_option('yuz_tra_settings', []);
+            $legacy = get_option('yuztra_settings', []);
             if (is_array($legacy)) {
-                $sw_all = yuz_settings_get_all();
-                $sw = isset($sw_all['yuz_tra_switcher']) && is_array($sw_all['yuz_tra_switcher']) ? $sw_all['yuz_tra_switcher'] : [];
+                $sw_all = yuztra_settings_get_all();
+                $sw = isset($sw_all['yuztra_switcher']) && is_array($sw_all['yuztra_switcher']) ? $sw_all['yuztra_switcher'] : [];
 
                 $changed_sw = false;
                 $changed_legacy = false;
 
                 // Enabled flags
                 $mapEnabled = [
-                    'yuz_shortcode_enabled' => 'shortcode_enabled',
-                    'yuz_menu_enabled'      => 'menu_enabled',
-                    'yuz_floating_enabled'  => 'floating_enabled',
+                    'yuztra_shortcode_enabled' => 'shortcode_enabled',
+                    'yuztra_menu_enabled'      => 'menu_enabled',
+                    'yuztra_floating_enabled'  => 'floating_enabled',
                 ];
                 foreach ($mapEnabled as $old => $new) {
                     if (array_key_exists($old, $legacy)) {
@@ -561,11 +567,11 @@ self::log_colored('critical', $msg);
 
                 // Formats / theme / position
                 $mapOther = [
-                    'yuz_shortcode_format'   => 'shortcode_format',
-                    'yuz_menu_format'        => 'menu_format',
-                    'yuz_floating_format'    => 'floating_format',
-                    'yuz_floating_theme'     => 'floating_theme',
-                    'yuz_floating_position'  => 'floating_position',
+                    'yuztra_shortcode_format'   => 'shortcode_format',
+                    'yuztra_menu_format'        => 'menu_format',
+                    'yuztra_floating_format'    => 'floating_format',
+                    'yuztra_floating_theme'     => 'floating_theme',
+                    'yuztra_floating_position'  => 'floating_position',
                 ];
                 foreach ($mapOther as $old => $new) {
                     if (array_key_exists($old, $legacy)) {
@@ -580,48 +586,48 @@ self::log_colored('critical', $msg);
                 }
 
                 if ($changed_sw || $changed_legacy) {
-                    yuz_settings_update(function (array $currentAll) use ($sw, $legacy, $changed_sw, $changed_legacy) {
+                    yuztra_settings_update(function (array $currentAll) use ($sw, $legacy, $changed_sw, $changed_legacy) {
                         if ($changed_sw) {
-                            $currentAll['yuz_tra_switcher'] = $sw;
+                            $currentAll['yuztra_switcher'] = $sw;
                         }
                         if ($changed_legacy) {
-                            $current = isset($currentAll['yuz_tra_settings']) && is_array($currentAll['yuz_tra_settings'])
-                                ? $currentAll['yuz_tra_settings']
+                            $current = isset($currentAll['yuztra_settings']) && is_array($currentAll['yuztra_settings'])
+                                ? $currentAll['yuztra_settings']
                                 : [];
-                            $currentAll['yuz_tra_settings'] = array_merge($current, $legacy);
+                            $currentAll['yuztra_settings'] = array_merge($current, $legacy);
                         }
                         return $currentAll;
                     });
                     if ($changed_sw) {
-                        self::log_colored('success', 'Migrated legacy switcher flags to yuz_tra_switcher');
+                        self::log_colored('success', 'Migrated legacy switcher flags to yuztra_switcher');
                     }
                     if ($changed_legacy) {
-                        self::log_colored('info', 'Cleaned legacy yuz_* switcher keys from yuz_tra_settings');
+                        self::log_colored('info', 'Cleaned legacy yuztra_* switcher keys from yuztra_settings');
                     }
                 }
                 update_option($migrate_flag, 1, false);
                 // --- 🔧 HOTFIX 2025-10-20 : Empêche la disparition de yuz_tra_settings ---
-                $all_settings_block = get_option('yuz_tra_all_settings');
-                if (isset($all_settings_block['yuz_tra_settings']) && is_array($all_settings_block['yuz_tra_settings'])) {
-                    if (!get_option('yuz_tra_settings')) {
-                        update_option('yuz_tra_settings', $all_settings_block['yuz_tra_settings'], true);
+                $all_settings_block = get_option('yuztra_all_settings');
+                if (isset($all_settings_block['yuztra_settings']) && is_array($all_settings_block['yuztra_settings'])) {
+                    if (!get_option('yuztra_settings')) {
+                        update_option('yuztra_settings', $all_settings_block['yuztra_settings'], true);
                         if (function_exists('error_log')) {
-                            self::log_colored('debug', '🧩 HOTFIX YUZ: yuz_tra_settings restauré avant cleanup.');
+                            self::log_colored('debug', '🧩 HOTFIX YUZ: yuztra_settings restauré avant cleanup.');
                         }
                     }
                 }
                 // -------------------------------------------------------------------------
-                delete_option('yuz_tra_switcher');
-                delete_option('yuz_tra_settings');
-                delete_option('yuz_tra_switcher_settings');
+                delete_option('yuztra_switcher');
+                delete_option('yuztra_settings');
+                delete_option('yuztra_switcher_settings');
             }
         }
     }
 /** Config légère pour d’autres modules */
 public static function get_config(): array {
-$all = function_exists('yuz_settings_get_all') ? yuz_settings_get_all() : [];
-$options = is_array($all['yuz_tra_settings'] ?? null) ? $all['yuz_tra_settings'] : [];
-$default_language = $options['yuz_tra_default_language'] ?? get_locale();
+$all = function_exists('yuztra_settings_get_all') ? yuztra_settings_get_all() : [];
+$options = is_array($all['yuztra_settings'] ?? null) ? $all['yuztra_settings'] : [];
+$default_language = $options['yuztra_default_language'] ?? get_locale();
 $config = [
 'default_language' => $default_language,
 'plugin_version' => self::PLUGIN_VERSION,
@@ -634,28 +640,29 @@ public static function translate($text, $source_lang, $target_lang) {
 if (empty($text)) {
 return '';
         }
-        $manager_file = YUZ_TRA_INCLUDES . 'class-yuz-api-manager.php';
-        if (!class_exists('YUZ_API_Manager') && file_exists($manager_file)) {
+        $manager_file = YUZTRA_INCLUDES . 'class-yuz-api-manager.php';
+        if (!class_exists('YUZTRA_API_Manager') && file_exists($manager_file)) {
             require_once $manager_file;
-            if (class_exists('YUZ_API_Manager') && method_exists('YUZ_API_Manager','init')) {
+            if (class_exists('YUZTRA_API_Manager') && method_exists('YUZTRA_API_Manager','init')) {
                 try {
-                    YUZ_API_Manager::init();
+                    YUZTRA_API_Manager::init();
                 } catch (\Throwable $e) {
                     self::log_colored('critical','API TM::init(translate): '.$e->getMessage());
                     return null;
                 }
             }
         }
-        if (!class_exists('YUZ_API_Manager') || !method_exists('YUZ_API_Manager','translate')) {
-            self::log_colored('critical','YUZ_API_Manager::translate indisponible.');
+        if (!class_exists('YUZTRA_API_Manager') || !method_exists('YUZTRA_API_Manager','translate')) {
+            self::log_colored('critical','YUZTRA_API_Manager::translate indisponible.');
             return null;
         }
-        $result = YUZ_API_Manager::translate($text, $source_lang, $target_lang);
+        $result = YUZTRA_API_Manager::translate($text, $source_lang, $target_lang);
 if ($result === null) {
 self::log_colored('warning','Translation failed, no result from manager.');
 return null;
         }
-do_action('yuz_translation_complete', $result);
+
+do_action('yuztra_translation_complete', $result);
 return $result;
     }
 }
@@ -663,4 +670,4 @@ return $result;
  * HOOKS WP
  * ========================================================================================== */
 // MODIF: Démarre le Core après le chargement du textdomain (voir yuz-tra.php)
-add_action('init', ['YUZ_Core', 'init'], 30);
+add_action('init', ['YUZTRA_Core', 'init'], 30);

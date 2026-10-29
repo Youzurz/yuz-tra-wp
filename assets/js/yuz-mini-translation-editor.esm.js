@@ -5,10 +5,10 @@
  * - jQuery: on utilise celui de WordPress (noConflict) si présent
  * ======================================================================================= */
 // ——— Side effects: charge les UMD (aucune export n'est attendue)
-import '/wp-content/plugins/yuz-tra/assets/vendor/vue/vue.min.js';
-import '/wp-content/plugins/yuz-tra/assets/vendor/vue-router/vue-router.min.js';
-import '/wp-content/plugins/yuz-tra/assets/vendor/select2/js/select2.full.min.js';
-import '/wp-content/plugins/yuz-tra/assets/vendor/he.min.js';
+import '../vendor/vue/vue.min.js';
+import '../vendor/vue-router/vue-router.min.js';
+import '../vendor/select2/js/select2.full.min.js';
+import '../vendor/he.min.js';
 // ——— Service interne du plugin (UN SEUL import !)
 import { API_CONFIG, ajaxOptionsFor, nonceFields, translateNow } from './yuz-translation-service.js';
 // ——— Bind vers les globals exposés par les UMD
@@ -28,7 +28,7 @@ try {
  * sinon on fournit des fallbacks légers pour éviter de crasher.
  * (Si tu as un vrai module ESM local, importe-le AVEC EXTENSION: "./yuz-translation-service.js")
  * ──────────────────────────────────────────────────────────────────────────── */
-const SVC = window.YUZ_TranslationService || {};
+const SVC = window.YUZTRA_TranslationService || {};
 // Les exports sont déjà définis via l'import en haut, pas besoin de redéclarer
 // export const API_CONFIG = SVC.API_CONFIG || { ... }; // SUPPRIMÉ : doublon
 export { ajaxOptionsFor, nonceFields, translateNow }; // Réexportation des autres fonctions
@@ -39,7 +39,7 @@ export { ajaxOptionsFor, nonceFields, translateNow }; // Réexportation des autr
 window.addEventListener('unhandledrejection', (event) => {
     try {
         // YUZ_Assets est supposé dispo globalement côté admin
-        window.YUZ_Assets?.log_colored?.('critical', 'Unhandled Promise Rejection', {
+        window.YUZTRA_Assets?.log_colored?.('critical', 'Unhandled Promise Rejection', {
             reason: event.reason?.message || event.reason,
             stack: event.reason?.stack || 'No stack trace available'
         });
@@ -79,7 +79,7 @@ async function checkRateLimit() {
     }
     if (requestCount >= API_CONFIG.RATE_LIMIT) {
         const waitTime = 60000 - (now - lastReset);
-        window.YUZ_Assets?.log_colored?.('warning', `Rate limit reached, waiting ${waitTime}ms`);
+        window.YUZTRA_Assets?.log_colored?.('warning', `Rate limit reached, waiting ${waitTime}ms`);
         await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
 }
@@ -123,16 +123,16 @@ const StringTranslation = {
           <span class="yuz-filter">
             <span class="yuz-tooltip-toggle yuz-tooltip-toggle-language" style="visibility: hidden" :data-tooltip="stEditorStrings.filter_by_language_tooltip" tabindex="0">
               <select class="yuz-filter-select" name="yuz-language" id="yuz-filter-language" v-model="filterValues.language" @change="filter">
-                <option :value="yuzTraSettings.default_language">{{ stEditorStrings.filter_by_language }}</option>
-                <option v-for="language in settings['translation-languages']" v-show="currentTab.show_original_language || language !== yuzTraSettings.default_language" :value="language">{{ languageNames[language] }}</option>
+                <option :value="yuztraSettings.default_language">{{ stEditorStrings.filter_by_language }}</option>
+                <option v-for="language in settings['translation-languages']" v-show="currentTab.show_original_language || language !== yuztraSettings.default_language" :value="language">{{ languageNames[language] }}</option>
               </select>
             </span>
           </span>
 
           <span v-for="(filter, filter_key) in currentTab.filters" class="yuz-filter">
-            <span class="yuz-tooltip-toggle yuz-tooltip-toggle-filter-by-post" style="visibility: hidden" :data-tooltip="filter[yuzTraSettings.default_language] || filter.default" tabindex="0">
+            <span class="yuz-tooltip-toggle yuz-tooltip-toggle-filter-by-post" style="visibility: hidden" :data-tooltip="filter[yuztraSettings.default_language] || filter.default" tabindex="0">
               <select class="yuz-filter-select" :name="filter_key" :id="'yuz-filter-' + filter_key" v-model="filterValues[filter_key]" @change="filter">
-                <option v-for="(option, option_key) in filter" :value="option_key" :selected="option_key === yuzTraSettings.default_language">{{ option }}</option>
+                <option v-for="(option, option_key) in filter" :value="option_key" :selected="option_key === yuztraSettings.default_language">{{ option }}</option>
               </select>
             </span>
           </span>
@@ -199,21 +199,21 @@ const StringTranslation = {
 </div>
 `,
       props: ['stEditorStrings', 'defaultActions', 'tableControls', 'currentTab', 'ajaxUrl', 'listenForEvents'],
-      data() { return { actionToApply: yuzTraSettings.default_language }; },
-      created() { if (this.listenForEvents) document.addEventListener('yuz_trigger_perform_action_event', this.applyIndividualAction); },
+      data() { return { actionToApply: yuztraSettings.default_language }; },
+      created() { if (this.listenForEvents) document.addEventListener('yuztra_trigger_perform_action_event', this.applyIndividualAction); },
       methods: {
         applyIndividualAction(e) { this.applyAction(e.detail.action, [e.detail.stringIndex]); },
         applyAction(action, checkedStrings) {
-          if (this.defaultActions.bulk_actions[action] && action !== yuzTraSettings.default_language && checkedStrings.length >= 1) {
+          if (this.defaultActions.bulk_actions[action] && action !== yuztraSettings.default_language && checkedStrings.length >= 1) {
             const promptText = `${this.stEditorStrings[action + '_warning']}\n\n${this.tableControls.selectAllOrVisible ? this.stEditorStrings[this.tableControls.selectAllOrVisible + '_warning'] + '\n\n' : ''}${this.stEditorStrings.type_a_word_for_security} ${action}`;
             if (prompt(promptText, '') === action) {
-              window.YUZ_Assets?.log_colored?.('info', `Initiating bulk action: ${action}`, { checkedStrings });
+              window.YUZTRA_Assets?.log_colored?.('info', `Initiating bulk action: ${action}`, { checkedStrings });
 
-              const _action = `yuz_string_translation_bulk_action_${action}`;
+              const _action = `yuztra_string_translation_bulk_action_${action}`;
               const _opts   = ajaxOptionsFor(_action);
 
               $.ajax({
-                url: yuzTraSettings.ajax_url,
+                url: yuztraSettings.ajax_url,
                 type: 'POST',
                 dataType: 'json',
                 timeout: _opts.timeout,
@@ -228,23 +228,23 @@ const StringTranslation = {
                   if (response.success) {
                     if (response.data.dictionary) this.$emit('update:dictionary', response.data.dictionary);
                     if (response.data.totalItems) this.$emit('update:totalItems', response.data.totalItems);
-                    window.YUZ_Assets?.log_colored?.('success', `Bulk action ${action} applied`, { checkedStrings });
+                    window.YUZTRA_Assets?.log_colored?.('success', `Bulk action ${action} applied`, { checkedStrings });
                   } else {
-                    window.YUZ_Assets?.log_colored?.('critical', `Error applying bulk action ${action}`, { error: response.data?.message });
+                    window.YUZTRA_Assets?.log_colored?.('critical', `Error applying bulk action ${action}`, { error: response.data?.message });
                   }
                 },
                 error: (xhr) => {
-                  window.YUZ_Assets?.log_colored?.('critical', `AJAX error applying bulk action ${action}`, { error: xhr.responseText });
+                  window.YUZTRA_Assets?.log_colored?.('critical', `AJAX error applying bulk action ${action}`, { error: xhr.responseText });
                 },
                 complete: (_xhr, status) => {
                   if (status === 'timeout') {
-                    window.YUZ_Assets?.log_colored?.('critical', `AJAX timeout for bulk action ${action}`, { timeout: _opts.timeout });
+                    window.YUZTRA_Assets?.log_colored?.('critical', `AJAX timeout for bulk action ${action}`, { timeout: _opts.timeout });
                   }
                 }
               });
             } else {
               alert(this.stEditorStrings.incorrect_word_typed);
-              window.YUZ_Assets?.log_colored?.('warning', 'Bulk action aborted: incorrect security word');
+              window.YUZTRA_Assets?.log_colored?.('warning', 'Bulk action aborted: incorrect security word');
             }
           }
         }
@@ -321,7 +321,7 @@ const StringTranslation = {
         <tr v-for="(string, index) in dictionary" v-show="!showLoadingScreen && !string.hasOwnProperty('unsavedChanges')" class="yuz-table-row yuz-string-table-row" :id="'yuz-string-table-row-' + index">
           <td style="width: 0px"></td>
 
-          <td v-for="(value, column) in currentTab.table_columns" :class="'yuz-table-data-' + column" v-if="column !== 'translated' && column !== 'id' || currentLanguage !== yuzTraSettings.default_language">
+          <td v-for="(value, column) in currentTab.table_columns" :class="'yuz-table-data-' + column" v-if="column !== 'translated' && column !== 'id' || currentLanguage !== yuztraSettings.default_language">
             <div v-if="column === 'original'">
               <strong>
                 <a class="row-title yuz-anchor-action">
@@ -348,9 +348,9 @@ const StringTranslation = {
             </div>
           </td>
 
-          <td v-if="currentLanguage !== yuzTraSettings.default_language" class="yuz-translation-status-entry-wrapper">
+          <td v-if="currentLanguage !== yuztraSettings.default_language" class="yuz-translation-status-entry-wrapper">
             <div class="yuz-translation-status-entry">
-              <span v-for="lang in translationLanguages" class="yuz-language-translation-status" v-show="currentTab.show_original_language || lang !== yuzTraSettings.default_language">
+              <span v-for="lang in translationLanguages" class="yuz-language-translation-status" v-show="currentTab.show_original_language || lang !== yuztraSettings.default_language">
                 <span class="yuz-language-translation-status-item" :title="translationStatusFilters.translation_status[statusName[string.translationsArray[lang].status]] + ' ' + stEditorStrings.in + ' ' + languageNames[lang]">
                   <span :class="{
         'yuz-human-reviewed-green': string.translationsArray[lang] && parseInt(string.translationsArray[lang].status, 10) >= 4,
@@ -385,7 +385,7 @@ const StringTranslation = {
     scope="col"
     :id="'yuz-column-' + column_key"
     @click="sortByColumn(column_key)"
-    v-if="column_key !== 'translated' && column_key !== 'id' || currentLanguage !== yuzTraSettings.default_language">
+    v-if="column_key !== 'translated' && column_key !== 'id' || currentLanguage !== yuztraSettings.default_language">
     <span class="yuz-tooltip-toggle yuz-tooltip-toggle-table-head" style="visibility: hidden" :data-tooltip="column_key === 'original' ? stEditorStrings.sort_by_column : ''" tabindex="0">
       <a v-if="column_key === 'original'" class="yuz-anchor-action">
         <span>{{ column }}</span>
@@ -394,7 +394,7 @@ const StringTranslation = {
       <span v-else>{{ column }}</span>
     </span>
   </th>
-  <th v-if="currentLanguage !== yuzTraSettings.default_language" class="manage-column yuz-translation-status-column" scope="col">
+  <th v-if="currentLanguage !== yuztraSettings.default_language" class="manage-column yuz-translation-status-column" scope="col">
     {{ languageNames[currentLanguage] }} {{ stEditorStrings.translation_status }}
   </th>
 </tr>
@@ -405,14 +405,14 @@ const StringTranslation = {
           watch: {
             '$route'(to, from) {
               this.setOrderValues();
-              window.YUZ_Assets?.log_colored?.('info', 'Route changed', { to: to.path, from: from.path });
+              window.YUZTRA_Assets?.log_colored?.('info', 'Route changed', { to: to.path, from: from.path });
             }
           },
           methods: {
             setOrderValues() {
               if (this.$route.query.order && ['asc', 'desc'].includes(this.$route.query.order)) this.order = this.$route.query.order;
               if (this.$route.query.orderby && this.currentTab.table_columns[this.$route.query.orderby]) this.orderBy = this.$route.query.orderby;
-              window.YUZ_Assets?.log_colored?.('info', 'Set order values', { order: this.order, orderBy: this.orderBy });
+              window.YUZTRA_Assets?.log_colored?.('info', 'Set order values', { order: this.order, orderBy: this.orderBy });
             },
             sortByColumn(column) {
               if (column === 'original') {
@@ -422,10 +422,10 @@ const StringTranslation = {
                 if (this.$route.query.order !== order) {
                   const query = { ...this.$route.query, order, orderby: column, page: '1' };
                   this.$router.push({ path: this.$route.path, query }).catch(err => {
-                    window.YUZ_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
+                    window.YUZTRA_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
                   });
                 }
-                window.YUZ_Assets?.log_colored?.('info', 'Sorted by column', { column, order });
+                window.YUZTRA_Assets?.log_colored?.('info', 'Sorted by column', { column, order });
               }
             }
           }
@@ -449,129 +449,129 @@ const StringTranslation = {
 
       props: ['dictionary', 'totalItems', 'translationType', 'parentTranslationType', 'currentTab', 'parentTab'],
       data() {
-        if (!window.yuzTraSettings || !window.yuzTraSettings.yuz_settings || !window.yuzTraSettings.language_names || !window.yuzTraSettings.editor_nonces || !window.yuzTraSettings.st_editor_strings) {
-          window.YUZ_Assets?.log_colored?.('critical', 'Required yuzTraSettings are missing', {
-            yuz_settings: !!window.yuzTraSettings?.yuz_settings,
-            language_names: !!window.yuzTraSettings?.language_names,
-            editor_nonces: !!window.yuzTraSettings?.editor_nonces,
-            st_editor_strings: !!window.yuzTraSettings?.st_editor_strings
+        if (!window.yuztraSettings || !window.yuztraSettings.yuztra_settings || !window.yuztraSettings.language_names || !window.yuztraSettings.editor_nonces || !window.yuztraSettings.st_editor_strings) {
+          window.YUZTRA_Assets?.log_colored?.('critical', 'Required yuztraSettings are missing', {
+            yuztra_settings: !!window.yuztraSettings?.yuztra_settings,
+            language_names: !!window.yuztraSettings?.language_names,
+            editor_nonces: !!window.yuztraSettings?.editor_nonces,
+            st_editor_strings: !!window.yuztraSettings?.st_editor_strings
           });
-          throw new Error('Required yuzTraSettings are missing');
+          throw new Error('Required yuztraSettings are missing');
         }
         return {
-          stEditorStrings: window.yuzTraSettings.st_editor_strings,
-          defaultActions: window.yuzTraSettings.default_actions,
-          translationStatusFilters: window.yuzTraSettings.translation_status_filters,
-          config: window.yuzTraSettings.config,
-          settings: window.yuzTraSettings.yuz_settings,
-          languageNames: window.yuzTraSettings.language_names,
-          ajaxUrl: window.yuzTraSettings.ajax_url,
-          flagsPath: window.yuzTraSettings.flags_path,
-          nonces: window.yuzTraSettings.editor_nonces,
+          stEditorStrings: window.yuztraSettings.st_editor_strings,
+          defaultActions: window.yuztraSettings.default_actions,
+          translationStatusFilters: window.yuztraSettings.translation_status_filters,
+          config: window.yuztraSettings.config,
+          settings: window.yuztraSettings.yuztra_settings,
+          languageNames: window.yuztraSettings.language_names,
+          ajaxUrl: window.yuztraSettings.ajax_url,
+          flagsPath: window.yuztraSettings.flags_path,
+          nonces: window.yuztraSettings.editor_nonces,
           currentQuery: this.$route ? this.$route.query : {},
           presentationData: [],
           filterValues: {},
           currentPage: 1,
           wrongPageValue: false,
-          currentLanguage: yuzTraSettings.default_language,
+          currentLanguage: yuztraSettings.default_language,
           tableControls: { checkedStrings: [], selectAllOrVisible: '' },
-          rescanButtonText: window.yuzTraSettings.st_editor_strings.rescan_gettext,
+          rescanButtonText: window.yuztraSettings.st_editor_strings.rescan_gettext,
           scanningInProgress: false,
-          upgradedGettext: window.yuzTraSettings.upgraded_gettext,
-          noticeUpgradeGettext: window.yuzTraSettings.notice_upgrade_gettext,
-          noticeUpgradeSlugs: window.yuzTraSettings.notice_upgrade_slugs,
-          upsaleSlugs: window.yuzTraSettings.upsale_slugs,
-          upsaleSlugsText: window.yuzTraSettings.upsale_slugs_text,
+          upgradedGettext: window.yuztraSettings.upgraded_gettext,
+          noticeUpgradeGettext: window.yuztraSettings.notice_upgrade_gettext,
+          noticeUpgradeSlugs: window.yuztraSettings.notice_upgrade_slugs,
+          upsaleSlugs: window.yuztraSettings.upsale_slugs,
+          upsaleSlugsText: window.yuztraSettings.upsale_slugs_text,
           showFiltersAndTable: false,
           extraText: '',
           clearFilterDisabled: true,
-          translationLanguages: window.yuzTraSettings.yuz_settings['translation-languages'],
+          translationLanguages: window.yuztraSettings.yuztra_settings['translation-languages'],
           statusName: { 5: 'archived', 4: 'published', 3: 'queued', 2: 'pending_review', 1: 'machine_translated', 0: 'not_translated' },
           state: { loading: false, error: null },
           showLoadingScreen: false
         };
       },
       watch: {
-        dictionary() { window.YUZ_Assets?.log_colored?.('info', 'Dictionary updated', { dictionaryLength: this.dictionary.length }); },
+        dictionary() { window.YUZTRA_Assets?.log_colored?.('info', 'Dictionary updated', { dictionaryLength: this.dictionary.length }); },
         currentPage(newPage, oldPage) {
           if (newPage !== oldPage) {
             const page = this.validatePage(newPage);
             if (page === null) {
               this.wrongPageValue = true;
-              window.YUZ_Assets?.log_colored?.('warning', 'Invalid page number', { page: newPage });
+              window.YUZTRA_Assets?.log_colored?.('warning', 'Invalid page number', { page: newPage });
             } else {
               this.wrongPageValue = false;
               if (this.$route.query.page != page) {
                 const query = { ...this.$route.query, page };
                 this.$router.push({ path: this.$route.path, query }).catch(err => {
-                  window.YUZ_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
+                  window.YUZTRA_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
                   this.state.error = err.message;
                 });
               }
-              window.YUZ_Assets?.log_colored?.('info', 'Page changed', { newPage, oldPage });
+              window.YUZTRA_Assets?.log_colored?.('info', 'Page changed', { newPage, oldPage });
             }
           }
         },
         '$route'(to, from) {
           this.setFilterValues(); this.setExtraText(); this.changeTopofSlugs();
-          window.YUZ_Assets?.log_colored?.('info', 'Route changed', { to: to.path, from: from.path });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Route changed', { to: to.path, from: from.path });
         },
         currentLanguage() {
           this.updateColumns();
-          window.YUZ_Assets?.log_colored?.('info', 'Current language changed', { language: this.currentLanguage });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Current language changed', { language: this.currentLanguage });
         },
         'tableControls.selectAllOrVisible'() {
           this.checkedStrings = [];
           this.dictionary.forEach((_, index) => this.checkedStrings.push(index));
-          window.YUZ_Assets?.log_colored?.('info', 'Select all or visible changed', { selectAllOrVisible: this.tableControls.selectAllOrVisible });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Select all or visible changed', { selectAllOrVisible: this.tableControls.selectAllOrVisible });
         },
         checkedStrings() {
           this.$emit('input', { checkedStrings: this.checkedStrings, selectAllOrVisible: this.tableControls.selectAllOrVisible });
-          window.YUZ_Assets?.log_colored?.('info', 'Checked strings updated', { checkedStrings: this.checkedStrings });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Checked strings updated', { checkedStrings: this.checkedStrings });
         }
       },
       computed: {
         totalNumberOfPages() {
           const pages = this.totalItems === null ? 0 : Math.ceil(this.totalItems / this.config.items_per_page);
-          window.YUZ_Assets?.log_colored?.('info', 'Computed total number of pages', { pages });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Computed total number of pages', { pages });
           return pages;
         },
         numberOfColumns() {
           let count = 1;
           for (const column in this.currentTab.table_columns) {
-            if (Object.prototype.hasOwnProperty.call(this.currentTab.table_columns, column) && (this.currentLanguage !== yuzTraSettings.default_language || (this.currentLanguage === yuzTraSettings.default_language && column !== 'translated' && column !== 'id'))) count++;
+            if (Object.prototype.hasOwnProperty.call(this.currentTab.table_columns, column) && (this.currentLanguage !== yuztraSettings.default_language || (this.currentLanguage === yuztraSettings.default_language && column !== 'translated' && column !== 'id'))) count++;
           }
-          if (this.currentLanguage !== yuzTraSettings.default_language) count++;
-          window.YUZ_Assets?.log_colored?.('info', 'Computed number of columns', { count });
+          if (this.currentLanguage !== yuztraSettings.default_language) count++;
+          window.YUZTRA_Assets?.log_colored?.('info', 'Computed number of columns', { count });
           return count;
         }
       },
       created() {
         this.setFilterValues();
-        this.currentLanguage = this.filterValues.language || yuzTraSettings.default_language;
+        this.currentLanguage = this.filterValues.language || yuztraSettings.default_language;
         this.setExtraText();
         this.changeTopofSlugs();
-        window.YUZ_Assets?.log_colored?.('success', 'StringTranslation component created', { settings: this.settings });
+        window.YUZTRA_Assets?.log_colored?.('success', 'StringTranslation component created', { settings: this.settings });
       },
       mounted() {
         if (!document.getElementById('yuz-editor-container') || !window.location.href.includes('yuz-string-translation-editor')) {
-          window.YUZ_Assets?.log_colored?.('warning', 'Editor not open, skipping mount');
+          window.YUZTRA_Assets?.log_colored?.('warning', 'Editor not open, skipping mount');
           return;
         }
-        window.YUZ_Assets?.log_colored?.('info', 'StringTranslation mounted start');
-        if (!window.yuzTraSettings || !window.yuzTraSettings.yuz_settings || !window.yuzTraSettings.language_names || !window.yuzTraSettings.editor_nonces) {
-          window.YUZ_Assets?.log_colored?.('critical', 'Required yuzTraSettings are missing', {
-            yuz_settings: !!window.yuzTraSettings?.yuz_settings,
-            language_names: !!window.yuzTraSettings?.language_names,
-            editor_nonces: !!window.yuzTraSettings?.editor_nonces
+        window.YUZTRA_Assets?.log_colored?.('info', 'StringTranslation mounted start');
+        if (!window.yuztraSettings || !window.yuztraSettings.yuztra_settings || !window.yuztraSettings.language_names || !window.yuztraSettings.editor_nonces) {
+          window.YUZTRA_Assets?.log_colored?.('critical', 'Required yuztraSettings are missing', {
+            yuztra_settings: !!window.yuztraSettings?.yuztra_settings,
+            language_names: !!window.yuztraSettings?.language_names,
+            editor_nonces: !!window.yuztraSettings?.editor_nonces
           });
           alert('String translation editor cannot initialize due to missing configuration. Please check plugin settings.');
           return;
         }
         if (performance.getEntriesByType('navigation')[0]) this.changeTopofSlugs();
 
-        window.addEventListener('yuz_trigger_show_loading_table_event', this.setLoadingScreen);
-        window.addEventListener('yuz_trigger_hide_loading_table_event', this.hideLoadingScreen);
+        window.addEventListener('yuztra_trigger_show_loading_table_event', this.setLoadingScreen);
+        window.addEventListener('yuztra_trigger_hide_loading_table_event', this.hideLoadingScreen);
 
         // select2 init (utilise l'import jQuery + side-effect select2)
         $('#yuz-filter-language').select2({
@@ -579,45 +579,45 @@ const StringTranslation = {
           templateResult: (data) => {
             if (!data.element) return data.text;
             const code = data.element.value;
-            if (this.settings.floating_format.includes('flags') && window.yuzTraSettings.flags_file_name[code]) {
-              return $(`<span><img src="${this.flagsPath}${window.yuzTraSettings.flags_file_name[code]}" style="width: 16px; margin-right: 5px;">${data.text}</span>`);
+            if (this.settings.floating_format.includes('flags') && window.yuztraSettings.flags_file_name[code]) {
+              return $(`<span><img src="${this.flagsPath}${window.yuztraSettings.flags_file_name[code]}" style="width: 16px; margin-right: 5px;">${data.text}</span>`);
             }
             return data.text;
           }
         });
 
-        window.YUZ_Assets?.log_colored?.('success', 'String translation editor initialized successfully', { settings: this.settings });
+        window.YUZTRA_Assets?.log_colored?.('success', 'String translation editor initialized successfully', { settings: this.settings });
       },
       methods: {
         updateColumns() {
-          this.translationLanguages = this.currentLanguage === yuzTraSettings.default_language ? this.settings['translation-languages'] : [this.currentLanguage];
-          window.YUZ_Assets?.log_colored?.('info', 'Updated translation languages', { translationLanguages: this.translationLanguages });
+          this.translationLanguages = this.currentLanguage === yuztraSettings.default_language ? this.settings['translation-languages'] : [this.currentLanguage];
+          window.YUZTRA_Assets?.log_colored?.('info', 'Updated translation languages', { translationLanguages: this.translationLanguages });
         },
-        setLoadingScreen() { this.showLoadingScreen = true;  window.YUZ_Assets?.log_colored?.('info', 'Loading screen set'); },
-        hideLoadingScreen() { this.showLoadingScreen = false; window.YUZ_Assets?.log_colored?.('info', 'Loading screen hidden'); },
+        setLoadingScreen() { this.showLoadingScreen = true;  window.YUZTRA_Assets?.log_colored?.('info', 'Loading screen set'); },
+        hideLoadingScreen() { this.showLoadingScreen = false; window.YUZTRA_Assets?.log_colored?.('info', 'Loading screen hidden'); },
         maybeDecode(str) {
           try { return heSafe.decode(str); }
-          catch (e) { window.YUZ_Assets?.log_colored?.('warning', 'Failed to decode string', { error: e.message }); return str; }
+          catch (e) { window.YUZTRA_Assets?.log_colored?.('warning', 'Failed to decode string', { error: e.message }); return str; }
         },
         filter() {
           const query = this.buildQuery(this.filterValues);
           this.clearFilterDisabled = Object.keys(query).length === 0;
           this.$router.push({ path: this.$route.path, query }).catch(err => {
-            window.YUZ_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
+            window.YUZTRA_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
           });
-          this.currentLanguage = this.filterValues.language || yuzTraSettings.default_language;
+          this.currentLanguage = this.filterValues.language || yuztraSettings.default_language;
           this.currentPage = 1;
-          window.YUZ_Assets?.log_colored?.('info', 'Applied filter', { query });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Applied filter', { query });
         },
         clear_filter() {
           if (!this.clearFilterDisabled) {
             this.clearFilterDisabled = true;
             this.$router.push({ path: this.$route.path, query: {} }).catch(err => {
-              window.YUZ_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
+              window.YUZTRA_Assets?.log_colored?.('error', 'Router push failed', { error: err.message });
             });
-            this.currentLanguage = yuzTraSettings.default_language;
+            this.currentLanguage = yuztraSettings.default_language;
             this.currentPage = 1;
-            window.YUZ_Assets?.log_colored?.('info', 'Cleared filters');
+            window.YUZTRA_Assets?.log_colored?.('info', 'Cleared filters');
           }
         },
         buildQuery(filterValues) {
@@ -632,17 +632,17 @@ const StringTranslation = {
           }
           if (boolAddStatusToQuery) query = Object.assign(query, this.buildQueryForFilter(this.translationStatusFilters.translation_status, filterValues));
           query = Object.assign(query, this.buildQueryForFilter(this.currentTab.filters, filterValues));
-          if (filterValues.language !== yuzTraSettings.default_language) query.language = filterValues.language;
+          if (filterValues.language !== yuztraSettings.default_language) query.language = filterValues.language;
           if (filterValues.s !== '') query.s = filterValues.s;
           if (this.$route.query.order && ['asc', 'desc'].includes(this.$route.query.order)) query.order = this.$route.query.order;
           if (this.$route.query.orderby && this.currentTab.table_columns[this.$route.query.orderby]) query.orderby = this.$route.query.orderby;
-          window.YUZ_Assets?.log_colored?.('info', 'Built query for filter', { query });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Built query for filter', { query });
           return query;
         },
         buildQueryForFilter(filter, filterValues) {
           const returnQuery = {};
           for (const option_key in filter) {
-            if (Object.prototype.hasOwnProperty.call(filter, option_key) && filterValues[option_key] !== yuzTraSettings.default_language) returnQuery[option_key] = filterValues[option_key];
+            if (Object.prototype.hasOwnProperty.call(filter, option_key) && filterValues[option_key] !== yuztraSettings.default_language) returnQuery[option_key] = filterValues[option_key];
           }
           return returnQuery;
         },
@@ -653,66 +653,66 @@ const StringTranslation = {
               this.filterValues[status_key] = this.$route.query[status_key] !== undefined ? !(this.$route.query[status_key] === 'false' || this.$route.query[status_key] === false) : true;
             }
           }
-          this.filterValues.language = this.$route.query.language && this.settings['translation-languages'].includes(this.$route.query.language) ? this.$route.query.language : yuzTraSettings.default_language;
+          this.filterValues.language = this.$route.query.language && this.settings['translation-languages'].includes(this.$route.query.language) ? this.$route.query.language : yuztraSettings.default_language;
           for (const filter_key in this.currentTab.filters) {
             if (Object.prototype.hasOwnProperty.call(this.currentTab.filters, filter_key)) {
-              this.filterValues[filter_key] = this.$route.query[filter_key] && this.currentTab.filters[filter_key][this.$route.query[filter_key]] ? this.$route.query[filter_key] : (this.currentTab.filters[filter_key][yuzTraSettings.default_language] ? yuzTraSettings.default_language : Object.keys(this.currentTab.filters[filter_key])[0]);
+              this.filterValues[filter_key] = this.$route.query[filter_key] && this.currentTab.filters[filter_key][this.$route.query[filter_key]] ? this.$route.query[filter_key] : (this.currentTab.filters[filter_key][yuztraSettings.default_language] ? yuztraSettings.default_language : Object.keys(this.currentTab.filters[filter_key])[0]);
             }
           }
           this.filterValues.s = this.$route.query.s && this.$route.query.s !== '' ? this.$route.query.s : '';
           this.currentPage = this.$route.query.page && this.validatePage(this.$route.query.page) !== null ? this.validatePage(this.$route.query.page) : 1;
-          window.YUZ_Assets?.log_colored?.('info', 'Set filter values', { filterValues: this.filterValues });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Set filter values', { filterValues: this.filterValues });
         },
         validatePage(pageNumber) {
           const parsedPageNumber = parseInt(pageNumber, 10);
           const valid = (1 <= parsedPageNumber && (this.totalItems === null || parsedPageNumber <= this.totalNumberOfPages)) ? parsedPageNumber : null;
-          window.YUZ_Assets?.log_colored?.('info', 'Validated page number', { pageNumber, valid });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Validated page number', { pageNumber, valid });
           return valid;
         },
         startGettextScan() {
           this.scanningInProgress = true;
           this.rescanButtonText = this.stEditorStrings.scanning_gettext;
           this.sendAjaxToScanGettext();
-          window.YUZ_Assets?.log_colored?.('info', 'Started gettext scan');
+          window.YUZTRA_Assets?.log_colored?.('info', 'Started gettext scan');
         },
         sendAjaxToScanGettext() {
-          window.YUZ_Assets?.log_colored?.('info', 'Initiating gettext scan');
-          const opts = ajaxOptionsFor('yuz_scan_gettext');
+          window.YUZTRA_Assets?.log_colored?.('info', 'Initiating gettext scan');
+          const opts = ajaxOptionsFor('yuztra_scan_gettext');
           $.ajax({
-            url: yuzTraSettings.ajax_url,
+            url: yuztraSettings.ajax_url,
             type: 'POST',
             dataType: 'json',
             timeout: opts.timeout,
-            data: { action: 'yuz_scan_gettext', ...nonceFields('yuz_scan_gettext') },
+            data: { action: 'yuztra_scan_gettext', ...nonceFields('yuztra_scan_gettext') },
             success: (response) => {
               if (response.success && response.data.progress_message) {
                 if (response.data.completed === true) {
                   this.rescanButtonText = this.stEditorStrings.gettext_scan_completed;
                   this.scanningInProgress = false;
-                  window.YUZ_Assets?.log_colored?.('success', 'Gettext scan completed', { response: response.data });
+                  window.YUZTRA_Assets?.log_colored?.('success', 'Gettext scan completed', { response: response.data });
                 } else {
                   this.rescanButtonText = response.data.progress_message;
                   this.sendAjaxToScanGettext();
-                  window.YUZ_Assets?.log_colored?.('info', 'Gettext scan in progress', { progress_message: response.data.progress_message });
+                  window.YUZTRA_Assets?.log_colored?.('info', 'Gettext scan in progress', { progress_message: response.data.progress_message });
                 }
               } else {
                 this.rescanButtonText = this.stEditorStrings.gettext_scan_error;
                 this.scanningInProgress = false;
-                window.YUZ_Assets?.log_colored?.('critical', 'Gettext scan failed', { response: response.data });
+                window.YUZTRA_Assets?.log_colored?.('critical', 'Gettext scan failed', { response: response.data });
               }
             },
             error: (xhr) => {
               this.rescanButtonText = this.stEditorStrings.gettext_scan_error;
               this.scanningInProgress = false;
               this.state.error = xhr.responseText;
-              window.YUZ_Assets?.log_colored?.('critical', 'Error during gettext scan', { error: xhr.responseText });
+              window.YUZTRA_Assets?.log_colored?.('critical', 'Error during gettext scan', { error: xhr.responseText });
             },
             complete: (_xhr, status) => {
               if (status === 'timeout') {
                 this.rescanButtonText = this.stEditorStrings.gettext_scan_error;
                 this.scanningInProgress = false;
                 this.state.error = 'Timeout';
-                window.YUZ_Assets?.log_colored?.('critical', 'AJAX timeout for gettext scan', { timeout: opts.timeout });
+                window.YUZTRA_Assets?.log_colored?.('critical', 'AJAX timeout for gettext scan', { timeout: opts.timeout });
               }
             }
           });
@@ -724,12 +724,12 @@ const StringTranslation = {
           this.extraText = !this.currentTab.type && this.noticeUpgradeSlugs ? this.noticeUpgradeSlugs : this.extraText;
           const query = this.buildQuery(this.filterValues);
           this.clearFilterDisabled = Object.keys(query).length === 0;
-          window.YUZ_Assets?.log_colored?.('info', 'Set extra text', { showFiltersAndTable: this.showFiltersAndTable, extraText: this.extraText });
+          window.YUZTRA_Assets?.log_colored?.('info', 'Set extra text', { showFiltersAndTable: this.showFiltersAndTable, extraText: this.extraText });
         },
         changeTopofSlugs() {
           if (location.href.match(/#\/slugs/)) { $('.yuz-translation-status-container').css('margin-block-start', '0em'); }
           else { $('.yuz-translation-status-container').css('margin-block-start', '4em'); }
-          window.YUZ_Assets?.log_colored?.('info', 'Adjusted slugs margin');
+          window.YUZTRA_Assets?.log_colored?.('info', 'Adjusted slugs margin');
         }
       }
     }
@@ -745,41 +745,41 @@ const StringTranslation = {
 // ————————————————————————————————————————————————————————————————————————————————
 function buildRoutes() {
   const routes = [];
-  if (window.yuzTraSettings?.string_types_config) {
-    for (const yuz_path_index in window.yuzTraSettings.string_types_config) {
-      const cfg = window.yuzTraSettings.string_types_config[yuz_path_index];
+  if (window.yuztraSettings?.string_types_config) {
+    for (const yuztra_path_index in window.yuztraSettings.string_types_config) {
+      const cfg = window.yuztraSettings.string_types_config[yuztra_path_index];
       if (cfg.category_based) {
         routes.push({
-          path: `/${yuz_path_index}/`,
+          path: `/${yuztra_path_index}/`,
           component: StringTranslation,
           props: {
             translationTab: true,
             translationType: Object.keys(cfg.categories)[0],
             currentTab: cfg.categories[Object.keys(cfg.categories)[0]],
             parentTab: cfg,
-            parentTranslationType: yuz_path_index
+            parentTranslationType: yuztra_path_index
           }
         });
         for (const cat in cfg.categories) {
           routes.push({
-            path: `/${yuz_path_index}/${cat}/`,
+            path: `/${yuztra_path_index}/${cat}/`,
             component: StringTranslation,
             props: {
               translationTab: true,
               translationType: cat,
               currentTab: cfg.categories[cat],
               parentTab: cfg,
-              parentTranslationType: yuz_path_index
+              parentTranslationType: yuztra_path_index
             }
           });
         }
       } else {
         routes.push({
-          path: `/${yuz_path_index}/`,
+          path: `/${yuztra_path_index}/`,
           component: StringTranslation,
           props: {
             translationTab: true,
-            translationType: yuz_path_index,
+            translationType: yuztra_path_index,
             currentTab: cfg,
             parentTab: false,
             parentTranslationType: false
@@ -796,7 +796,7 @@ function buildRoutes() {
 // Boot robuste (UMD→ESM, WP admin, fallback de rendu)
 // ————————————————————————————————————————————————————————————————————————————————
 function hardFail(msg, extra = {}) {
-  try { window.YUZ_Assets?.log_colored?.('critical', msg, extra); } catch(_) {}
+  try { window.YUZTRA_Assets?.log_colored?.('critical', msg, extra); } catch(_) {}
   console.error('[YUZ::fatal]', msg, extra);
   alert('String translation editor cannot initialize.\n\n' + msg);
 }
@@ -831,13 +831,13 @@ function bootstrap() {
   const mustRender = !el.querySelector('yuz-string-translation');
 
   try {
-    window.YUZ_StringTranslationApp = new Vue({
+    window.YUZTRA_StringTranslationApp = new Vue({
       el: '#yuz-editor-container',
       router,
       // Utilise render systématiquement : fiable que le tag soit présent ou non
       render: (h) => h(StringTranslation)
     });
-    window.YUZ_Assets?.log_colored?.('success', 'YUZ String Translation App mounted');
+    window.YUZTRA_Assets?.log_colored?.('success', 'YUZ String Translation App mounted');
   } catch (e) {
     return hardFail('Montage Vue a échoué', { error: e?.message, mustRender });
   }
@@ -845,8 +845,8 @@ function bootstrap() {
 
 // Attend la config WP (localisée par PHP)
 function waitForConfig() {
-  try { window.YUZ_Assets?.log_colored?.('info', 'waitForConfig'); } catch(_) {}
-  if (window.yuzTraSettings && typeof window.yuzTraSettings === 'object') {
+  try { window.YUZTRA_Assets?.log_colored?.('info', 'waitForConfig'); } catch(_) {}
+  if (window.yuztraSettings && typeof window.yuztraSettings === 'object') {
     bootstrap();
   } else {
     setTimeout(waitForConfig, 100);

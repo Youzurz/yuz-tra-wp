@@ -3,11 +3,11 @@
  * Translate Site — admin tab & light front usage.
  *
  * Discipline:
- *  - ACT-03: ne lit que les données localisées pour CE module → window.yuzTS
- *  - ACT-05: aucune dépendance aux objets d’autres onglets (pas de yuzTraSettings)
+ *  - ACT-03: ne lit que les données localisées pour CE module → window.yuztraTS
+ *  - ACT-05: aucune dépendance aux objets d’autres onglets (pas de yuztraSettings)
  *
  * Localisation attendue (côté PHP - handle: 'yuz-translation-site'):
- *   window.yuzTS = {
+ *   window.yuztraTS = {
  *     ajax_url: "...",
  *     nonces: {
  *       yuz_tra_ts_get_settings:     "...",
@@ -25,19 +25,19 @@
   // ---- Guards
   if (!window || !document) return;
   // Tolerant bootstrap: allow late localization (fallback attached to yuz-global)
-  let Y = window.yuzTS;
+  let Y = window.yuztraTS;
   if (Y) {
-    console.log('[YUZ][SITE] bootstrap global yuzTS', { hasNonces: !!(Y.nonces && Object.keys(Y.nonces||{}).length), nonceKeys: Object.keys(Y.nonces || {}) });
+    console.log('[YUZ][SITE] bootstrap global yuztraTS', { hasNonces: !!(Y.nonces && Object.keys(Y.nonces||{}).length), nonceKeys: Object.keys(Y.nonces || {}) });
   }
-  // Fallback: build from yuzTraSettings/yuzAS when localization was blocked by CSP
+  // Fallback: build from yuztraSettings/yuztraAS when localization was blocked by CSP
   function buildFromGlobalFallback() {
     try {
-      const G = window.yuzTraSettings || window.yuzAS || {};
-      const ajax_url = G.ajax_url || (G.settings && G.settings.ajax_url) || (window.ajaxurl || '/wp-admin/admin-ajax.php');
+      const G = window.yuztraSettings || window.yuztraAS || {};
+      const ajax_url = G.ajax_url || (G.settings && G.settings.ajax_url) || (window.ajaxurl || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })());
       const nonces   = (G.nonces && typeof G.nonces === 'object') ? G.nonces : {};
       // Require at least the two TS nonces
-      if (!nonces['yuz_tra_ts_get_settings'] && !nonces['yuz_tra_ts_upd_settings']) return null;
-      console.log('[YUZ][SITE] fallback constructed from yuzTraSettings/yuzAS', { ajax_url, nonceKeys: Object.keys(nonces || {}) });
+      if (!nonces['yuztra_ts_get_settings'] && !nonces['yuztra_ts_upd_settings']) return null;
+      console.log('[YUZ][SITE] fallback constructed from yuztraSettings/yuztraAS', { ajax_url, nonceKeys: Object.keys(nonces || {}) });
       return { ajax_url, nonces, site_settings: (G.site_settings || {}) };
     } catch(_) { return null; }
   }
@@ -48,16 +48,16 @@
       Y = fb;
     }
     document.addEventListener('DOMContentLoaded', function () {
-      if (!Y && window.yuzTS) {
+      if (!Y && window.yuztraTS) {
         // If it appears late, initialize now
-        Y = window.yuzTS;
-        console.log('[YUZ][SITE] bootstrap late yuzTS', { nonceKeys: Object.keys(Y.nonces || {}) });
+        Y = window.yuztraTS;
+        console.log('[YUZ][SITE] bootstrap late yuztraTS', { nonceKeys: Object.keys(Y.nonces || {}) });
       } else if (!Y) {
         const fb2 = buildFromGlobalFallback();
         if (fb2) { Y = fb2; }
       }
       if (Y) {
-        console.log('[YUZ][SITE] init with yuzTS', { nonceKeys: Object.keys(Y.nonces || {}) });
+        console.log('[YUZ][SITE] init with yuztraTS', { nonceKeys: Object.keys(Y.nonces || {}) });
         try { fetchAndInit(); bindChangeHandlers(); bindTranslateNow(); } catch (_) {}
       }
     });
@@ -66,7 +66,7 @@
   }
 
   if (!Y.ajax_url) {
-    console.error('[YUZ][SITE] ajax_url manquant dans yuzTS. Abandon.');
+    console.error('[YUZ][SITE] ajax_url manquant dans yuztraTS. Abandon.');
     return;
   }
 
@@ -91,10 +91,10 @@
 
   // ---- Actions / nonces
   const ACTION = {
-    TS_GET   : 'yuz_tra_ts_get_settings',
-    TS_UPD   : 'yuz_tra_ts_upd_settings',
-    TS_FULL  : 'yuz_tra_ts_cre_fulltra',
-    TS_START : 'yuz_tra_ts_start_translation',
+    TS_GET   : 'yuztra_ts_get_settings',
+    TS_UPD   : 'yuztra_ts_upd_settings',
+    TS_FULL  : 'yuztra_ts_cre_fulltra',
+    TS_START : 'yuztra_ts_start_translation',
   };
   function nonceFor(action) {
     if (Y && Y.nonces && Y.nonces[action]) return Y.nonces[action];
@@ -104,19 +104,19 @@
   // ---- Selectors (admin onglet)
   const SEL = {
     form                      : 'form#yuz-translate-site-form',
-    enable_extra_languages    : '#yuz_tra_ts_settings\\[enable_extra_languages\\]',
+    enable_extra_languages    : '#yuztra_ts_settings\\[enable_extra_languages\\]',
     // Support both legacy and current names for the AI toggle
     // Prefer current 'enable_ai' but accept legacy 'enable_youzuruz'
-    enable_ai                 : '#yuz_tra_ts_settings\\[enable_ai\\], #yuz_tra_ts_settings\\[enable_youzuruz\\]',
-    translate_seo             : '#yuz_tra_ts_settings\\[translate_seo\\]',
-    require_complete          : '#yuz_tra_ts_settings\\[require_complete\\]',
-    user_role_emulation       : '#yuz_tra_ts_settings\\[user_role_emulation\\]',
-    menu_per_lang             : '#yuz_tra_ts_settings\\[menu_per_lang\\]',
-    browser_language_detect   : '#yuz_tra_ts_settings\\[browser_language_detect\\]',
-    block_browser_translation : '#yuz_tra_ts_settings\\[block_browser_translation\\]',
-    translation_mode          : '#yuz_tra_ts_settings\\[translation_mode\\]',
-    allowed_roles             : '#yuz_tra_allowed_roles',
-    translate_now_btn         : '#yuz_tra_translate_now',
+    enable_ai                 : '#yuztra_ts_settings\\[enable_ai\\], #yuztra_ts_settings\\[enable_youzuruz\\]',
+    translate_seo             : '#yuztra_ts_settings\\[translate_seo\\]',
+    require_complete          : '#yuztra_ts_settings\\[require_complete\\]',
+    user_role_emulation       : '#yuztra_ts_settings\\[user_role_emulation\\]',
+    menu_per_lang             : '#yuztra_ts_settings\\[menu_per_lang\\]',
+    browser_language_detect   : '#yuztra_ts_settings\\[browser_language_detect\\]',
+    block_browser_translation : '#yuztra_ts_settings\\[block_browser_translation\\]',
+    translation_mode          : '#yuztra_ts_settings\\[translation_mode\\]',
+    allowed_roles             : '#yuztra_allowed_roles',
+    translate_now_btn         : '#yuztra_translate_now',
     // zone conditionnelle
     row_translate_seo         : '.yuz-row-translate-seo'
   };
@@ -157,7 +157,7 @@
           if (!isAdminAjax) return;
           const params = typeof settings.data === 'string' ? Object.fromEntries(new URLSearchParams(settings.data)) : (settings.data||{});
           const action = params.action || '';
-          if (!/^yuz_tra_ts_/.test(action)) return; // only this module
+          if (!/^yuztra_ts_/.test(action)) return; // only this module
           log('info','[TRACE][SEND]', { action, cid: params.cid||'(none)' });
         } catch(_) {}
       });
@@ -167,7 +167,7 @@
           if (!isAdminAjax) return;
           const params = typeof settings.data === 'string' ? Object.fromEntries(new URLSearchParams(settings.data)) : (settings.data||{});
           const action = params.action || '';
-          if (!/^yuz_tra_ts_/.test(action)) return;
+          if (!/^yuztra_ts_/.test(action)) return;
           log('info','[TRACE][COMPLETE]', { action, cid: params.cid||'(none)' });
         } catch(_) {}
       });
@@ -233,11 +233,11 @@
     if (!$table.length) return;
     const row = (
       '<tr class="yuz-row-translation-mode">' +
-      ' <th scope="row"><label for="yuz_tra_ts_settings_translation_mode">' +
+      ' <th scope="row"><label for="yuztra_ts_settings_translation_mode">' +
       '   Translation Mode' +
       ' </label></th>' +
       ' <td>' +
-      '   <select id="yuz_tra_ts_settings_translation_mode" name="yuz_tra_ts_settings[translation_mode]" style="min-width:200px">' +
+      '   <select id="yuztra_ts_settings_translation_mode" name="yuztra_ts_settings[translation_mode]" style="min-width:200px">' +
       '     <option value="half">Half (interactive)</option>' +
       '     <option value="full">Full (automatic)</option>' +
       '   </select>' +
@@ -246,7 +246,7 @@
       '</tr>'
     );
     // Insert after AI row if present, else at end
-    const $aiRow = $table.find('tr:has(#yuz_tra_ts_settings\\[enable_ai\\])').first();
+    const $aiRow = $table.find('tr:has(#yuztra_ts_settings\\[enable_ai\\])').first();
     if ($aiRow.length) { $(row).insertAfter($aiRow); }
     else { $table.append(row); }
   }
@@ -270,7 +270,7 @@
       SEL.allowed_roles,
       SEL.translation_mode
     ].join(', ');
-    $(document).off('change.yuzTS').on('change.yuzTS', inputs, function () {
+    $(document).off('change.yuztraTS').on('change.yuztraTS', inputs, function () {
       if (this === $(SEL.enable_ai)[0]) toggleFields();
       const settings = collectSettings();
       log('info','[YUZ][SITE] Update settings payload', settings);
@@ -288,7 +288,7 @@
     });
 
     // Submit formulaire (si présent)
-    $(document).off('submit.yuzTS', SEL.form).on('submit.yuzTS', SEL.form, function (e) {
+    $(document).off('submit.yuztraTS', SEL.form).on('submit.yuztraTS', SEL.form, function (e) {
       e.preventDefault();
       const settings = collectSettings();
       postAction(ACTION.TS_UPD, { site_settings: settings })
@@ -304,14 +304,14 @@
   }
 
   function bindTranslateNow() {
-    $(document).off('click.yuzTS', SEL.translate_now_btn).on('click.yuzTS', SEL.translate_now_btn, function (e) {
+    $(document).off('click.yuztraTS', SEL.translate_now_btn).on('click.yuztraTS', SEL.translate_now_btn, function (e) {
       e.preventDefault();
 
       // Redirection front-first avec ?yuz-edit-translation=1
       // 1) Essaye dernière page front mémorisée
       let target = null;
       try {
-        const last = localStorage.getItem('yuz_last_page');
+        const last = localStorage.getItem('yuztra_last_page');
         if (last && !/\/wp-admin\//.test(last)) target = last;
       } catch(_) {}
       // 2) Sinon, utilisez l'URL fournie (home)
@@ -328,7 +328,7 @@
   }
 
   function fetchAndInit() {
-    // Pré-hydrate depuis yuzTS.site_settings si déjà fourni
+    // Pré-hydrate depuis yuztraTS.site_settings si déjà fourni
     if (Y.site_settings && $(SEL.form).length) {
       hydrateSettings(Y.site_settings);
     }

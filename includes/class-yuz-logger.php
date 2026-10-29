@@ -67,10 +67,10 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 use YUZTRA\Interfaces\LoggerInterface;
-if (!class_exists('YUZ_Logger')) {
-    class YUZ_Logger implements LoggerInterface {
+if (!class_exists('YUZTRA_Logger')) {
+    class YUZTRA_Logger implements LoggerInterface {
         // ---------- Defaults (peuvent être surchargés par options WP ou constantes) ----------
         private const DEFAULT_LEVEL = 'warning'; // debug|info|success|warning|error|critical
         private const DEFAULT_MAX_BYTES = 2_097_152; // 2 MB
@@ -105,25 +105,34 @@ if (!class_exists('YUZ_Logger')) {
             // Rien d'agressif ici: on laisse le ctor créer le fichier à la volée.
         }
         public function __construct(?string $file = null) {
-            // 1) Fichier de log (constante > option > défaut uploads/)
+            // 1) Private database log by default. A custom file must be outside web roots.
             $uploads = function_exists('wp_upload_dir') ? wp_upload_dir() : ['basedir' => WP_CONTENT_DIR . '/uploads'];
-            $defaultPath = rtrim($uploads['basedir'] ?? (WP_CONTENT_DIR . '/uploads'), '/').'/yuz-log.log';
-            $selectedFile = defined('YUZ_TRA_LOG_FILE') && is_string(YUZ_TRA_LOG_FILE) && YUZ_TRA_LOG_FILE
-                ? YUZ_TRA_LOG_FILE
-                : ($file ?: $defaultPath);
-            $fallbackPath = rtrim($uploads['basedir'] ?? (WP_CONTENT_DIR . '/uploads'), '/') . '/yuz-logs/yuz-log.log';
-            $tempPath = rtrim(sys_get_temp_dir(), '/') . '/yuz-tra.log';
-            $this->file = $this->resolveWritableLogFile([$selectedFile, $fallbackPath, $tempPath]);
+            $selectedFile = defined('YUZTRA_LOG_FILE') && is_string(YUZTRA_LOG_FILE) && YUZTRA_LOG_FILE
+                ? YUZTRA_LOG_FILE
+                : ($file ?: '');
+            $this->file = '';
+            $parent = $selectedFile !== '' ? realpath(dirname($selectedFile)) : false;
+            if ($parent !== false) {
+                $resolved = realpath($selectedFile) ?: $parent . '/' . basename($selectedFile);
+                $private = true;
+                $document_root = is_string($_SERVER['DOCUMENT_ROOT'] ?? null)
+                    ? sanitize_text_field(wp_unslash($_SERVER['DOCUMENT_ROOT'])) : '';
+                foreach ([ABSPATH, WP_CONTENT_DIR, $uploads['basedir'] ?? '', $document_root] as $web_root) {
+                    $root = $web_root !== '' ? realpath($web_root) : false;
+                    if ($root !== false && ($resolved === $root || strpos($resolved, rtrim($root, '/') . '/') === 0)) $private = false;
+                }
+                if ($private) $this->file = $this->resolveWritableLogFile([$resolved]);
+            }
             // 2) Niveau (constante > option > défaut)
-            $optLevel = function_exists('get_option') ? (string) get_option('yuz_tra_log_level', self::DEFAULT_LEVEL) : self::DEFAULT_LEVEL;
-            $this->setLevel(defined('YUZ_TRA_LOG_LEVEL') ? (string) YUZ_TRA_LOG_LEVEL : $optLevel);
+            $optLevel = function_exists('get_option') ? (string) get_option('yuztra_log_level', self::DEFAULT_LEVEL) : self::DEFAULT_LEVEL;
+            $this->setLevel(defined('YUZTRA_LOG_LEVEL') ? (string) YUZTRA_LOG_LEVEL : $optLevel);
             // 3) Limites/ratelimit/context caps
-            $this->maxBytes = (int) (defined('YUZ_TRA_LOG_MAX_BYTES') ? YUZ_TRA_LOG_MAX_BYTES : (function_exists('get_option') ? (int) get_option('yuz_tra_log_max_bytes', self::DEFAULT_MAX_BYTES) : self::DEFAULT_MAX_BYTES));
-            $this->maxFiles = (int) (defined('YUZ_TRA_LOG_MAX_FILES') ? YUZ_TRA_LOG_MAX_FILES : (function_exists('get_option') ? (int) get_option('yuz_tra_log_max_files', self::DEFAULT_MAX_FILES) : self::DEFAULT_MAX_FILES));
-            $this->rateWindow = (int) (defined('YUZ_TRA_LOG_RATE_WINDOW') ? YUZ_TRA_LOG_RATE_WINDOW : (function_exists('get_option') ? (int) get_option('yuz_tra_log_rate_window', self::DEFAULT_RATE_WINDOW) : self::DEFAULT_RATE_WINDOW));
-            $this->rateMax = (int) (defined('YUZ_TRA_LOG_RATE_MAX') ? YUZ_TRA_LOG_RATE_MAX : (function_exists('get_option') ? (int) get_option('yuz_tra_log_rate_max', self::DEFAULT_RATE_MAX) : self::DEFAULT_RATE_MAX));
-            $this->ctxMaxLen = (int) (defined('YUZ_TRA_LOG_CTX_MAXLEN') ? YUZ_TRA_LOG_CTX_MAXLEN : (function_exists('get_option') ? (int) get_option('yuz_tra_log_ctx_maxlen', self::DEFAULT_CTX_MAXLEN) : self::DEFAULT_CTX_MAXLEN));
-            $this->ctxMaxKeys = (int) (defined('YUZ_TRA_LOG_CTX_MAXKEYS') ? YUZ_TRA_LOG_CTX_MAXKEYS : (function_exists('get_option') ? (int) get_option('yuz_tra_log_ctx_maxkeys', self::DEFAULT_CTX_MAXKEYS) : self::DEFAULT_CTX_MAXKEYS));
+            $this->maxBytes = (int) (defined('YUZTRA_LOG_MAX_BYTES') ? YUZTRA_LOG_MAX_BYTES : (function_exists('get_option') ? (int) get_option('yuztra_log_max_bytes', self::DEFAULT_MAX_BYTES) : self::DEFAULT_MAX_BYTES));
+            $this->maxFiles = (int) (defined('YUZTRA_LOG_MAX_FILES') ? YUZTRA_LOG_MAX_FILES : (function_exists('get_option') ? (int) get_option('yuztra_log_max_files', self::DEFAULT_MAX_FILES) : self::DEFAULT_MAX_FILES));
+            $this->rateWindow = (int) (defined('YUZTRA_LOG_RATE_WINDOW') ? YUZTRA_LOG_RATE_WINDOW : (function_exists('get_option') ? (int) get_option('yuztra_log_rate_window', self::DEFAULT_RATE_WINDOW) : self::DEFAULT_RATE_WINDOW));
+            $this->rateMax = (int) (defined('YUZTRA_LOG_RATE_MAX') ? YUZTRA_LOG_RATE_MAX : (function_exists('get_option') ? (int) get_option('yuztra_log_rate_max', self::DEFAULT_RATE_MAX) : self::DEFAULT_RATE_MAX));
+            $this->ctxMaxLen = (int) (defined('YUZTRA_LOG_CTX_MAXLEN') ? YUZTRA_LOG_CTX_MAXLEN : (function_exists('get_option') ? (int) get_option('yuztra_log_ctx_maxlen', self::DEFAULT_CTX_MAXLEN) : self::DEFAULT_CTX_MAXLEN));
+            $this->ctxMaxKeys = (int) (defined('YUZTRA_LOG_CTX_MAXKEYS') ? YUZTRA_LOG_CTX_MAXKEYS : (function_exists('get_option') ? (int) get_option('yuztra_log_ctx_maxkeys', self::DEFAULT_CTX_MAXKEYS) : self::DEFAULT_CTX_MAXKEYS));
             // 5) Flush de fin si besoin (aujourd’hui inutile: on flush par fenêtre)
             if (!self::$shutdownHooked && function_exists('add_action')) {
                 self::$shutdownHooked = true;
@@ -137,7 +146,7 @@ if (!class_exists('YUZ_Logger')) {
         }
         public function log(string $level, string $message, array $context = []): void {
             // Coupe-circuit global
-            if (defined('YUZ_TRA_LOG_DISABLED') && YUZ_TRA_LOG_DISABLED) return;
+            if (defined('YUZTRA_LOG_DISABLED') && YUZTRA_LOG_DISABLED) return;
             // Seuil
             $lvlNum = self::LEVELS[strtolower($level)] ?? self::LEVELS[self::DEFAULT_LEVEL];
             if ($lvlNum < self::LEVELS[$this->level]) return;
@@ -179,7 +188,7 @@ if (!class_exists('YUZ_Logger')) {
         }
         private function write(string $level, string $message, array $context): void {
             // Rotation (hard cap taille)
-            $this->rotateIfNeeded();
+            if ($this->file !== '') $this->rotateIfNeeded();
             // Cap du contexte (taille + nombre de clés, pour éviter 1 ligne avec 5 Mo)
             if (!empty($context)) {
                 if (count($context) > $this->ctxMaxKeys) {
@@ -206,9 +215,15 @@ if (!class_exists('YUZ_Logger')) {
                 $message,
                 empty($context) ? '' : (' ' . json_encode($context, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))
             );
+            if ($this->file === '') {
+                $records = (array) get_option('yuztra_private_log', []);
+                $records[] = substr($line, 0, 8000);
+                update_option('yuztra_private_log', array_slice($records, -200), false);
+                return;
+            }
             // Écriture avec verrou pour éviter la corruption.
             if (@file_put_contents($this->file, $line, FILE_APPEND | LOCK_EX) === false) {
-                error_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
+                yuztra_debug_log('🟨 [WARNING] YUZ-TRA: cannot write log file: ' . $this->file);
                 return;
             }
         }
@@ -262,7 +277,7 @@ if (!class_exists('YUZ_Logger')) {
                 }
             }
 
-            return (string) reset($candidates);
+            return '';
         }
 
         private function prepareLogFile(string $path): bool {

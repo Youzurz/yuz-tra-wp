@@ -7,8 +7,8 @@
 
 defined('ABSPATH') || exit;
 
-if (!class_exists('YUZ_Context')) {
-    final class YUZ_Context {
+if (!class_exists('YUZTRA_Context')) {
+    final class YUZTRA_Context {
         /**
          * Canonicalise a context key so editor/runtime share the same lookup.
          */

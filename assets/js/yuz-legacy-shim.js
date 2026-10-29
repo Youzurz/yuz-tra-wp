@@ -1,13 +1,13 @@
 (function(){
   try {
-    if(!window.yuzTraSettings){
-      Object.defineProperty(window,'yuzTraSettings',{
+    if(!window.yuztraSettings){
+      Object.defineProperty(window,'yuztraSettings',{
         get:function(){
-          console.warn('[YUZ] Legacy read-only shim: use yuzGS');
-          return window.yuzGS||{};
+          console.warn('[YUZ] Legacy read-only shim: use yuztraGS');
+          return window.yuztraGS||{};
         },
         set:function(){
-          console.warn('[YUZ] Blocked overwrite of yuzTraSettings');
+          console.warn('[YUZ] Blocked overwrite of yuztraSettings');
         }
       });
     }

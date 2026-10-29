@@ -8,8 +8,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'helpers/lang-helpers.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'helpers/lang-helpers.php';
 
 use YUZTRA\Interfaces\UrlConverterInterface;
 
@@ -78,7 +78,7 @@ use YUZTRA\Interfaces\UrlConverterInterface;
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 
-class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
+class YUZTRA_Url_Converter implements UrlConverterInterface // ici (20)
 {
     /** @var mixed|null */
     private $settings;
@@ -124,8 +124,8 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         $lvl = strtolower((string)$level);
         if (!isset($LEVELS[$lvl])) { $lvl = 'info'; }
         $threshold = 'warning';
-        if (defined('YUZ_TRA_LOG_LEVEL') && is_string(YUZ_TRA_LOG_LEVEL) && isset($LEVELS[strtolower(YUZ_TRA_LOG_LEVEL)])) {
-            $threshold = strtolower(YUZ_TRA_LOG_LEVEL);
+        if (defined('YUZTRA_LOG_LEVEL') && is_string(YUZTRA_LOG_LEVEL) && isset($LEVELS[strtolower(YUZTRA_LOG_LEVEL)])) {
+            $threshold = strtolower(YUZTRA_LOG_LEVEL);
         } elseif (defined('WP_DEBUG') && WP_DEBUG) {
             $threshold = 'info';
         }
@@ -140,7 +140,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         ];
         $prefix = $prefixes[$lvl] ?? $prefixes['info'];
         $suffix = $ctx ? ' | Context: ' . wp_json_encode($ctx) : '';
-        error_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
+        yuztra_debug_log("YUZ-TRA: {$prefix} {$message}{$suffix} at " . current_time('mysql'));
     }
 
     /* ---------------------------- SETTINGS HELPERS --------------------------- */
@@ -151,7 +151,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         if (is_object($this->settings)) {
             try {
                 if (method_exists($this->settings, 'get_option')) {
-                    $all = (array) $this->settings->get_option('yuz_tra_all_settings');
+                    $all = (array) $this->settings->get_option('yuztra_all_settings');
                     if (!empty($all)) {
                         return $this->ensure_settings_shape($all);
                     }
@@ -161,25 +161,25 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
             }
             // Fallback: compose from standalone options if consolidated is absent
             try {
-                $general  = (array) get_option('yuz_tra_general', []);
-                $switch   = (array) get_option('yuz_tra_switcher', []);
-                $site     = (array) get_option('yuz_tra_site_settings', []);
-                $extra    = (array) get_option('yuz_tra_settings', []);
-                $language = (array) get_option('yuz_tra_language_settings', []);
+                $general  = (array) get_option('yuztra_general', []);
+                $switch   = (array) get_option('yuztra_switcher', []);
+                $site     = (array) get_option('yuztra_site_settings', []);
+                $extra    = (array) get_option('yuztra_settings', []);
+                $language = (array) get_option('yuztra_language_settings', []);
 
                 return $this->ensure_settings_shape([
-                    'yuz_tra_general'           => $general,
-                    'yuz_tra_switcher'          => $switch,
-                    'yuz_tra_site_settings'     => $site,
-                    'yuz_tra_settings'          => $extra,
-                    'yuz_tra_language_settings' => $language,
+                    'yuztra_general'           => $general,
+                    'yuztra_switcher'          => $switch,
+                    'yuztra_site_settings'     => $site,
+                    'yuztra_settings'          => $extra,
+                    'yuztra_language_settings' => $language,
                 ]);
             } catch (\Throwable $e) {
                 // swallow and try consolidated option below
             }
         }
 
-        $all = yuz_settings_get_all();
+        $all = yuztra_settings_get_all();
         $all = is_array($all) ? $all : [];
 
         return $this->ensure_settings_shape($all);
@@ -188,30 +188,30 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
     private function ensure_settings_shape(array $all): array
     {
         $defaults = [
-            'yuz_tra_general'           => [],
-            'yuz_tra_switcher'          => [],
-            'yuz_tra_site_settings'     => [],
-            'yuz_tra_settings'          => [],
-            'yuz_tra_language_settings' => [],
+            'yuztra_general'           => [],
+            'yuztra_switcher'          => [],
+            'yuztra_site_settings'     => [],
+            'yuztra_settings'          => [],
+            'yuztra_language_settings' => [],
         ];
 
         foreach ($defaults as $key => $base) {
             if (!isset($all[$key]) || !is_array($all[$key])) {
                 switch ($key) {
-                    case 'yuz_tra_general':
-                        $all[$key] = (array) get_option('yuz_tra_general', []);
+                    case 'yuztra_general':
+                        $all[$key] = (array) get_option('yuztra_general', []);
                         break;
-                    case 'yuz_tra_switcher':
-                        $all[$key] = (array) get_option('yuz_tra_switcher', []);
+                    case 'yuztra_switcher':
+                        $all[$key] = (array) get_option('yuztra_switcher', []);
                         break;
-                    case 'yuz_tra_site_settings':
-                        $all[$key] = (array) get_option('yuz_tra_site_settings', []);
+                    case 'yuztra_site_settings':
+                        $all[$key] = (array) get_option('yuztra_site_settings', []);
                         break;
-                    case 'yuz_tra_settings':
-                        $all[$key] = (array) get_option('yuz_tra_settings', []);
+                    case 'yuztra_settings':
+                        $all[$key] = (array) get_option('yuztra_settings', []);
                         break;
-                    case 'yuz_tra_language_settings':
-                        $all[$key] = (array) get_option('yuz_tra_language_settings', []);
+                    case 'yuztra_language_settings':
+                        $all[$key] = (array) get_option('yuztra_language_settings', []);
                         break;
                     default:
                         $all[$key] = $base;
@@ -228,9 +228,9 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
     {
         $all = $this->get_all_settings();
         $candidates = [
-            $all['yuz_tra_general']['yuz_tra_default_language'] ?? null,
-            $all['yuz_tra_language_settings']['default_language'] ?? null,
-            $all['yuz_tra_settings']['default_language'] ?? null,
+            $all['yuztra_general']['yuztra_default_language'] ?? null,
+            $all['yuztra_language_settings']['default_language'] ?? null,
+            $all['yuztra_settings']['default_language'] ?? null,
         ];
 
         foreach ($candidates as $candidate) {
@@ -250,9 +250,9 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
     {
         $all = $this->get_all_settings();
         $candidates = [
-            $all['yuz_tra_general']['yuz_tra_source_language'] ?? null,
-            $all['yuz_tra_language_settings']['source_language'] ?? null,
-            $all['yuz_tra_settings']['source_language'] ?? null,
+            $all['yuztra_general']['yuztra_source_language'] ?? null,
+            $all['yuztra_language_settings']['source_language'] ?? null,
+            $all['yuztra_settings']['source_language'] ?? null,
         ];
 
         foreach ($candidates as $candidate) {
@@ -272,7 +272,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
     private function get_translatable_locales(): array
     {
         $all = $this->get_all_settings();
-        $arr = $all['yuz_tra_general']['yuz_tra_translatable_languages'] ?? [];
+        $arr = $all['yuztra_general']['yuztra_translatable_languages'] ?? [];
         $locales = array_values(array_filter(is_array($arr) ? $arr : []));
 
         // Filet de sécurité : toujours inclure les langues source et par défaut pour éviter les switchers incomplets
@@ -325,19 +325,19 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
         $all = $this->get_all_settings();
         $maps = [];
 
-        $general_map = $all['yuz_tra_general']['yuz_tra_slug'] ?? [];
+        $general_map = $all['yuztra_general']['yuztra_slug'] ?? [];
         if (is_array($general_map)) {
             $maps[] = $general_map;
         }
 
-        $settings_map = $all['yuz_tra_settings']['yuz_tra_slug'] ?? [];
+        $settings_map = $all['yuztra_settings']['yuztra_slug'] ?? [];
         if (is_array($settings_map)) {
             $maps[] = $settings_map;
         }
 
-        $language_settings = $all['yuz_tra_language_settings'] ?? [];
+        $language_settings = $all['yuztra_language_settings'] ?? [];
         if (is_array($language_settings)) {
-            foreach (['slug_map', 'slugs', 'yuz_tra_slug'] as $key) {
+            foreach (['slug_map', 'slugs', 'yuztra_slug'] as $key) {
                 if (!empty($language_settings[$key]) && is_array($language_settings[$key])) {
                     $maps[] = $language_settings[$key];
                 }
@@ -417,7 +417,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
                 return $this->db_slug_map_cache;
             }
 
-            $results = $wpdb->get_results("SELECT locale, slug FROM {$table}", ARRAY_A);
+            $results = $wpdb->get_results($wpdb->prepare('SELECT locale, slug FROM %i', $table), ARRAY_A);
             if (is_array($results)) {
                 foreach ($results as $row) {
                     if (!is_array($row)) {
@@ -452,7 +452,7 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
     private function get_code_map(): array
     {
         $all = $this->get_all_settings();
-        $map = $all['yuz_tra_general']['yuz_tra_code'] ?? [];
+        $map = $all['yuztra_general']['yuztra_code'] ?? [];
         return is_array($map) ? $map : [];
     }
 
@@ -462,8 +462,8 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
     private function use_subdirectory(): bool
     {
         $all = $this->get_all_settings();
-        $language_flag = $all['yuz_tra_language_settings']['use_subdirectory'] ?? null;
-        $settings_flag = $all['yuz_tra_settings']['use_subdirectory'] ?? null;
+        $language_flag = $all['yuztra_language_settings']['use_subdirectory'] ?? null;
+        $settings_flag = $all['yuztra_settings']['use_subdirectory'] ?? null;
         $flag = $language_flag ?? $settings_flag;
         return $this->is_truthy($flag);
     }
@@ -471,8 +471,8 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
     private function should_add_subdirectory_for_default(): bool
     {
         $all = $this->get_all_settings();
-        $language_flag = $all['yuz_tra_language_settings']['add_subdir_for_default'] ?? null;
-        $settings = (array) ($all['yuz_tra_settings'] ?? []);
+        $language_flag = $all['yuztra_language_settings']['add_subdir_for_default'] ?? null;
+        $settings = (array) ($all['yuztra_settings'] ?? []);
         $candidates = [
             $language_flag,
             $settings['add_subdir_for_default'] ?? null,
@@ -519,29 +519,6 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
             }
 
             if ($home === '') {
-                $scheme = 'http';
-                if (
-                    (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
-                ) {
-                    $scheme = 'https';
-                }
-
-                $host = $_SERVER['HTTP_HOST'] ?? '';
-                if ($host === '' && isset($_SERVER['SERVER_NAME'])) {
-                    $host = (string) $_SERVER['SERVER_NAME'];
-                }
-
-                if ($host !== '') {
-                    $port = '';
-                    if (!empty($_SERVER['SERVER_PORT']) && !in_array((string) $_SERVER['SERVER_PORT'], ['80', '443'], true) && strpos($host, ':') === false) {
-                        $port = ':' . (string) $_SERVER['SERVER_PORT'];
-                    }
-                    $home = $scheme . '://' . $host . $port;
-                }
-            }
-
-            if ($home === '') {
                 $raw_home = get_option('home');
                 if (is_string($raw_home) && $raw_home !== '') {
                     $home = $raw_home;
@@ -555,15 +532,26 @@ class YUZ_Url_Converter implements UrlConverterInterface // ici (20)
                 }
             }
 
-            if ($home === '') {
-                $home = 'http://localhost';
+            // WordPress configuration retains subdirectories and proxy origins.
+            // A request Host header cannot override it or invent a localhost site.
+            $parts = wp_parse_url($home);
+            if (!is_array($parts) || empty($parts['host']) || !in_array($parts['scheme'] ?? '', ['http', 'https'], true)) {
+                throw new \RuntimeException('YUZ-TRA: site URL is not configured');
             }
-
             $this->home_url_cache = rtrim($home, '/');
             // This is a noisy trace: keep at debug level
             $this->log('debug', 'Cached home URL', ['home' => $this->home_url_cache]);
         }
         return $this->home_url_cache;
+    }
+
+    private function url_origin(string $url): string
+    {
+        $parts = wp_parse_url($url);
+        if (!is_array($parts) || empty($parts['host']) || empty($parts['scheme'])) {
+            return '';
+        }
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
     }
 
     /**
@@ -579,24 +567,15 @@ public function cur_page_url(): string
     }
 
     try {
-        $request_uri = $_SERVER['REQUEST_URI'] ?? '/';
-
-        // Détecter le scheme/host réels de la requête
-        $scheme = 'http';
-        if (
-            (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
-        ) {
-            $scheme = 'https';
+        $origin = $this->url_origin($this->get_cached_home_url());
+        $request_uri = '';
+        if (isset($_SERVER['REQUEST_URI']) && is_string($_SERVER['REQUEST_URI'])) {
+            $request_uri = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI']));
         }
-        $reqHost = $_SERVER['HTTP_HOST'] ?? wp_parse_url($this->get_cached_home_url(), PHP_URL_HOST) ?? '';
-        $port    = '';
-        if (!empty($_SERVER['SERVER_PORT']) && !in_array((string)$_SERVER['SERVER_PORT'], ['80','443'], true)) {
-            $port = ':' . (string) $_SERVER['SERVER_PORT'];
+        if ($request_uri === '' || $request_uri[0] !== '/' || str_starts_with($request_uri, '//')) {
+            return $this->get_cached_home_url();
         }
-
-        // Reconstruire l'absolue depuis le contexte (et pas home_url)
-        $absolute = $scheme . '://' . $reqHost . $port . $request_uri;
+        $absolute = $origin . $request_uri;
 
         $parts = wp_parse_url($absolute);
         if (!is_array($parts)) {
@@ -618,7 +597,7 @@ public function cur_page_url(): string
         $query    = $query_args ? '?' . http_build_query($query_args) : '';
         $fragment = isset($parts['fragment']) && $parts['fragment'] !== '' ? '#' . $parts['fragment'] : '';
 
-        return $scheme . '://' . $reqHost . $port . $path . $query . $fragment;
+        return $origin . $path . $query . $fragment;
 
     } finally {
         $depth--;
@@ -674,8 +653,8 @@ public function cur_page_url(): string
         // 4) Two-letter root (en, fr, …)
         if (preg_match('/^[a-z]{2}$/i', $candidate)) {
             $resolved = '';
-            if (function_exists('yuz_resolve_target_locale')) {
-                $resolved = (string) yuz_resolve_target_locale($candidate);
+            if (function_exists('yuztra_resolve_target_locale')) {
+                $resolved = (string) yuztra_resolve_target_locale($candidate);
             }
             if ($resolved !== '') {
                 $normalized = strtoupper(str_replace('-', '_', $resolved));
@@ -804,23 +783,37 @@ public function cur_page_url(): string
         return substr($normalized, 0, 2);
     }
 
-    private function should_skip_path(string $path): bool
+    private function should_skip_path(string $path, string $query = ''): bool
     {
         $normalized = '/' . ltrim($path, '/');
         $normalized = strtolower($normalized);
-
-        $exclusions = [
-            '/wp-admin',
-            '/wp-login.php',
-            '/wp-json',
-            '/wp-includes',
-            '/wp-content',
-            '/xmlrpc.php',
-            '/wp-cron.php',
-        ];
+        $query_args = [];
+        parse_str($query, $query_args);
+        if (array_key_exists('rest_route', $query_args)) {
+            return true;
+        }
+        $home_host = (string) wp_parse_url($this->get_cached_home_url(), PHP_URL_HOST);
+        $urls = [admin_url(), wp_login_url(), includes_url(), content_url(),
+            site_url('xmlrpc.php'), site_url('wp-cron.php')];
+        $rest = rest_url();
+        $rest_args = [];
+        parse_str((string) wp_parse_url($rest, PHP_URL_QUERY), $rest_args);
+        // Query-mode REST shares the normal front controller; it is not a directory.
+        if (!array_key_exists('rest_route', $rest_args)) {
+            $urls[] = $rest;
+        }
+        $exclusions = array_filter(array_map(function ($url) use ($home_host) {
+            // A CDN directory is not a reserved path on the site's own origin.
+            // WordPress may serve admin/content on HTTPS or a separate port.
+            if (strcasecmp((string) wp_parse_url($url, PHP_URL_HOST), $home_host) !== 0) {
+                return '';
+            }
+            $path = wp_parse_url($url, PHP_URL_PATH);
+            return is_string($path) ? strtolower(rtrim($path, '/')) : '';
+        }, $urls));
 
         foreach ($exclusions as $prefix) {
-            if (substr($normalized, 0, strlen($prefix)) === $prefix) {
+            if ($normalized === $prefix || str_starts_with($normalized, $prefix . '/')) {
                 return true;
             }
         }
@@ -924,7 +917,8 @@ public function cur_page_url(): string
             if ($slugs_table_exists) {
                 $slug = $wpdb->get_var(
                     $wpdb->prepare(
-                        "SELECT slug FROM {$table_slugs} WHERE object_type = %s AND object_id = %d AND lang = %s LIMIT 1",
+                        'SELECT slug FROM %i WHERE object_type = %s AND object_id = %d AND lang = %s LIMIT 1',
+                        $table_slugs,
                         strtolower($object_type),
                         $object_id,
                         $lang
@@ -942,9 +936,10 @@ public function cur_page_url(): string
                 if ($translations_table_exists) {
                     $slug = $wpdb->get_var(
                         $wpdb->prepare(
-                            "SELECT translated_slug FROM {$table_translations}
+                            "SELECT translated_slug FROM %i
                              WHERE post_id = %d AND language_code = %s AND translated_slug <> ''
                              ORDER BY updated_at DESC LIMIT 1",
+                            $table_translations,
                             $object_id,
                             $lang
                         )
@@ -980,16 +975,25 @@ public function cur_page_url(): string
      */
     private function build_language_url(string $base_url, string $path, string $query, string $fragment, ?string $locale, ?string $slug, array $context): string
     {
-        $scheme_host = rtrim($base_url, '/');
+        $scheme_host = $this->url_origin($base_url);
+        $site_path = rtrim((string) wp_parse_url($base_url, PHP_URL_PATH), '/');
         $path        = $this->normalize_path($path);
 
-        if ($this->should_skip_path($path)) {
+        if ($this->should_skip_path($path, $query)) {
             $query_string = ($query !== '') ? '?' . $query : '';
             return $scheme_host . $path . $query_string . $fragment;
         }
 
+        if ($site_path !== '') {
+            if ($path !== $site_path && !str_starts_with($path, $site_path . '/')) {
+                return $scheme_host . $path . ($query !== '' ? '?' . $query : '') . $fragment;
+            }
+            $path = substr($path, strlen($site_path)) ?: '/';
+        }
+        $site_base = rtrim($base_url, '/');
+
         if (empty($context['object_id'])) {
-            $guessed_id = url_to_postid($scheme_host . $path . ($query ? '?' . $query : ''));
+            $guessed_id = url_to_postid($site_base . $path . ($query ? '?' . $query : ''));
             if ($guessed_id) {
                 $context['object_id']   = $guessed_id;
                 $context['object_type'] = 'post';
@@ -1028,7 +1032,7 @@ public function cur_page_url(): string
 
         $query_string = $query_arguments ? '?' . http_build_query($query_arguments) : '';
 
-        return $scheme_host . $rebuilt_path . $query_string . $fragment;
+        return $site_base . $rebuilt_path . $query_string . $fragment;
     }
 
     /**
@@ -1051,8 +1055,11 @@ public function toAbsolute(string $url): string
 
     // Si relative, on préfixe par le host (home_url sans slash final) + chemin propre
     $base = $this->get_cached_home_url();
+    if (str_starts_with($url, '//')) {
+        return wp_parse_url($base, PHP_URL_SCHEME) . ':' . $url;
+    }
     if (isset($url[0]) && $url[0] === '/') {
-        return $base . $url;
+        return $this->url_origin($base) . $url;
     }
 
     // relative sans slash initial
@@ -1148,6 +1155,9 @@ public function normalize(string $url): string
             if (!$parts) {
                 return $base;
             }
+            if ($this->should_skip_path($parts['path'] ?? '/', $parts['query'] ?? '')) {
+                return $absolute;
+            }
 
             $home      = $this->get_cached_home_url();
             $homeParts = wp_parse_url($home);
@@ -1226,7 +1236,7 @@ public function normalize(string $url): string
             return $final_url;
         } catch (\Throwable $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
+                yuztra_debug_log('[YUZ-TRA][ERROR] get_url_for_language:EX ' . $e->getMessage());
             }
             return $base;
         }
@@ -1243,10 +1253,15 @@ public function normalize(string $url): string
 
         $query_lang = '';
         if (function_exists('get_query_var')) {
-            $query_lang = (string) get_query_var('lang', '');
+            $query_value = get_query_var('lang', '');
+            $query_lang = is_string($query_value) ? sanitize_text_field($query_value) : '';
         }
-        if ($query_lang === '' && isset($_GET['lang'])) {
-            $query_lang = (string) $_GET['lang'];
+        // Lecture publique en GET : aucun nonce n'est applicable sur une URL partageable.
+        // La valeur n'autorise rien ; elle est resolue contre le catalogue de langues enregistrees.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        if ($query_lang === '' && isset($_GET['lang']) && is_string($_GET['lang'])) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+            $query_lang = sanitize_text_field(wp_unslash((string) $_GET['lang']));
         }
 
         if ($query_lang !== '') {
@@ -1301,7 +1316,7 @@ public function normalize(string $url): string
         if (!empty($parts['query'])) {
             $query_args = [];
             parse_str($parts['query'], $query_args);
-            if (!empty($query_args['lang'])) {
+            if (!empty($query_args['lang']) && is_string($query_args['lang'])) {
                 $query_lang = (string) $query_args['lang'];
             }
         }
@@ -1320,7 +1335,7 @@ public function normalize(string $url): string
 
         $home_parts = wp_parse_url($this->get_cached_home_url());
         $base_path  = isset($home_parts['path']) ? rtrim((string) $home_parts['path'], '/') : '';
-        if ($base_path !== '' && stripos($path, $base_path) === 0) {
+        if ($base_path !== '' && ($path === $base_path || str_starts_with($path, $base_path . '/'))) {
             $trimmed = substr($path, strlen($base_path));
             if ($trimmed !== false && $trimmed !== '') {
                 $path = $trimmed;

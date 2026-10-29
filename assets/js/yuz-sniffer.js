@@ -116,7 +116,7 @@
   $(document).ajaxSend(function(_e, _jqXHR, settings){
     const d = settings && settings.data;
     if (!d) return;
-    const isSearch = /action=yuz_tra_tm_search/.test(typeof d === 'string' ? d : $.param(d));
+    const isSearch = /action=yuztra_tm_search/.test(typeof d === 'string' ? d : $.param(d));
     if (!isSearch) return;
     const params = typeof d === 'string' ? new URLSearchParams(d) : new URLSearchParams($.param(d));
     const scope = params.get('scope') || '';
@@ -127,7 +127,7 @@
   $(document).ajaxComplete(async function(_e, xhr, settings){
     const d = settings && settings.data;
     if (!d) return;
-    const isSearch = /action=yuz_tra_tm_search/.test(typeof d === 'string' ? d : $.param(d));
+    const isSearch = /action=yuztra_tm_search/.test(typeof d === 'string' ? d : $.param(d));
     if (!isSearch) return;
     try {
       const json = JSON.parse(xhr.responseText);

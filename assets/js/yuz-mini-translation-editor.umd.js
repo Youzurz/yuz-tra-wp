@@ -14,7 +14,7 @@
 
   var log = function(){ try{ console.info.apply(console, ['[YUZ-UMD]'].concat([].slice.call(arguments))); }catch(e){} };
 
-  var Y = (typeof window !== 'undefined' && window.yuzTraSettings) ? window.yuzTraSettings : {
+  var Y = (typeof window !== 'undefined' && window.yuztraSettings) ? window.yuztraSettings : {
     ajax_url: (typeof ajaxurl !== 'undefined' ? ajaxurl : ''),
     nonces: {},
   };
@@ -74,9 +74,9 @@
     $('#yuz-ed-ping').addEventListener('click', function () {
       if (!Y.ajax_url) { out.textContent = 'No AJAX URL available.'; return; }
       var body = new URLSearchParams();
-      body.set('action','yuz_ai_test_connection');
-      if (Y.nonces && (Y.nonces.yuz_api_nonce || Y.nonce)) {
-        body.set('_ajax_nonce', Y.nonces.yuz_api_nonce || Y.nonce);
+      body.set('action','yuztra_ai_test_connection');
+      if (Y.nonces && (Y.nonces.yuztra_api_nonce || Y.nonce)) {
+        body.set('_ajax_nonce', Y.nonces.yuztra_api_nonce || Y.nonce);
       }
       fetch(Y.ajax_url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body })
         .then(function(res){ return res.text().then(function(txt){ return {res:res, txt:txt}; }); })

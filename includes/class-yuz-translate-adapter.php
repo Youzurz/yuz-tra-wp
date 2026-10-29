@@ -67,12 +67,12 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 
 use YUZTRA\Interfaces\TranslateAdapterInterface;
 
-if (!class_exists('YUZ_Translate_Adapter')) {
-    abstract class YUZ_Translate_Adapter {
+if (!class_exists('YUZTRA_Translate_Adapter')) {
+    abstract class YUZTRA_Translate_Adapter {
         /**
          * Tests connectivity to the translation API.
          *

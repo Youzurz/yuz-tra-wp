@@ -12,8 +12,8 @@ defined('ABSPATH') || exit;
 // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- Front-end reads use prepared SQL with plugin-owned dynamic table names.
 // phpcs:disable PluginCheck.Security.DirectDB.UnescapedDBParameter -- SQL variables in this repository are prepared before execution.
 
-if (!class_exists('YUZ_Query')) {
-    class YUZ_Query {
+if (!class_exists('YUZTRA_Query')) {
+    class YUZTRA_Query {
         /** @var \wpdb */
         private $wpdb;
 
@@ -26,10 +26,10 @@ if (!class_exists('YUZ_Query')) {
         /**
          * Constructor.
          */
-        public function __construct(?YUZ_DB $db = null) {
+        public function __construct(?YUZTRA_DB $db = null) {
             global $wpdb;
             $this->wpdb = $wpdb;
-            $this->db   = $db ?: (class_exists('YUZ_Services') ? YUZ_Services::db() : new YUZ_DB());
+            $this->db   = $db ?: (class_exists('YUZTRA_Services') ? YUZTRA_Services::db() : new YUZTRA_DB());
         }
 
         /**
@@ -48,7 +48,7 @@ if (!class_exists('YUZ_Query')) {
                 return $this->language_cache[$normalized];
             }
 
-            $cache_key = 'yuz_lang_' . strtolower($normalized);
+            $cache_key = 'yuztra_lang_' . strtolower($normalized);
             $cached    = $this->cache_get($cache_key, 'yuz_tra_languages', 'language');
             if (is_array($cached)) {
                 return $this->language_cache[$normalized] = $cached;
@@ -57,7 +57,8 @@ if (!class_exists('YUZ_Query')) {
             $table = $this->wpdb->prefix . 'yuz_tra_languages';
             $row   = $this->wpdb->get_row(
                 $this->wpdb->prepare(
-                    "SELECT * FROM {$table} WHERE language_code = %s LIMIT 1",
+                    'SELECT * FROM %i WHERE language_code = %s LIMIT 1',
+                    $table,
                     $normalized
                 ),
                 ARRAY_A
@@ -68,7 +69,8 @@ if (!class_exists('YUZ_Query')) {
                 $fallback = substr($normalized, 0, 2);
                 $row      = $this->wpdb->get_row(
                     $this->wpdb->prepare(
-                        "SELECT * FROM {$table} WHERE language_code LIKE %s LIMIT 1",
+                        'SELECT * FROM %i WHERE language_code LIKE %s LIMIT 1',
+                        $table,
                         $fallback . '\_%'
                     ),
                     ARRAY_A
@@ -100,13 +102,13 @@ if (!class_exists('YUZ_Query')) {
 
             // Add canonical constants when available (new workflow + aliases for compat).
             foreach ([
-                'YUZ_TRA_STATUS_PUBLISHED',
-                'YUZ_TRA_STATUS_REVIEWED',
-                'YUZ_TRA_STATUS_IN_REVIEW',
-                'YUZ_TRA_STATUS_DRAFT',
-                'YUZ_TRA_STATUS_REVIEW',   // legacy alias
-                'YUZ_TRA_STATUS_MACHINE',  // legacy alias → in_review
-                'YUZ_TRA_STATUS_QUEUED',   // legacy alias → reviewed
+                'YUZTRA_STATUS_PUBLISHED',
+                'YUZTRA_STATUS_REVIEWED',
+                'YUZTRA_STATUS_IN_REVIEW',
+                'YUZTRA_STATUS_DRAFT',
+                'YUZTRA_STATUS_REVIEW',   // legacy alias
+                'YUZTRA_STATUS_MACHINE',  // legacy alias → in_review
+                'YUZTRA_STATUS_QUEUED',   // legacy alias → reviewed
             ] as $const) {
                 if (defined($const)) {
                     $base[] = (int) constant($const);
@@ -145,36 +147,25 @@ if (!class_exists('YUZ_Query')) {
             $target_lang_id = (int) $lang_row['id'];
             // _v2 avoids stale cache entries built with the old status filter (status IN (1,2)).
             $cache_key = 'post_' . $post_id . '_' . strtolower($context) . '_' . $target_lang_id . '_v2';
-            $cached    = $this->cache_get($cache_key, 'yuz_tra_front_translations', 'post_translation');
+            $cached    = $this->cache_get($cache_key, 'yuztra_front_translations', 'post_translation');
             if ($cached !== false) {
                 return $cached;
             }
 
             $table = $this->wpdb->prefix . 'yuz_tra_translations';
             $statuses = $this->allowed_statuses(false);
-            $placeholders = implode(',', array_fill(0, count($statuses), '%d'));
-
             $row   = $this->wpdb->get_row(
                 $this->wpdb->prepare(
-                    "
-                        SELECT translated_text, translated_slug, status
-                        FROM {$table}
-                        WHERE post_id = %d
-                          AND target_lang_id = %d
-                          AND context = %s
-                          AND status IN ({$placeholders})
-                        ORDER BY updated_at DESC
-                        LIMIT 1
-                    ",
-                    ...array_merge([$post_id, $target_lang_id, $context], $statuses)
+                    'SELECT translated_text, translated_slug, status FROM %i WHERE post_id = %d AND target_lang_id = %d AND context = %s AND status = %d ORDER BY updated_at DESC LIMIT 1',
+                    $table, $post_id, $target_lang_id, $context, (int) $statuses[0]
                 ),
                 ARRAY_A
             );
 
             if ($row) {
-                if (class_exists('YUZ_Logger')) {
+                if (class_exists('YUZTRA_Logger')) {
                     try {
-                        (new YUZ_Logger())->log('debug', 'YUZ_Query hit', [
+                        (new YUZTRA_Logger())->log('debug', 'YUZTRA_Query hit', [
                             'post_id'    => $post_id,
                             'context'    => $context,
                             'lang_id'    => $target_lang_id,
@@ -187,13 +178,13 @@ if (!class_exists('YUZ_Query')) {
                         // ignore logging errors
                     }
                 }
-                $this->cache_set($cache_key, $row, 'yuz_tra_front_translations', MINUTE_IN_SECONDS * 10, 'post_translation');
+                $this->cache_set($cache_key, $row, 'yuztra_front_translations', MINUTE_IN_SECONDS * 10, 'post_translation');
                 return $row;
             }
 
-            if (class_exists('YUZ_Logger')) {
+            if (class_exists('YUZTRA_Logger')) {
                 try {
-                    (new YUZ_Logger())->log('debug', 'YUZ_Query miss', [
+                    (new YUZTRA_Logger())->log('debug', 'YUZTRA_Query miss', [
                         'post_id'   => $post_id,
                         'context'   => $context,
                         'lang_id'   => $target_lang_id,
@@ -203,7 +194,7 @@ if (!class_exists('YUZ_Query')) {
                     // ignore
                 }
             }
-            $this->cache_set($cache_key, null, 'yuz_tra_front_translations', MINUTE_IN_SECONDS * 5, 'post_translation');
+            $this->cache_set($cache_key, null, 'yuztra_front_translations', MINUTE_IN_SECONDS * 5, 'post_translation');
             return null;
         }
 
@@ -229,21 +220,12 @@ if (!class_exists('YUZ_Query')) {
             }
 
             $statuses     = $this->allowed_statuses(true);
-            $placeholders = implode(',', array_fill(0, count($statuses), '%d'));
-
             $rows = $this->wpdb->get_results(
                 $this->wpdb->prepare(
-                    "
-                        SELECT id, block_id, original_text, translated_text, status
-                        FROM {$table}
-                        WHERE post_id = %d
-                          AND target_lang_id = %d
-                          AND context = %s
-                          AND translated_text IS NOT NULL
-                          AND translated_text <> ''
-                          AND status IN ({$placeholders})
-                    ",
-                    ...array_merge([$post_id, $target_lang_id, $context], $statuses)
+                    'SELECT id, block_id, original_text, translated_text, status FROM %i WHERE post_id = %d AND target_lang_id = %d AND context = %s AND translated_text IS NOT NULL AND translated_text <> \'\' AND status IN (%d, %d, %d, %d)',
+                    $table, $post_id, $target_lang_id, $context,
+                    (int) ($statuses[0] ?? 4), (int) ($statuses[1] ?? 3),
+                    (int) ($statuses[2] ?? 2), (int) ($statuses[3] ?? 1)
                 ),
                 ARRAY_A
             );
@@ -264,9 +246,9 @@ if (!class_exists('YUZ_Query')) {
                 $map[$block_id] = $row;
             }
 
-            if (class_exists('YUZ_Logger')) {
+            if (class_exists('YUZTRA_Logger')) {
                 try {
-                    (new YUZ_Logger())->log('debug', 'YUZ_Query map', [
+                    (new YUZTRA_Logger())->log('debug', 'YUZTRA_Query map', [
                         'post_id'  => $post_id,
                         'context'  => $context,
                         'lang'     => $language_code,
@@ -300,8 +282,8 @@ if (!class_exists('YUZ_Query')) {
          * Normalize language codes to xx_YY format.
          */
         private function normalize_language_code(string $language_code): string {
-            if (function_exists('yuz_normalize_language_code')) {
-                return yuz_normalize_language_code($language_code);
+            if (function_exists('yuztra_normalize_language_code')) {
+                return yuztra_normalize_language_code($language_code);
             }
 
             $language_code = trim((string) $language_code);
@@ -322,14 +304,15 @@ if (!class_exists('YUZ_Query')) {
 
         private function cache_enabled(string $operation): bool {
             $enabled = true;
-            if (function_exists('yuz_settings_cache_heavy_request') && yuz_settings_cache_heavy_request()) {
+            if (function_exists('yuztra_settings_cache_heavy_request') && yuztra_settings_cache_heavy_request()) {
                 $enabled = false;
-            } elseif (defined('YUZ_TRA_DISABLE_CACHE') && YUZ_TRA_DISABLE_CACHE) {
+            } elseif (defined('YUZTRA_DISABLE_CACHE') && YUZTRA_DISABLE_CACHE) {
                 $enabled = false;
-            } elseif (defined('YUZ_TRA_DISABLE_FRONT_CACHE') && YUZ_TRA_DISABLE_FRONT_CACHE && !is_admin()) {
+            } elseif (defined('YUZTRA_DISABLE_FRONT_CACHE') && YUZTRA_DISABLE_FRONT_CACHE && !is_admin()) {
                 $enabled = false;
             }
-            return (bool) apply_filters('yuz/query/enable_cache', $enabled, $operation);
+
+            return (bool) apply_filters('yuztra/query/enable_cache', $enabled, $operation);
         }
 
         private function cache_get(string $key, string $group, string $operation) {
@@ -343,7 +326,8 @@ if (!class_exists('YUZ_Query')) {
             if (!$this->cache_enabled($operation)) {
                 return false;
             }
-            $ttl = (int) apply_filters('yuz/query/cache_ttl', $ttl, $key, $group, $operation, $value);
+
+            $ttl = (int) apply_filters('yuztra/query/cache_ttl', $ttl, $key, $group, $operation, $value);
             if ($ttl <= 0) {
                 return false;
             }

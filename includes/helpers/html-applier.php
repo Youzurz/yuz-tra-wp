@@ -7,8 +7,8 @@
 
 defined('ABSPATH') || exit;
 
-if (!class_exists('YUZ_HTML_Apply')) {
-    class YUZ_HTML_Apply {
+if (!class_exists('YUZTRA_HTML_Apply')) {
+    class YUZTRA_HTML_Apply {
         /** @var array<string,array> */
         private array $translations;
         /** @var int */
@@ -54,8 +54,8 @@ if (!class_exists('YUZ_HTML_Apply')) {
                 if ($normalized === '') {
                     continue;
                 }
-                $block_id = function_exists('yuz_generate_block_id')
-                    ? yuz_generate_block_id($this->post_id, $this->context, $normalized)
+                $block_id = function_exists('yuztra_generate_block_id')
+                    ? yuztra_generate_block_id($this->post_id, $this->context, $normalized)
                     : sha1($this->post_id . '|' . $this->context . '|' . $normalized);
 
                 if (!isset($this->translations[$block_id])) {

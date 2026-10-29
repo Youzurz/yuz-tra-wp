@@ -5,15 +5,16 @@
 
 defined('ABSPATH') || exit;
 
-if (defined('YUZ_TRA_INCLUDES') && !class_exists('YUZ_Context')) {
-    $yuz_context_helper = trailingslashit(YUZ_TRA_INCLUDES) . 'class-yuz-context.php';
-    if (is_readable($yuz_context_helper)) {
-        require_once $yuz_context_helper;
+if (defined('YUZTRA_INCLUDES') && !class_exists('YUZTRA_Context')) {
+
+    $yuztra_context_helper = trailingslashit(YUZTRA_INCLUDES) . 'class-yuz-context.php';
+    if (is_readable($yuztra_context_helper)) {
+        require_once $yuztra_context_helper;
     }
 }
 
-if (!class_exists('YUZ_CLI_Commands')) {
-    class YUZ_CLI_Commands {
+if (!class_exists('YUZTRA_CLI_Commands')) {
+    class YUZTRA_CLI_Commands {
         public static function init(): void {
             if (!defined('WP_CLI') || !WP_CLI) {
                 return;
@@ -56,7 +57,10 @@ if (!class_exists('YUZ_CLI_Commands')) {
                 return strtoupper(str_replace('-', '_', $code));
             }, $lang_filter);
 
-            $languages_raw = $wpdb->get_results("SELECT id, language_code, is_source, is_translatable FROM {$lang_table}", ARRAY_A);
+            $languages_raw = $wpdb->get_results($wpdb->prepare(
+                'SELECT id, language_code, is_source, is_translatable FROM %i',
+                $lang_table
+            ), ARRAY_A);
             if (!$languages_raw) {
                 \WP_CLI::error('No languages registered.');
                 return;
@@ -96,7 +100,10 @@ if (!class_exists('YUZ_CLI_Commands')) {
 
             $post_ids = [];
             if ($process_all) {
-                $post_ids = $wpdb->get_col("SELECT DISTINCT post_id FROM {$table} WHERE post_id > 0");
+                $post_ids = $wpdb->get_col($wpdb->prepare(
+                    'SELECT DISTINCT post_id FROM %i WHERE post_id > 0',
+                    $table
+                ));
             } else {
                 $post_ids = [$post_id];
             }
@@ -139,7 +146,8 @@ if (!class_exists('YUZ_CLI_Commands')) {
 
                         $row = $wpdb->get_row(
                             $wpdb->prepare(
-                                "SELECT id, translated_text FROM {$table} WHERE post_id = %d AND context = %s AND language_code = %s LIMIT 1",
+                                'SELECT id, translated_text FROM %i WHERE post_id = %d AND context = %s AND language_code = %s LIMIT 1',
+                                $table,
                                 $pid,
                                 $context,
                                 $lang_code
@@ -200,13 +208,20 @@ if (!class_exists('YUZ_CLI_Commands')) {
             $limit       = isset($assoc_args['limit']) ? max(1, (int) $assoc_args['limit']) : 20;
             $post_filter = isset($assoc_args['post']) ? (int) $assoc_args['post'] : null;
 
-            $sql = "SELECT post_id, language_code, context, translated_text FROM {$table} WHERE status IN (1,2) AND translated_text <> ''";
             if ($post_filter) {
-                $sql .= $wpdb->prepare(" AND post_id = %d", $post_filter);
+                $rows = $wpdb->get_results($wpdb->prepare(
+                    'SELECT post_id, language_code, context, translated_text FROM %i WHERE status IN (1,2) AND translated_text <> %s AND post_id = %d',
+                    $table,
+                    '',
+                    $post_filter
+                ), ARRAY_A);
+            } else {
+                $rows = $wpdb->get_results($wpdb->prepare(
+                    'SELECT post_id, language_code, context, translated_text FROM %i WHERE status IN (1,2) AND translated_text <> %s',
+                    $table,
+                    ''
+                ), ARRAY_A);
             }
-
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Query uses a fixed plugin table; optional post filter is prepared above.
-            $rows = $wpdb->get_results($sql, ARRAY_A);
             if (!$rows) {
                 \WP_CLI::success('No published translations found.');
                 return;
@@ -271,7 +286,8 @@ if (!class_exists('YUZ_CLI_Commands')) {
                 $post_ids = [$post_filter];
             } else {
                 $post_ids = $wpdb->get_col($wpdb->prepare(
-                    "SELECT DISTINCT post_id FROM {$table} WHERE post_id > 0 AND context = %s",
+                    'SELECT DISTINCT post_id FROM %i WHERE post_id > 0 AND context = %s',
+                    $table,
                     $context
                 ));
             }
@@ -298,7 +314,8 @@ if (!class_exists('YUZ_CLI_Commands')) {
             foreach ($post_ids as $post_id) {
                 $rows = $wpdb->get_results(
                     $wpdb->prepare(
-                        "SELECT id, block_id, language_code, status, translated_text FROM {$table} WHERE post_id = %d AND context = %s",
+                        'SELECT id, block_id, language_code, status, translated_text FROM %i WHERE post_id = %d AND context = %s',
+                        $table,
                         $post_id,
                         $context
                     ),
@@ -340,13 +357,14 @@ if (!class_exists('YUZ_CLI_Commands')) {
                         // Demote any other stale root rows even if we keep current one.
                         $demoted = $wpdb->query(
                             $wpdb->prepare(
-                                "UPDATE {$table}
+                                "UPDATE %i
                                     SET status = 0, updated_at = updated_at
                                   WHERE post_id = %d
                                     AND context = %s
                                     AND language_code = %s
                                     AND (block_id IS NULL OR block_id = '')
                                     AND id <> %d",
+                                $table,
                                 $post_id,
                                 $context,
                                 $lang_code,
@@ -427,13 +445,14 @@ if (!class_exists('YUZ_CLI_Commands')) {
                     // Demote other root duplicates so audits stop flagging them and runtime ignores stale values.
                     $demoted = $wpdb->query(
                         $wpdb->prepare(
-                            "UPDATE {$table}
+                            "UPDATE %i
                                 SET status = 0, updated_at = updated_at
                               WHERE post_id = %d
                                 AND context = %s
                                 AND language_code = %s
                                 AND (block_id IS NULL OR block_id = '')
                                 AND id <> %d",
+                            $table,
                             $post_id,
                             $context,
                             $lang_code,
@@ -475,13 +494,13 @@ if (!class_exists('YUZ_CLI_Commands')) {
             }
 
             $lang_code = strtoupper(str_replace('-', '_', trim($lang)));
-            $normalized_context = class_exists('YUZ_Context')
-                ? YUZ_Context::normalize($field_input)
+            $normalized_context = class_exists('YUZTRA_Context')
+                ? YUZTRA_Context::normalize($field_input)
                 : strtolower(trim($field_input));
 
-            $query = (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'translations'))
-                ? YUZ_Services::translations()
-                : new YUZ_Query();
+            $query = (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'translations'))
+                ? YUZTRA_Services::translations()
+                : new YUZTRA_Query();
 
             $language_row = $query->get_language($lang_code);
             if (!$language_row || empty($language_row['id'])) {
@@ -533,10 +552,11 @@ if (!class_exists('YUZ_CLI_Commands')) {
             $rows  = $wpdb->get_results(
                 $wpdb->prepare(
                     "SELECT id, context, status, LENGTH(translated_text) AS len, updated_at
-                     FROM {$table}
+                     FROM %i
                      WHERE post_id = %d AND target_lang_id = %d
                      ORDER BY updated_at DESC
                      LIMIT 15",
+                    $table,
                     $post_id,
                     $target_lang_id
                 ),

@@ -73,10 +73,11 @@ use YUZTRA\Fallbacks\NullAjax;
 use YUZTRA\Fallbacks\NullSettings;
 use YUZTRA\Fallbacks\NullTranslationManager;
 use YUZTRA\Fallbacks\NullLanguageManager;
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
-if (!class_exists('YUZ_Addons')) {
-class YUZ_Addons implements AddonsInterface {
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
+if (!class_exists('YUZTRA_Addons')) {
+
+class YUZTRA_Addons implements AddonsInterface {
 private RendererInterface $renderer;
 private LoggerInterface $logger;
 private HealthCheckInterface $health_check;
@@ -110,29 +111,30 @@ return;
         }
 self::$booted = true;
 // Chaînage des dépendances sûres
-$logger = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
-$health_check = class_exists('YUZ_Health_Check') ? new \YUZ_Health_Check($logger) : new NullHealthCheck();
+$logger = class_exists('YUZTRA_Logger') ? new \YUZTRA_Logger() : new NullLogger();
+$health_check = class_exists('YUZTRA_Health_Check') ? new \YUZTRA_Health_Check($logger) : new NullHealthCheck();
 $translation_manager = new NullTranslationManager();
 $language_manager = new NullLanguageManager();
-$db = class_exists('YUZ_DB')
-            ? new \YUZ_DB($logger, $health_check)
+$db = class_exists('YUZTRA_DB')
+            ? new \YUZTRA_DB($logger, $health_check)
             : null;
-$ajax = (class_exists('YUZ_Ajax') && $db instanceof \YUZ_DB)
-            ? new \YUZ_Ajax($translation_manager, $language_manager, $db) // pass $db
+$ajax = (class_exists('YUZTRA_Ajax') && $db instanceof \YUZTRA_DB)
+            ? new \YUZTRA_Ajax($translation_manager, $language_manager, $db) // pass $db
             : new NullAjax();
 // On évite le crash si YUZ_Settings exige des args non dispos
-$settings = class_exists('YUZ_Settings')
+$settings = class_exists('YUZTRA_Settings')
             ? (new NullSettings()) // placeholder tant que l’injection complète n’est pas prête
             : new NullSettings();
 // Pour éviter "too few arguments" sur YUZ_Renderer, on met un NullRenderer
 $renderer = new NullRenderer();
 $instance = new self($renderer, $logger, $health_check, $ajax, $settings);
-$instance->logger->log('info', 'Initializing YUZ_Addons at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
+$instance->logger->log('info', 'Initializing YUZTRA_Addons at ' . (function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s')));
 // LEGACY→YUZ_Assets: add_action('admin_enqueue_scripts', [$instance, 'enqueue_scripts']);
-add_action('wp_ajax_yuz_activate_addon', [$instance, 'ajax_activate_addon']);
-add_action('wp_ajax_yuz_deactivate_addon', [$instance, 'ajax_deactivate_addon']);
-$instance->register_addons((array) apply_filters('yuz_tra_addons', []));
-$instance->logger->log('success', 'YUZ_Addons initialized successfully');
+add_action('wp_ajax_yuztra_activate_addon', [$instance, 'ajax_activate_addon']);
+add_action('wp_ajax_yuztra_deactivate_addon', [$instance, 'ajax_deactivate_addon']);
+
+$instance->register_addons((array) apply_filters('yuztra_addons', []));
+$instance->logger->log('success', 'YUZTRA_Addons initialized successfully');
     }
 /**
      * Impl. AddonsInterface::register_addons
@@ -180,7 +182,7 @@ return false;
      * Enqueues scripts for the Addons tab.
      */
 public function enqueue_scripts(string $hook): void {
-        if (isset($this->logger)) { $this->logger->log('info', 'enqueue_scripts delegated to YUZ_Assets'); }
+        if (isset($this->logger)) { $this->logger->log('info', 'enqueue_scripts delegated to YUZTRA_Assets'); }
         return;
     }
 /**
@@ -188,17 +190,17 @@ public function enqueue_scripts(string $hook): void {
      */
 public function render_tab(): void {
 if (!current_user_can('manage_options')) {
-$this->logger->log('critical', 'User lacks manage_options capability in YUZ_Addons::render_tab');
+$this->logger->log('critical', 'User lacks manage_options capability in YUZTRA_Addons::render_tab');
 wp_die(esc_html__('Unauthorized', 'yuz-tra'));
         }
 // POST → passer par l’AjaxInterface::handleRequest
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+if (sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'] ?? '')) === 'POST') {
 $this->ajax->handleRequest(
-'yuz_con_nonce',
+'yuztra_con_nonce',
                 [],
 function ($post_data) {
 $this->logger->log('info', 'Processing addons form');
-update_option('yuz_addons_last_save', time());
+update_option('yuztra_addons_last_save', time());
 return ['success' => true, 'message' => __('Addons settings updated.', 'yuz-tra')];
                 },
                 [],
@@ -210,7 +212,7 @@ $addons = $this->get_available_addons();
 <div class="wrap">
 <h1><?php esc_html_e('Addons', 'yuz-tra'); ?></h1>
 <form method="post" action="">
-<?php wp_nonce_field('yuz_con_nonce', 'nonce'); ?>
+<?php wp_nonce_field('yuztra_con_nonce', 'nonce'); ?>
 <div class="yuz-section">
 <h2 class="yuz-section-title"><?php esc_html_e('Available Addons', 'yuz-tra'); ?></h2>
 <hr>
@@ -243,7 +245,7 @@ private function get_available_addons(): array {
 $list = [];
 // Base sur le registre rempli via register_addons()
 foreach ($this->registry as $slug => $meta) {
-$active = (bool) (int) (function_exists('get_option') ? get_option("yuz_addon_{$slug}", 0) : 0);
+$active = (bool) (int) (function_exists('get_option') ? get_option("yuztra_addon_{$slug}", 0) : 0);
 $list[] = [
 'slug' => $slug,
 'name' => (string) ($meta['name'] ?? $slug),
@@ -258,17 +260,17 @@ return $list;
      * Handles AJAX request to activate addon.
      */
 public function ajax_activate_addon(): void {
-check_ajax_referer('yuz_con_nonce', 'nonce');
+check_ajax_referer('yuztra_con_nonce', 'nonce');
 if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Activating addon via AJAX');
-$addon_slug = sanitize_text_field($_POST['addon'] ?? '');
+$addon_slug = sanitize_text_field(wp_unslash($_POST['addon'] ?? ''));
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
 // Charge l’addon si possible
 $loaded = $this->loadAddon($addon_slug);
 if (!$loaded) wp_send_json_error(['message'=>'addon_not_loaded'],422);
 // Active l’option
-update_option("yuz_addon_{$addon_slug}", 1);
-if ((int)get_option("yuz_addon_{$addon_slug}") !== 1) wp_send_json_error(['message'=>'addon_save_failed'],500);
+update_option("yuztra_addon_{$addon_slug}", 1);
+if ((int)get_option("yuztra_addon_{$addon_slug}") !== 1) wp_send_json_error(['message'=>'addon_save_failed'],500);
 wp_send_json_success(['message' => __('Addon activated', 'yuz-tra'), 'loaded' => (bool)$loaded]);
 $this->logger->log('success', "Addon {$addon_slug} activated");
     }
@@ -276,19 +278,19 @@ $this->logger->log('success', "Addon {$addon_slug} activated");
      * Handles AJAX request to deactivate addon.
      */
 public function ajax_deactivate_addon(): void {
-check_ajax_referer('yuz_con_nonce', 'nonce');
+check_ajax_referer('yuztra_con_nonce', 'nonce');
 if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'forbidden'],403);
 $this->logger->log('info', 'Deactivating addon via AJAX');
-$addon_slug = sanitize_text_field($_POST['addon'] ?? '');
+$addon_slug = sanitize_text_field(wp_unslash($_POST['addon'] ?? ''));
 $this->health_check->ensure(!empty($addon_slug), 'Missing addon slug', __METHOD__);
-update_option("yuz_addon_{$addon_slug}", 0);
-if ((int)get_option("yuz_addon_{$addon_slug}") !== 0) wp_send_json_error(['message'=>'addon_save_failed'],500);
+update_option("yuztra_addon_{$addon_slug}", 0);
+if ((int)get_option("yuztra_addon_{$addon_slug}") !== 0) wp_send_json_error(['message'=>'addon_save_failed'],500);
 wp_send_json_success(['message' => __('Addon deactivated', 'yuz-tra')]);
 $this->logger->log('success', "Addon {$addon_slug} deactivated");
     }
 }
 }
 // Boot à un moment sûr (évite __() avant 'init')
-if (class_exists('YUZ_Addons')) {
-add_action('admin_init', ['YUZ_Addons', 'init']);
+if (class_exists('YUZTRA_Addons')) {
+add_action('admin_init', ['YUZTRA_Addons', 'init']);
 }

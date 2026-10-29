@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         php: ['8.1', '8.3']
@@ -44,10 +44,20 @@ jobs:
             dist/yuz-tra-*.zip
             dist/yuz-tra-*.sha256
             dist/yuz-tra-*.manifest.json
+  release-gate:
+    name: Release gate
+    if: always()
+    needs: [verify]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All required controls must succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: node -e 'const n=JSON.parse(process.env.RESULTS);if(Object.values(n).some(j=>j.result!=="success"))process.exit(1)'
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: verify
-    runs-on: ubuntu-latest
+    needs: [verify, release-gate]
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:

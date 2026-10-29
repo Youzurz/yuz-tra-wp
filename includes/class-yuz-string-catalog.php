@@ -2,13 +2,14 @@
 defined('ABSPATH') || exit;
 
 /** Gettext identity, collection and published-only application. No provider calls during rendering. */
-final class YUZ_String_Catalog {
+
+final class YUZTRA_String_Catalog {
     private static $pending = [];
     private static $published = [];
     private static $busy = false;
 
     public static function init(): void {
-        if (is_admin() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) YUZ_DB::ensure_string_tables();
+        if (!wp_doing_ajax() && (is_admin() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI))) YUZTRA_DB::ensure_string_tables();
         add_filter('gettext', [__CLASS__, 'gettext'], 20, 3);
         add_filter('gettext_with_context', [__CLASS__, 'context'], 20, 4);
         add_filter('ngettext', [__CLASS__, 'plural'], 20, 5);
@@ -21,18 +22,20 @@ final class YUZ_String_Catalog {
     }
 
     public static function source_language(string $domain): string {
-        $map=(array)get_option('yuz_tra_domain_source_languages',[]);
+        $map=(array)get_option('yuztra_domain_source_languages',[]);
         // WordPress Gettext convention, explicitly overridable for non-English source plugins.
-        return self::locale((string)apply_filters('yuz_tra_gettext_source_language',$map[$domain] ?? 'en',$domain));
+
+        return self::locale((string)apply_filters('yuztra_gettext_source_language',$map[$domain] ?? 'en',$domain));
     }
 
     public static function language(): string {
         if (is_admin()) return self::locale(get_user_locale());
         $locale = get_locale();
-        if (class_exists('YUZ_Front_Renderer')) $locale = YUZ_Front_Renderer::get_active_language();
-        elseif (function_exists('yuz_get_current_language')) $locale = yuz_get_current_language();
+        if (class_exists('YUZTRA_Front_Renderer')) $locale = YUZTRA_Front_Renderer::get_active_language();
+        elseif (function_exists('yuztra_get_current_language')) $locale = yuztra_get_current_language();
         elseif (get_query_var('lang')) $locale = get_query_var('lang');
-        return self::locale((string) apply_filters('yuz_tra_string_language', $locale));
+
+        return self::locale((string) apply_filters('yuztra_string_language', $locale));
     }
 
     public static function languages(): array {
@@ -44,7 +47,8 @@ final class YUZ_String_Catalog {
             $code = self::locale($locale);
             if (!isset($out[$code])) $out[$code] = ['code' => $code, 'name' => $code];
         }
-        return apply_filters('yuz_tra_catalog_languages', array_values($out));
+
+        return apply_filters('yuztra_catalog_languages', array_values($out));
     }
 
     public static function valid_language(string $lang): bool {
@@ -61,30 +65,36 @@ final class YUZ_String_Catalog {
     public static function plural_context($translation, $single, $plural, $number, $context, $domain) { return self::apply($translation, $single, $domain, $context, $plural, $number); }
 
     public static function apply($fallback, $text, $domain, $context = '', $plural = '', $number = 1) {
-        if (self::$busy || !is_string($text) || $text === '' || strlen($text) > 20000 || !in_array(get_option('yuz_tra_strings_schema'),['1','2'],true)) return $fallback;
+        if (self::$busy || !is_string($text) || $text === '' || strlen($text) > 20000 || !in_array(get_option('yuztra_strings_schema'),['1','2'],true)) return $fallback;
         self::$busy = true;
         try {
             $key = self::identity($text, $domain, $context, $plural);
-            if (count(self::$pending) < 100) self::$pending[$key] = [$text, $domain, $context, $plural];
+            // AJAX may be refused later: background discovery must not turn that
+            // refusal into a delayed write. Explicit authorized catalog writes remain separate.
+            if (!(defined('DOING_AJAX') && DOING_AJAX) && count(self::$pending) < 100) self::$pending[$key] = [$text, $domain, $context, $plural];
             $lang = self::language();
             $bucket = get_current_blog_id() . '|' . $lang . '|' . $domain;
             if (!isset(self::$published[$bucket])) {
                 global $wpdb;
                 $sources = $wpdb->prefix . 'yuz_tra_string_sources';
                 $targets = $wpdb->prefix . 'yuz_tra_string_targets';
-                $rows = $wpdb->get_results($wpdb->prepare("SELECT s.identity_hash,t.forms,t.lang FROM $sources s JOIN $targets t ON t.source_id=s.id WHERE s.domain=%s AND t.status=4 AND t.lang IN (%s,%s) ORDER BY (t.lang=%s) ASC", $domain, $lang, explode('_', $lang)[0], $lang), ARRAY_A) ?: [];
+                $rows = $wpdb->get_results($wpdb->prepare("SELECT s.identity_hash,t.forms,t.lang FROM %i s JOIN %i t ON t.source_id=s.id WHERE s.domain=%s AND t.status=4 AND t.lang IN (%s,%s) ORDER BY (t.lang=%s) ASC", $sources, $targets, $domain, $lang, explode('_', $lang)[0], $lang), ARRAY_A) ?: [];
                 $map = [];
                 foreach ($rows as $row) $map[$row['identity_hash']] = json_decode($row['forms'], true);
                 self::$published[$bucket] = $map;
             }
             $forms = self::$published[$bucket][$key] ?? [];
             $index = $plural === '' ? 0 : self::plural_index($lang, (int) $number);
-            return isset($forms[$index]) && $forms[$index] !== '' ? $forms[$index] : $fallback;
+            return isset($forms[$index]) && is_string($forms[$index]) && $forms[$index] !== '' && self::safe_form($forms[$index]) ? $forms[$index] : $fallback;
         } finally { self::$busy = false; }
     }
 
     public static function flush(): void {
-        if (!self::$pending || !in_array(get_option('yuz_tra_strings_schema'),['1','2'],true)) return;
+        if (defined('DOING_AJAX') && DOING_AJAX) {
+            self::$pending = [];
+            return;
+        }
+        if (!self::$pending || !in_array(get_option('yuztra_strings_schema'),['1','2'],true)) return;
         $pending = self::$pending; self::$pending = [];
         self::$busy = true;
         try {
@@ -105,9 +115,9 @@ final class YUZ_String_Catalog {
         $table = $wpdb->prefix . 'yuz_tra_string_sources';
         $hash = self::identity($text, $domain, $context, $plural);
         $source = self::source_language($domain);
-        $ok = $wpdb->query($wpdb->prepare("INSERT IGNORE INTO $table (identity_hash,domain,context,original,plural_original,source_lang,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s)", $hash, $domain, $context, $text, $plural, $source, gmdate('Y-m-d H:i:s')));
+        $ok = $wpdb->query($wpdb->prepare("INSERT IGNORE INTO %i (identity_hash,domain,context,original,plural_original,source_lang,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s)", $table, $hash, $domain, $context, $text, $plural, $source, gmdate('Y-m-d H:i:s')));
         if ($ok === false) throw new RuntimeException('catalog_write_failed');
-        return (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM $table WHERE identity_hash=%s", $hash));
+        return (int) $wpdb->get_var($wpdb->prepare('SELECT id FROM %i WHERE identity_hash=%s', $table, $hash));
     }
 
     /** Inventory writes are batched, avoiding two database round trips per string. */
@@ -134,7 +144,8 @@ final class YUZ_String_Catalog {
         if ($rules === null) $rules=json_decode(file_get_contents(__DIR__.'/data/plural-rules.json'),true);
         $code=self::locale($lang);
         $rule=$rules[$code] ?? $rules[str_replace('_','-',$code)] ?? $rules[strtolower(explode('_',$code)[0])] ?? [2,'n != 1'];
-        return apply_filters('yuz_tra_plural_rule',$rule,$lang);
+
+        return apply_filters('yuztra_plural_rule',$rule,$lang);
     }
 
     public static function plural_index(string $lang, int $number): int {
@@ -150,6 +161,12 @@ final class YUZ_String_Catalog {
         $tokens = $m[0]; sort($tokens); return $tokens;
     }
 
+    /** Reject executable markup rather than silently changing translator input. */
+    public static function safe_form(string $text): bool {
+        return !preg_match('/<\?(?:php|=)?|<\/?(?:script|style|iframe|object|embed)\b/i', $text)
+            && wp_kses_post($text) === $text;
+    }
+
     public static function save(int $id, string $lang, array $forms, int $status, string $origin = 'manual', $expected = false): void {
         global $wpdb;
         if (!self::valid_language($lang) || !in_array($status, [1,2,3,4,5], true)) throw new InvalidArgumentException('invalid_language_or_status');
@@ -160,6 +177,7 @@ final class YUZ_String_Catalog {
         $singular_index = $s['plural_original'] === '' ? 0 : self::plural_index($lang, 1);
         foreach ($forms as $i => $text) {
             if (!is_string($text) || strlen($text) > 40000) throw new InvalidArgumentException('invalid_translation');
+            if (!self::safe_form($text)) throw new InvalidArgumentException('unsafe_translation_markup');
             $original = $i === $singular_index ? $s['original'] : $s['plural_original'];
             if ($status >= 2 && $status <= 4 && (trim($text) === '' || self::tokens($text) !== self::tokens($original))) throw new InvalidArgumentException('placeholders_or_empty_translation');
         }
@@ -183,7 +201,7 @@ final class YUZ_String_Catalog {
 
     public static function source(int $id): ?array {
         global $wpdb;
-        return $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}yuz_tra_string_sources WHERE id=%d", $id), ARRAY_A);
+        return $wpdb->get_row($wpdb->prepare('SELECT * FROM %i WHERE id=%d', $wpdb->prefix . 'yuz_tra_string_sources', $id), ARRAY_A);
     }
 
     public static function search(string $lang, string $q = '', string $domain = '', int $status = -1, int $page = 1): array {
@@ -203,13 +221,13 @@ final class YUZ_String_Catalog {
             $count = $row['plural_original'] === '' ? 1 : self::plural_rule($lang)[0];
             $row['forms'] = json_decode($row['forms'] ?? '', true) ?: array_fill(0, $count, '');
         }
-        return ['rows' => $rows, 'total' => $total, 'page' => $page, 'per_page' => 30, 'domains' => $wpdb->get_col($wpdb->prepare('SELECT DISTINCT domain FROM %i ORDER BY domain',$s)), 'usage' => YUZ_Translation_Budget::usage()];
+        return ['rows' => $rows, 'total' => $total, 'page' => $page, 'per_page' => 30, 'domains' => $wpdb->get_col($wpdb->prepare('SELECT DISTINCT domain FROM %i ORDER BY domain',$s)), 'usage' => YUZTRA_Translation_Budget::usage()];
     }
 
     public static function translate(int $id, string $lang, int $status = 2, float $deadline = 0): void {
         global $wpdb;
         $table=$wpdb->prefix.'yuz_tra_string_targets';
-        $before=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE source_id=%d AND lang=%s",$id,$lang),ARRAY_A);
+        $before=$wpdb->get_row($wpdb->prepare('SELECT * FROM %i WHERE source_id=%d AND lang=%s',$table,$id,$lang),ARRAY_A);
         $s = self::source($id);
         if (!$s || !self::valid_language($lang)) throw new InvalidArgumentException('invalid_string_or_language');
         $count = $s['plural_original'] === '' ? 1 : self::plural_rule($lang)[0];
@@ -227,15 +245,15 @@ final class YUZ_String_Catalog {
             $protected=preg_replace_callback('/%(?:\d+\$)?[-+0 #]*(?:\d+|\*)?(?:\.(?:\d+|\*))?[bcdeEfFgGosuxX]|\{\{?[^{}]+\}?\}|<\/?[a-zA-Z][^>]*>/', static function($m) use (&$placeholders) {
                 $key='YUZKEEP'.count($placeholders).'TOKEN'; $placeholders[$key]=$m[0]; return $key;
             },$original);
-            $translated=YUZ_Services::tm()->translate_text($protected,$s['source_lang'],$lang,[
+            $translated=YUZTRA_Services::tm()->translate_text($protected,$s['source_lang'],$lang,[
                 'domain'=>$s['domain'],'context'=>$s['context'],'original'=>$original,
                 'placeholders'=>$placeholders,'deadline'=>$deadline]);
             foreach($placeholders as $key=>$value) if(substr_count($translated,$key)!==1) throw new RuntimeException('provider_changed_placeholder');
             $forms[]=strtr($translated,$placeholders);
         }
-        $after=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE source_id=%d AND lang=%s",$id,$lang),ARRAY_A);
+        $after=$wpdb->get_row($wpdb->prepare('SELECT * FROM %i WHERE source_id=%d AND lang=%s',$table,$id,$lang),ARRAY_A);
         if ($before !== $after) throw new RuntimeException('concurrent_edit_preserved');
-        self::save($id, $lang, $forms, YUZ_Services::tm()->requires_review() ? 2 : $status, 'machine', $before);
+        self::save($id, $lang, $forms, YUZTRA_Services::tm()->requires_review() ? 2 : $status, 'machine', $before);
     }
 
     private static function native_forms(array $source,string $lang,int $count): ?array {
@@ -269,10 +287,10 @@ final class YUZ_String_Catalog {
     }
 
     public static function script_translations($json, $file, $handle, $domain) {
-        if (!in_array(get_option('yuz_tra_strings_schema'),['1','2'],true)) return $json;
+        if (!in_array(get_option('yuztra_strings_schema'),['1','2'],true)) return $json;
         global $wpdb;
         $lang=self::language(); $short=explode('_',$lang)[0];
-        $rows=$wpdb->get_results($wpdb->prepare("SELECT s.original,s.context,s.plural_original,t.forms FROM {$wpdb->prefix}yuz_tra_string_sources s JOIN {$wpdb->prefix}yuz_tra_string_targets t ON t.source_id=s.id WHERE s.domain=%s AND t.status=4 AND t.lang IN (%s,%s) ORDER BY (t.lang=%s) ASC",$domain,$lang,$short,$lang),ARRAY_A);
+        $rows=$wpdb->get_results($wpdb->prepare('SELECT s.original,s.context,s.plural_original,t.forms FROM %i s JOIN %i t ON t.source_id=s.id WHERE s.domain=%s AND t.status=4 AND t.lang IN (%s,%s) ORDER BY (t.lang=%s) ASC',$wpdb->prefix . 'yuz_tra_string_sources',$wpdb->prefix . 'yuz_tra_string_targets',$domain,$lang,$short,$lang),ARRAY_A);
         if (!$rows) return $json;
         $data=json_decode($json ?: '{}',true) ?: [];
         $key=isset($data['locale_data'][$domain])?$domain:'messages';
@@ -280,8 +298,13 @@ final class YUZ_String_Catalog {
         $data['locale_data'][$key]['']=['domain'=>$domain,'lang'=>$lang,'plural-forms'=>"nplurals=$count; plural=$expression;"];
         foreach ($rows as $row) {
             $original=$row['context']!==''?$row['context']."\x04".$row['original']:$row['original'];
-            $data['locale_data'][$key][$original]=json_decode($row['forms'],true);
+            $forms=json_decode($row['forms'],true);
+            if (!is_array($forms) || !$forms) continue;
+            foreach ($forms as $form) {
+                if (!is_string($form) || !self::safe_form($form)) continue 2;
+            }
+            $data['locale_data'][$key][$original]=array_values($forms);
         }
-        return wp_json_encode($data);
+        return wp_json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 }

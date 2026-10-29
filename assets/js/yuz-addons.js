@@ -1,31 +1,31 @@
 (function (w, $) {
   'use strict';
-  const AO = w.yuzAO || {};
+  const AO = w.yuztraAO || {};
   const { ajax_url, nonces = {}, addons = [], capabilities = {} } = AO;
 
   function refreshList() {
-    return $.post(ajax_url, { action: 'yuz_add_list', _ajax_nonce: nonces.yuz_add_list });
+    return $.post(ajax_url, { action: 'yuztra_add_list', _ajax_nonce: nonces.yuztra_add_list });
   }
 
   function toggleAddon(slug, enable) {
     return $.post(ajax_url, {
-      action: 'yuz_add_toggle',
+      action: 'yuztra_add_toggle',
       addon: slug,
       enable: enable ? 1 : 0,
-      _ajax_nonce: nonces.yuz_add_toggle
+      _ajax_nonce: nonces.yuztra_add_toggle
     });
   }
 
   function installAddon(slug) {
-    return $.post(ajax_url, { action: 'yuz_add_install', addon: slug, _ajax_nonce: nonces.yuz_add_install });
+    return $.post(ajax_url, { action: 'yuztra_add_install', addon: slug, _ajax_nonce: nonces.yuztra_add_install });
   }
 
   function updateAddon(slug) {
-    return $.post(ajax_url, { action: 'yuz_add_update', addon: slug, _ajax_nonce: nonces.yuz_add_update });
+    return $.post(ajax_url, { action: 'yuztra_add_update', addon: slug, _ajax_nonce: nonces.yuztra_add_update });
   }
 
   function deleteAddon(slug) {
-    return $.post(ajax_url, { action: 'yuz_add_delete', addon: slug, _ajax_nonce: nonces.yuz_add_delete });
+    return $.post(ajax_url, { action: 'yuztra_add_delete', addon: slug, _ajax_nonce: nonces.yuztra_add_delete });
   }
 
   // === Bind UI

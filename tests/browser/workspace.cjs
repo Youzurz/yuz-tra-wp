@@ -12,7 +12,7 @@ const path=require('node:path');
    return route.fulfill({contentType:'text/html',body:'<div id="anchor"></div><div id="yuz-editor-container"><div class="yuz-modal" style="position:fixed;left:40%;top:30%;width:505px;z-index:2147483647;background:white"><button id="strings" data-yuz-open-strings>Strings</button><textarea id="visual-draft">Visual draft</textarea></div></div>'});
   });
   await page.goto('https://workspace.example/editor');
-  await page.evaluate(()=>{window.yuzStrings={nonce:'fixture',userId:17,ajax_url:'/wp-admin/admin-ajax.php',languages:[{code:'fr_FR',name:'French'}],defaultLang:'fr_FR'};});
+  await page.evaluate(()=>{window.yuztraStrings=window.yuzStrings={nonce:'fixture',userId:17,ajax_url:'/wp-admin/admin-ajax.php',languages:[{code:'fr_FR',name:'French'}],defaultLang:'fr_FR'};});
   await page.addStyleTag({path:path.resolve(__dirname,'../../release/yuz-tra/assets/css/yuz-string-catalog.css')});
   await page.addScriptTag({path:path.resolve(__dirname,'../../release/yuz-tra/assets/js/yuz-strings-dock.js')});
   await page.locator('#visual-draft').fill('Unsaved visual');

@@ -7,13 +7,13 @@
 
 defined('ABSPATH') || exit;
 
-require_once YUZ_TRA_INCLUDES . 'helpers/html-applier.php';
+require_once YUZTRA_INCLUDES . 'helpers/html-applier.php';
 
-if (!class_exists('YUZ_Front_Renderer')) {
-    final class YUZ_Front_Renderer {
-        private static ?YUZ_Query $query = null;
-        private static ?YUZ_Url_Converter $url_converter = null;
-        private static ?YUZ_Languages $languages = null;
+if (!class_exists('YUZTRA_Front_Renderer')) {
+    final class YUZTRA_Front_Renderer {
+        private static ?YUZTRA_Query $query = null;
+        private static ?YUZTRA_Url_Converter $url_converter = null;
+        private static ?YUZTRA_Languages $languages = null;
         /** @var int[] */
         private static array $registered_post_ids = [];
 
@@ -39,7 +39,7 @@ if (!class_exists('YUZ_Front_Renderer')) {
             $active  = self::get_active_language();
             $default = self::get_default_language();
             $source  = self::get_source_language();
-            $logger  = class_exists('YUZ_Logger') ? new YUZ_Logger() : null;
+            $logger  = class_exists('YUZTRA_Logger') ? new YUZTRA_Logger() : null;
 
             $is_source        = strcasecmp($active, $source) === 0;
             $is_default       = strcasecmp($active, $default) === 0;
@@ -105,11 +105,11 @@ if (!class_exists('YUZ_Front_Renderer')) {
                 return $text;
             }
 
-            $logger = class_exists('YUZ_Logger') ? new YUZ_Logger() : null;
+            $logger = class_exists('YUZTRA_Logger') ? new YUZTRA_Logger() : null;
             if ($context === 'content') {
                 $map = self::query()->get_post_translation_map($post_id, $active, $context);
                 if (!empty($map)) {
-                    $applier = new YUZ_HTML_Apply($map, $post_id, $context);
+                    $applier = new YUZTRA_HTML_Apply($map, $post_id, $context);
                     $translated_html = $applier->apply($text);
                     if ($translated_html !== $text) {
                         if ($logger) {
@@ -245,7 +245,7 @@ if (!class_exists('YUZ_Front_Renderer')) {
                 return $url;
             }
 
-            $logger    = class_exists('YUZ_Logger') ? new YUZ_Logger() : null;
+            $logger    = class_exists('YUZTRA_Logger') ? new YUZTRA_Logger() : null;
             $converter = self::url_converter();
             try {
                 $explicitLocale = $converter->detect_locale_from_url($url);
@@ -285,7 +285,7 @@ if (!class_exists('YUZ_Front_Renderer')) {
                     ]);
                 }
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('[YUZ-TRA] convert_url failure: ' . $e->getMessage());
+                    yuztra_debug_log('[YUZ-TRA] convert_url failure: ' . $e->getMessage());
                 }
                 return $url;
             }
@@ -322,9 +322,9 @@ if (!class_exists('YUZ_Front_Renderer')) {
             if ($default !== null) {
                 return $default;
             }
-            if (class_exists('YUZ_Services')) {
+            if (class_exists('YUZTRA_Services')) {
                 try {
-                    $default = (string) YUZ_Services::languages()->get_default_language();
+                    $default = (string) YUZTRA_Services::languages()->get_default_language();
                 } catch (\Throwable $e) {
                     $default = get_locale();
                 }
@@ -342,9 +342,9 @@ if (!class_exists('YUZ_Front_Renderer')) {
             if ($source !== null) {
                 return $source;
             }
-            if (class_exists('YUZ_Services')) {
+            if (class_exists('YUZTRA_Services')) {
                 try {
-                    $source = (string) YUZ_Services::languages()->get_source_language();
+                    $source = (string) YUZTRA_Services::languages()->get_source_language();
                     if ($source !== '') {
                         return $source;
                     }
@@ -359,11 +359,11 @@ if (!class_exists('YUZ_Front_Renderer')) {
         /**
          * Lazy accessor.
          */
-        private static function query(): YUZ_Query {
+        private static function query(): YUZTRA_Query {
             if (self::$query === null) {
-                self::$query = class_exists('YUZ_Services')
-                    ? YUZ_Services::translations()
-                    : new YUZ_Query();
+                self::$query = class_exists('YUZTRA_Services')
+                    ? YUZTRA_Services::translations()
+                    : new YUZTRA_Query();
             }
             return self::$query;
         }
@@ -371,19 +371,19 @@ if (!class_exists('YUZ_Front_Renderer')) {
         /**
          * Lazy URL converter.
          */
-        private static function url_converter(): YUZ_Url_Converter {
+        private static function url_converter(): YUZTRA_Url_Converter {
             if (self::$url_converter === null) {
-                if (!class_exists('YUZ_Settings')) {
-                    require_once YUZ_TRA_INCLUDES . 'class-yuz-settings.php';
+                if (!class_exists('YUZTRA_Settings')) {
+                    require_once YUZTRA_INCLUDES . 'class-yuz-settings.php';
                 }
-                $settings = class_exists('YUZ_Services') ? YUZ_Services::settings() : new YUZ_Settings(
+                $settings = class_exists('YUZTRA_Services') ? YUZTRA_Services::settings() : new YUZTRA_Settings(
                     new \YUZTRA\Fallbacks\NullLanguages(),
                     new \YUZTRA\Fallbacks\NullAjax(),
                     new \YUZTRA\Fallbacks\NullTranslationManager(),
                     new \YUZTRA\Fallbacks\NullLanguageManager(),
                     new \YUZTRA\Fallbacks\NullLogger()
                 );
-                self::$url_converter = new YUZ_Url_Converter($settings);
+                self::$url_converter = new YUZTRA_Url_Converter($settings);
             }
             return self::$url_converter;
         }
@@ -469,9 +469,9 @@ if (!class_exists('YUZ_Front_Renderer')) {
 
             $final = is_string($converted) ? $converted : $html;
 
-            if ($final !== $html && class_exists('YUZ_Logger')) {
+            if ($final !== $html && class_exists('YUZTRA_Logger')) {
                 try {
-                    (new YUZ_Logger())->log('debug', 'translate_html_document mutated', [
+                    (new YUZTRA_Logger())->log('debug', 'translate_html_document mutated', [
                         'len_src'      => strlen($html),
                         'len_dst'      => strlen($final),
                         'tags_src'     => substr_count($html, '<'),

@@ -16,7 +16,7 @@ const path=require('node:path');
         return route.fulfill({contentType:'text/html',body:inline?'<div class="yuz-strings-tab"></div>':'<button id="open" data-yuz-open-strings>Strings</button>'});
       });
       await page.goto('https://overlay.example/editor');
-      await page.evaluate(()=>{window.yuzStrings={nonce:'fixture-only',ajax_url:'/wp-admin/admin-ajax.php',languages:[{code:'fr_FR',name:'French'}],defaultLang:'fr_FR'};});
+      await page.evaluate(()=>{window.yuztraStrings=window.yuzStrings={nonce:'fixture-only',ajax_url:'/wp-admin/admin-ajax.php',languages:[{code:'fr_FR',name:'French'}],defaultLang:'fr_FR'};});
       await page.addStyleTag({path:path.resolve(__dirname,'../../release/yuz-tra/assets/css/yuz-string-catalog.css')});
       await page.addScriptTag({path:path.resolve(__dirname,'../../release/yuz-tra/assets/js/yuz-strings-dock.js')});
       if(inline) {

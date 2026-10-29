@@ -1,25 +1,25 @@
 (function (w, $) {
   'use strict';
-  const LC = w.yuzLC || {};
+  const LC = w.yuztraLC || {};
   const { ajax_url, nonces = {}, license = {}, capabilities = {} } = LC;
 
   function getStatus() {
-    return $.post(ajax_url, { action: 'yuz_lic_get_status', _ajax_nonce: nonces.yuz_lic_get_status });
+    return $.post(ajax_url, { action: 'yuztra_lic_get_status', _ajax_nonce: nonces.yuztra_lic_get_status });
   }
   function ping() {
-    return $.post(ajax_url, { action: 'yuz_lic_ping', _ajax_nonce: nonces.yuz_lic_ping });
+    return $.post(ajax_url, { action: 'yuztra_lic_ping', _ajax_nonce: nonces.yuztra_lic_ping });
   }
   function activate(key) {
-    return $.post(ajax_url, { action: 'yuz_lic_activate', key, _ajax_nonce: nonces.yuz_lic_activate });
+    return $.post(ajax_url, { action: 'yuztra_lic_activate', key, _ajax_nonce: nonces.yuztra_lic_activate });
   }
   function deactivate() {
-    return $.post(ajax_url, { action: 'yuz_lic_deactivate', _ajax_nonce: nonces.yuz_lic_deactivate });
+    return $.post(ajax_url, { action: 'yuztra_lic_deactivate', _ajax_nonce: nonces.yuztra_lic_deactivate });
   }
   function updateKey(key) {
-    return $.post(ajax_url, { action: 'yuz_lic_update_key', key, _ajax_nonce: nonces.yuz_lic_update_key });
+    return $.post(ajax_url, { action: 'yuztra_lic_update_key', key, _ajax_nonce: nonces.yuztra_lic_update_key });
   }
   function deleteKey() {
-    return $.post(ajax_url, { action: 'yuz_lic_delete', _ajax_nonce: nonces.yuz_lic_delete });
+    return $.post(ajax_url, { action: 'yuztra_lic_delete', _ajax_nonce: nonces.yuztra_lic_delete });
   }
 
   // === Bind UI (exemples)

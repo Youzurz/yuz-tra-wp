@@ -10,10 +10,10 @@ if (defined('WP_CLI') && WP_CLI) {
      *   wp yuz front:doctor --id=3155
      *   wp yuz front:doctor --lang=en
      */
-    $yuz_front_doctor = function( $args, $assoc_args ) {
+    $yuztra_front_doctor = function( $yuztra_args, $yuztra_assoc_args ) {
 
-        $page_id = isset($assoc_args['id']) ? (int)$assoc_args['id'] : (int)get_option('page_on_front');
-        $lang    = isset($assoc_args['lang']) ? sanitize_text_field($assoc_args['lang']) : get_locale();
+        $page_id = isset($yuztra_assoc_args['id']) ? (int)$yuztra_assoc_args['id'] : (int)get_option('page_on_front');
+        $lang    = isset($yuztra_assoc_args['lang']) ? sanitize_text_field($yuztra_assoc_args['lang']) : get_locale();
 
         // --- Options de lecture (accueil)
         $show_on_front = get_option('show_on_front', 'posts');
@@ -74,23 +74,23 @@ if (defined('WP_CLI') && WP_CLI) {
         }
 
         // --- (optionnel) YUZ settings utiles
-        $yuz_settings = get_option('yuz_tra_settings');
-        $yuz_general  = get_option('yuz_tra_general');
-        $use_subdir   = is_array($yuz_settings) && !empty($yuz_settings['use_subdirectory']);
-        $force_lang   = is_array($yuz_settings) && !empty($yuz_settings['force_lang_in_links']);
+        $yuztra_settings = get_option('yuztra_settings');
+        $yuztra_general  = get_option('yuztra_general');
+        $use_subdir   = is_array($yuztra_settings) && !empty($yuztra_settings['use_subdirectory']);
+        $force_lang   = is_array($yuztra_settings) && !empty($yuztra_settings['force_lang_in_links']);
 
         WP_CLI::line("\n=== YUZ settings (résumé) ===");
         WP_CLI::line('use_subdirectory     : ' . ($use_subdir ? '1' : '0'));
         WP_CLI::line('force_lang_in_links  : ' . ($force_lang ? '1' : '0'));
-        if (is_array($yuz_general)) {
-            WP_CLI::line('default_language     : ' . ($yuz_general['yuz_tra_default_language'] ?? '(unset)'));
-            WP_CLI::line('source_language      : ' . ($yuz_general['yuz_tra_source_language'] ?? '(unset)'));
+        if (is_array($yuztra_general)) {
+            WP_CLI::line('default_language     : ' . ($yuztra_general['yuztra_default_language'] ?? '(unset)'));
+            WP_CLI::line('source_language      : ' . ($yuztra_general['yuztra_source_language'] ?? '(unset)'));
         }
 
         WP_CLI::success('front:doctor done.');
     };
 
     // On tolère deux syntaxes: `wp yuz front:doctor` et `wp yuz front-doctor`
-    WP_CLI::add_command('yuz front:doctor', $yuz_front_doctor);
-    WP_CLI::add_command('yuz front-doctor', $yuz_front_doctor);
+    WP_CLI::add_command('yuz front:doctor', $yuztra_front_doctor);
+    WP_CLI::add_command('yuz front-doctor', $yuztra_front_doctor);
 }

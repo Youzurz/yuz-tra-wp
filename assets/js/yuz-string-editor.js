@@ -4,7 +4,7 @@
 
   if (!window || !document) return;
 
-  var CFG = window.yuzTraSettings || {};
+  var CFG = window.yuztraSettings || {};
   var hasParam = /[?&]yuz-edit-translation=1\b/.test(window.location.search);
   var searchParams;
   try { searchParams = new URLSearchParams(window.location.search); } catch (e) { searchParams = null; }
@@ -14,8 +14,8 @@
     console.log('[YUZ UMD][boot]', {
       param: hasParam,
       container: !!document.getElementById('yuz-editor-container'),
-      haveSettings: !!window.yuzTraSettings,
-      haveTE: !!window.yuzTE
+      haveSettings: !!window.yuztraSettings,
+      haveTE: !!window.yuztraTE
     });
   } catch (_) {}
 
@@ -30,7 +30,7 @@
   }
 
   function nonceFor(action) {
-    try { return (CFG.nonces && (CFG.nonces[action] || CFG.nonces.yuz_int_nonce || CFG.nonces.yuz_tra_nonce)) || ''; } catch (_) {}
+    try { return (CFG.nonces && (CFG.nonces[action] || CFG.nonces.yuztra_int_nonce || CFG.nonces.yuztra_nonce)) || ''; } catch (_) {}
     return '';
   }
   function el(tag, attrs, html) {
@@ -68,11 +68,11 @@
       style: 'position:fixed;left:16px;bottom:16px;right:16px;z-index:99999;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:10px 12px;font:14px system-ui,-apple-system,Segoe UI,Roboto;color:#222;'
     });
     var row1 = el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;' });
-    var selFrom = el('select', { id: 'yuz_from', style: 'min-width:160px' });
-    var selTo = el('select', { id: 'yuz_to', style: 'min-width:200px' });
-    var input = el('input', { type: 'text', id: 'yuz_text', placeholder: 'Enter text to translate…', style: 'flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px' });
-    var btnSave = el('button', { id: 'yuz_save', class: 'button' }, 'Save');
-    var btnPub = el('button', { id: 'yuz_publish', class: 'button primary' }, 'Publish');
+    var selFrom = el('select', { id: 'yuztra_from', style: 'min-width:160px' });
+    var selTo = el('select', { id: 'yuztra_to', style: 'min-width:200px' });
+    var input = el('input', { type: 'text', id: 'yuztra_text', placeholder: 'Enter text to translate…', style: 'flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px' });
+    var btnSave = el('button', { id: 'yuztra_save', class: 'button' }, 'Save');
+    var btnPub = el('button', { id: 'yuztra_publish', class: 'button primary' }, 'Publish');
 
     function opt(v, t) { var o = el('option'); o.value = v; o.textContent = t; return o; }
     selFrom.appendChild(opt('', 'From…'));
@@ -96,7 +96,7 @@
       p.set('action', action);
       p.set('nonce', nonceFor(action));
       Object.keys(payload || {}).forEach(function (k) { p.set(k, payload[k]); });
-      xhr.open('POST', CFG.ajax_url || '/wp-admin/admin-ajax.php');
+      xhr.open('POST', CFG.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })());
       xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
       xhr.onload = function () {
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -115,14 +115,14 @@
         var to = selTo.value || '';
         var txt = input.value || '';
         if (!to || !txt) { alert('Select target and enter text.'); return; }
-        ajax('yuz_tra_te_upd_manual', { target_lang: to, text: txt, page_url: window.location.href });
+        ajax('yuztra_te_upd_manual', { target_lang: to, text: txt, page_url: window.location.href });
       });
       btnPub.addEventListener('click', function (e) {
         e.preventDefault();
         var to = selTo.value || '';
         var txt = input.value || '';
         if (!to || !txt) { alert('Select target and enter text.'); return; }
-        ajax('yuz_tra_te_upd_publish', { target_lang: to, text: txt, page_url: window.location.href });
+        ajax('yuztra_te_upd_publish', { target_lang: to, text: txt, page_url: window.location.href });
       });
     }
 
@@ -170,7 +170,7 @@
     if (mode === 'xpress-progress' || mode === 'mini-progress') { mountMini({ progressOnly: true }); }
   }
 
-  if (window.YUZ_UI) {
+  if (window.YUZTRA_UI) {
     document.addEventListener('yuz:ui:mount', onMount);
   } else if (searchParams && searchParams.get('yuz-mini') === '1' && !overlayHandlesXpress()) {
     if (document.readyState === 'loading') {
@@ -180,4 +180,3 @@
     }
   }
 })();
-

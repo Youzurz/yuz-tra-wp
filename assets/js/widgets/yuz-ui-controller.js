@@ -1,5 +1,5 @@
 (function () {
-  const CFG = window.yuzTraSettings || {};
+  const CFG = window.yuztraSettings || {};
   const q = new URLSearchParams(location.search);
 
   const MODE_ALIASES = {
@@ -42,7 +42,7 @@
   if (window.__YUZ_UI_ACTIVE__) return;
   window.__YUZ_UI_ACTIVE__ = { id: chosen, unmount: null };
 
-  window.YUZ_UI = {
+  window.YUZTRA_UI = {
     getMode() { return window.__YUZ_UI_ACTIVE__?.id || null; },
     switchTo(next) {
       const canonical = canonicalMode(next);

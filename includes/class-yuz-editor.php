@@ -69,8 +69,8 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Load dependencies
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 
 use YUZTRA\Interfaces\LanguagesInterface;
 use YUZTRA\Interfaces\TranslationManagerInterface;
@@ -82,8 +82,9 @@ use YUZTRA\Fallbacks\NullLogger;
 use YUZTRA\Fallbacks\NullLanguageManager;
 use YUZTRA\Fallbacks\NullTranslationManager;
 
-if (!class_exists('YUZ_Editor')) {
-class YUZ_Editor {
+if (!class_exists('YUZTRA_Editor')) {
+
+class YUZTRA_Editor {
     private static $instance = null;
     private $languages;
     private $translation_manager;
@@ -96,11 +97,11 @@ class YUZ_Editor {
     private function __construct(LanguagesInterface $languages, TranslationManagerInterface $translation_manager) {
         $this->languages            = $languages;
         $this->translation_manager  = $translation_manager;
-        $this->logger               = class_exists('\YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
+        $this->logger               = class_exists('\YUZTRA_Logger') ? new \YUZTRA_Logger() : new NullLogger();
 
         // Préfère la factory centrale
-        if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'settings')) {
-            $this->settings = \YUZ_Services::settings();
+        if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'settings')) {
+            $this->settings = \YUZTRA_Services::settings();
         } else {
             $this->settings = new NullSettings();
         }
@@ -112,40 +113,40 @@ class YUZ_Editor {
     public static function init() {
         if ( self::$instance === null ) {
             // 1) Logger + health + DB
-            $logger = class_exists('\YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
-            $health = class_exists('\YUZ_Health_Check') ? new \YUZ_Health_Check( $logger ) : null;
-            $db     = class_exists('\YUZ_DB') ? new \YUZ_DB( $logger, $health ) : null;
+            $logger = class_exists('\YUZTRA_Logger') ? new \YUZTRA_Logger() : new NullLogger();
+            $health = class_exists('\YUZTRA_Health_Check') ? new \YUZTRA_Health_Check( $logger ) : null;
+            $db     = class_exists('\YUZTRA_DB') ? new \YUZTRA_DB( $logger, $health ) : null;
 
             // 2) Langues
-            if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'languages')) {
-                $languages = \YUZ_Services::languages();
+            if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'languages')) {
+                $languages = \YUZTRA_Services::languages();
             } else {
-                $languages = class_exists( 'YUZ_Languages' ) && $db
-                    ? new \YUZ_Languages( new NullSettings(), $db )
+                $languages = class_exists( 'YUZTRA_Languages' ) && $db
+                    ? new \YUZTRA_Languages( new NullSettings(), $db )
                     : new NullLanguages();
             }
 
             // 3) Settings
-            if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'settings')) {
-                $settings = \YUZ_Services::settings();
-            } elseif (class_exists('YUZ_Settings') && $db) {
-                $settings = new \YUZ_Settings($languages, new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), $logger);
+            if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'settings')) {
+                $settings = \YUZTRA_Services::settings();
+            } elseif (class_exists('YUZTRA_Settings') && $db) {
+                $settings = new \YUZTRA_Settings($languages, new NullAjax(), new NullTranslationManager(), new NullLanguageManager(), $logger);
             } else {
                 $settings = new NullSettings();
             }
 
             // 4) Translation Manager
-            if (class_exists('YUZ_Services') && method_exists('YUZ_Services', 'tm')) {
-                $translationMgr = \YUZ_Services::tm();
-            } elseif (class_exists( 'YUZ_API_Manager' ) && $db) {
+            if (class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'tm')) {
+                $translationMgr = \YUZTRA_Services::tm();
+            } elseif (class_exists( 'YUZTRA_API_Manager' ) && $db) {
                 $adapters = [
-                    'custom'         => class_exists( 'YUZ_Custom_Translate_Adapter' ) ? new \YUZ_Custom_Translate_Adapter() : new NullTranslateAdapter(),
-                    'libretranslate' => class_exists( 'YUZ_Libre_Translate_Adapter' ) ? new \YUZ_Libre_Translate_Adapter() : new NullTranslateAdapter(),
-                    'deepl'          => class_exists( 'YUZ_DeepL_Translate_Adapter' ) ? new \YUZ_DeepL_Translate_Adapter() : new NullTranslateAdapter(),
-                    'google'         => class_exists( 'YUZ_Google_Translate_Adapter' ) ? new \YUZ_Google_Translate_Adapter() : new NullTranslateAdapter(),
+                    'custom'         => class_exists( 'YUZTRA_Custom_Translate_Adapter' ) ? new \YUZTRA_Custom_Translate_Adapter() : new NullTranslateAdapter(),
+                    'libretranslate' => class_exists( 'YUZTRA_Libre_Translate_Adapter' ) ? new \YUZTRA_Libre_Translate_Adapter() : new NullTranslateAdapter(),
+                    'deepl'          => class_exists( 'YUZTRA_DeepL_Translate_Adapter' ) ? new \YUZTRA_DeepL_Translate_Adapter() : new NullTranslateAdapter(),
+                    'google'         => class_exists( 'YUZTRA_Google_Translate_Adapter' ) ? new \YUZTRA_Google_Translate_Adapter() : new NullTranslateAdapter(),
                 ];
 
-                $translationMgr = new \YUZ_API_Manager(
+                $translationMgr = new \YUZTRA_API_Manager(
                     $adapters,
                     $settings,
                     $languages,
@@ -158,13 +159,13 @@ class YUZ_Editor {
             }
 
             // 5) Language Manager
-            $languageMgr = class_exists('YUZ_Language_Manager')
-                ? new \YUZ_Language_Manager()
+            $languageMgr = class_exists('YUZTRA_Language_Manager')
+                ? new \YUZTRA_Language_Manager()
                 : new NullLanguageManager();
 
             // 6) Ajax
-            $ajax = class_exists( 'YUZ_Ajax' ) && $db
-                ? new \YUZ_Ajax( $translationMgr, $languageMgr, $db )
+            $ajax = class_exists( 'YUZTRA_Ajax' ) && $db
+                ? new \YUZTRA_Ajax( $translationMgr, $languageMgr, $db )
                 : new NullAjax();
 
             // 7) Branchement Ajax → TM
@@ -173,8 +174,8 @@ class YUZ_Editor {
             }
 
             // 8) Si Settings non fournis par Services, recâbler
-            if (!(class_exists('YUZ_Services') && method_exists('YUZ_Services', 'settings')) && class_exists('YUZ_Settings') && !($settings instanceof NullSettings)) {
-                $settings = new \YUZ_Settings($languages, $ajax, $translationMgr, $languageMgr, $logger);
+            if (!(class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services', 'settings')) && class_exists('YUZTRA_Settings') && !($settings instanceof NullSettings)) {
+                $settings = new \YUZTRA_Settings($languages, $ajax, $translationMgr, $languageMgr, $logger);
             }
 
             // 9) Instance
@@ -193,23 +194,23 @@ class YUZ_Editor {
         }
 
         // Hooks AJAX (NB: si tu veux strictement isoler AJAX dans class-yuz-ajax.php, déplace ces hooks là-bas)
-        self::$instance->logger->log( 'info', 'Initializing YUZ_Editor at ' . current_time( 'mysql' ) );
-        add_action( 'wp_ajax_yuz_start_translation', [ self::$instance, 'ajax_start_translation' ] );
-        add_action( 'wp_ajax_yuz_get_translatable_languages', [ self::$instance, 'ajax_get_translatable_languages' ] );
-        add_action( 'wp_ajax_yuz_save_translation', [ self::$instance, 'ajax_save_translation' ] );
-        add_action( 'wp_ajax_yuz_translate_text', [ self::$instance, 'ajax_translate_text' ] );
+        self::$instance->logger->log( 'info', 'Initializing YUZTRA_Editor at ' . current_time( 'mysql' ) );
+        add_action( 'wp_ajax_yuztra_start_translation', [ self::$instance, 'ajax_start_translation' ] );
+        add_action( 'wp_ajax_yuztra_get_translatable_languages', [ self::$instance, 'ajax_get_translatable_languages' ] );
+        add_action( 'wp_ajax_yuztra_save_translation', [ self::$instance, 'ajax_save_translation' ] );
+        add_action( 'wp_ajax_yuztra_translate_text', [ self::$instance, 'ajax_translate_text' ] );
 
         // === DEBUG DIAG ENDPOINT (Option A) — activé seulement si YUZ_TRA_DEBUG ===
-        if ( defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG ) {
-            add_action('wp_ajax_yuz_tra_probe', [ self::$instance, 'ajax_probe' ]);
+        if ( defined('YUZTRA_DEBUG') && YUZTRA_DEBUG ) {
+            add_action('wp_ajax_yuztra_probe', [ self::$instance, 'ajax_probe' ]);
         }
 
         // Hook assets (déclenche uniquement la demande centrale vers YUZ_Assets)
         add_action( 'wp_enqueue_scripts', [ self::$instance, 'enqueue_editor_assets' ] );
         // Injection du conteneur overlay (front uniquement)
-        add_action( 'yuz/footer/frontend', [ self::$instance, 'print_editor_container' ], 5 );
+        add_action( 'yuztra/footer/frontend', [ self::$instance, 'print_editor_container' ], 5 );
 
-        self::$instance->logger->log( 'success', 'YUZ_Editor initialized successfully' );
+        self::$instance->logger->log( 'success', 'YUZTRA_Editor initialized successfully' );
     }
 
     /**
@@ -224,9 +225,9 @@ class YUZ_Editor {
 
         // Gardes stricts (pas d'overlay si désactivé, si param absent, ou si cap manquante)
         $has_param = isset($_GET['yuz-edit-translation']); // phpcs:ignore
-        $can_edit  = class_exists('YUZ_Capabilities')
-            ? \YUZ_Capabilities::user_is_translator()
-            : (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
+        $can_edit  = class_exists('YUZTRA_Capabilities')
+            ? \YUZTRA_Capabilities::user_is_translator()
+            : (current_user_can('manage_options') || current_user_can('yuztra_translate_content'));
 
         if (empty($flags['editor_enabled']) || ! $has_param || ! $can_edit) {
             // Log doux pour diagnostiquer sans bruit
@@ -238,8 +239,8 @@ class YUZ_Editor {
         }
 
         // Demande à la fabrique d’assets (source unique) — uniquement si gardes OK
-        if (method_exists('YUZ_Assets','require')) {
-            YUZ_Assets::require('translation-editor');
+        if (method_exists('YUZTRA_Assets','require')) {
+            YUZTRA_Assets::require('translation-editor');
         }
 
         // Rien d’autre ici : pas de wp_enqueue_* ni wp_localize_script (géré par class-yuz-assets.php)
@@ -259,9 +260,9 @@ class YUZ_Editor {
             ? $this->settings->runtime_flags()
             : ['editor_enabled' => true];
         $has_param = isset($_GET['yuz-edit-translation']); // phpcs:ignore
-        $can_edit  = class_exists('YUZ_Capabilities')
-            ? \YUZ_Capabilities::user_is_translator()
-            : (current_user_can('manage_options') || current_user_can('yuz_translate_content'));
+        $can_edit  = class_exists('YUZTRA_Capabilities')
+            ? \YUZTRA_Capabilities::user_is_translator()
+            : (current_user_can('manage_options') || current_user_can('yuztra_translate_content'));
         if ( empty($flags['editor_enabled']) || ! $has_param || ! $can_edit ) {
             return;
         }
@@ -275,10 +276,10 @@ class YUZ_Editor {
      * AJAX: start translation
      */
     public function ajax_start_translation() {
-        check_ajax_referer('yuz_tra_nonce', 'nonce');
+        check_ajax_referer('yuztra_nonce', 'nonce');
         $this->logger->log('info', 'Starting translation via AJAX');
 
-        $page_url   = isset($_POST['page_url']) ? esc_url_raw($_POST['page_url']) : home_url();
+        $page_url   = isset($_POST['page_url']) ? esc_url_raw(wp_unslash($_POST['page_url'])) : home_url();
         $editor_url = add_query_arg('yuz-edit-translation', '1', $page_url);
 
         wp_send_json_success(['editor_url' => $editor_url]);
@@ -289,25 +290,25 @@ class YUZ_Editor {
      * AJAX: get translatable languages
      */
     public function ajax_get_translatable_languages() {
-        $busy_key = 'yuz_te_busy';
+        $busy_key = 'yuztra_te_busy';
         if (get_transient($busy_key)) {
             wp_send_json_error(['code' => 429, 'message' => 'Too many requests, try again in 30s'], 429);
         }
         set_transient($busy_key, true, 30);
 
-        check_ajax_referer('yuz_tra_nonce', 'nonce');
+        check_ajax_referer('yuztra_nonce', 'nonce');
         $this->logger->log('info', 'Fetching translatable languages via AJAX');
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
-        if (! $wpdb->get_var("SHOW TABLES LIKE '$table_name'")) {
+        if (! $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_name))) {
             wp_send_json_error(['message' => "Languages table $table_name does not exist"], 500);
         }
 
         $languages = null;
         $attempts  = 3;
         while ($attempts > 0) {
-            $languages = $wpdb->get_results("SELECT language_code, language_name FROM {$table_name} WHERE is_translatable = 1");
+            $languages = $wpdb->get_results($wpdb->prepare('SELECT language_code, language_name FROM %i WHERE is_translatable = 1', $table_name));
             if ($languages !== null) {
                 break;
             }
@@ -332,7 +333,7 @@ class YUZ_Editor {
         $table_key = $table ?: 'default';
         if (!isset($cache[$table_key])) {
             global $wpdb;
-            $columns = $wpdb->get_col("DESCRIBE {$table}", 0);
+            $columns = $wpdb->get_col($wpdb->prepare('DESCRIBE %i', $table), 0);
             $cache[$table_key] = is_array($columns) ? array_map('strtolower', $columns) : [];
         }
 
@@ -343,18 +344,18 @@ class YUZ_Editor {
      * AJAX: translate text
      */
     public function ajax_translate_text() {
-        $busy_key = 'yuz_te_busy';
+        $busy_key = 'yuztra_te_busy';
         if (get_transient($busy_key)) {
             wp_send_json_error(['code' => 429, 'message' => 'Too many requests, try again in 30s'], 429);
         }
         set_transient($busy_key, true, 30);
 
-        check_ajax_referer('yuz_tra_nonce', 'nonce');
+        check_ajax_referer('yuztra_nonce', 'nonce');
         $this->logger->log('info', 'Translating text via AJAX');
 
-        $text        = sanitize_text_field($_POST['text'] ?? '');
-        $source_lang = sanitize_text_field($_POST['source_lang'] ?? '');
-        $target_lang = sanitize_text_field($_POST['target_lang'] ?? '');
+        $text        = sanitize_text_field(wp_unslash($_POST['text'] ?? ''));
+        $source_lang = sanitize_text_field(wp_unslash($_POST['source_lang'] ?? ''));
+        $target_lang = sanitize_text_field(wp_unslash($_POST['target_lang'] ?? ''));
 
         if (empty($text) || empty($source_lang) || empty($target_lang)) {
             wp_send_json_error(['message' => 'Missing required parameters for translation'], 400);
@@ -379,7 +380,7 @@ class YUZ_Editor {
             wp_send_json_error(['code'=>403,'msg'=>'forbidden']);
         }
 
-        $ok = check_ajax_referer('yuz_tra_nonce', 'nonce', false);
+        $ok = check_ajax_referer('yuztra_nonce', 'nonce', false);
         if ( ! $ok ) {
             wp_send_json_error(['code'=>401,'msg'=>'bad nonce']);
         }
@@ -387,27 +388,26 @@ class YUZ_Editor {
         wp_send_json_success([
             'user_id'        => get_current_user_id(),
             'user_login'     => wp_get_current_user()->user_login ?? null,
-            'has_cap'        => current_user_can('yuz_translate_content'),
+            'has_cap'        => current_user_can('yuztra_translate_content'),
             'cookie_present' => isset($_COOKIE['wordpress_logged_in_'.COOKIEHASH]),
-            'received_nonce' => $_POST['nonce'] ?? null,
-            'expected_nonce' => wp_create_nonce('yuz_tra_nonce'),
+            'nonce_valid'    => true,
             'headers'        => [
-                'ua'          => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'xrw'         => $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '',
-                'cfipcountry' => $_SERVER['HTTP_CF_IPCOUNTRY'] ?? '',
+                'ua'          => sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? '')),
+                'xrw'         => sanitize_text_field(wp_unslash($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')),
+                'cfipcountry' => sanitize_text_field(wp_unslash($_SERVER['HTTP_CF_IPCOUNTRY'] ?? '')),
             ],
         ]);
     }
 }
 }
 
-if (class_exists('YUZ_Editor')) {
-    if (class_exists('\\YUZ_Logger')) {
-        (new \YUZ_Logger())->log('success', 'YUZ_Editor class created successfully at ' . current_time('mysql'));
+if (class_exists('YUZTRA_Editor')) {
+    if (class_exists('\\YUZTRA_Logger')) {
+        (new \YUZTRA_Logger())->log('success', 'YUZTRA_Editor class created successfully at ' . current_time('mysql'));
     }
-    add_action('plugins_loaded', ['YUZ_Editor', 'init']); // init après chargement des dépendances
+    add_action('plugins_loaded', ['YUZTRA_Editor', 'init']); // init après chargement des dépendances
 } else {
-    if (class_exists('\\YUZ_Logger')) {
-        (new \YUZ_Logger())->log('critical', 'Failed to create YUZ_Editor class at ' . current_time('mysql'));
+    if (class_exists('\\YUZTRA_Logger')) {
+        (new \YUZTRA_Logger())->log('critical', 'Failed to create YUZTRA_Editor class at ' . current_time('mysql'));
     }
 }

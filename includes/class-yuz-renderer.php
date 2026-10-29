@@ -66,11 +66,11 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // Include the contracts file
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 // Load required dependencies
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-logger.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-languages.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-logger.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-languages.php';
 //require_once YUZ_TRA_INCLUDES . 'class-yuz-health-check.php'; // Added for health checks
 use YUZTRA\Interfaces\RendererInterface;
 use YUZTRA\Interfaces\AjaxInterface;
@@ -80,7 +80,7 @@ use YUZTRA\Interfaces\LanguagesInterface;
 use YUZTRA\Fallbacks\NullSettings;
 use YUZTRA\Fallbacks\NullAjax;
 use YUZTRA\Fallbacks\NullLanguages;
-class YUZ_Renderer implements RendererInterface { // here (24)
+class YUZTRA_Renderer implements RendererInterface { // here (24)
     private $ajax;
     private $settings;
     private $logger;
@@ -129,35 +129,35 @@ public function render_licenses_tab(array $settings = []): void {
      */
     public static function init(): void {
         // Stub deps for init
-        $logger = new YUZ_Logger();
+        $logger = new YUZTRA_Logger();
         $instance = new self(new NullAjax(), new NullSettings(), $logger, new NullLanguages());
         // No direct admin_menu; handled in Settings/Core
         // Log init
-        $logger->log('success', 'YUZ_Renderer initialized');
+        $logger->log('success', 'YUZTRA_Renderer initialized');
     }
     /**
      * Renders the tabs wrapper.
      */
     public function render_tab(): void {
     // Désactivé : l'affichage se fait via les hooks de page (YUZ_Settings).
-    if (class_exists('YUZ_Logger')) {
-        (new \YUZ_Logger())->log('info', 'Renderer::render_tab() désactivé (routeur par hooks).');
+    if (class_exists('YUZTRA_Logger')) {
+        (new \YUZTRA_Logger())->log('info', 'Renderer::render_tab() désactivé (routeur par hooks).');
     }
     return;
 }
     private function normalize_general(array $s): array {
         $s += []; // ensure array
-        if (!isset($s['yuz_tra_default_language']) && isset($s['yuz_default_language'])) {
-            $s['yuz_tra_default_language'] = $s['yuz_default_language'];
+        if (!isset($s['yuztra_default_language']) && isset($s['yuztra_default_language'])) {
+            $s['yuztra_default_language'] = $s['yuztra_default_language'];
         }
-        if (!isset($s['yuz_tra_source_language']) && isset($s['yuz_source_language'])) {
-            $s['yuz_tra_source_language'] = $s['yuz_source_language'];
+        if (!isset($s['yuztra_source_language']) && isset($s['yuztra_source_language'])) {
+            $s['yuztra_source_language'] = $s['yuztra_source_language'];
         }
-        if (!isset($s['yuz_tra_translatable_languages']) && isset($s['yuz_translatable_languages'])) {
-            $s['yuz_tra_translatable_languages'] = $s['yuz_translatable_languages'];
+        if (!isset($s['yuztra_translatable_languages']) && isset($s['yuztra_translatable_languages'])) {
+            $s['yuztra_translatable_languages'] = $s['yuztra_translatable_languages'];
         }
-        if (!isset($s['yuz_tra_slug']) && isset($s['yuz_slug'])) { $s['yuz_tra_slug'] = $s['yuz_slug']; }
-        if (!isset($s['yuz_tra_code']) && isset($s['yuz_code'])) { $s['yuz_tra_code'] = $s['yuz_code']; }
+        if (!isset($s['yuztra_slug']) && isset($s['yuztra_slug'])) { $s['yuztra_slug'] = $s['yuztra_slug']; }
+        if (!isset($s['yuztra_code']) && isset($s['yuztra_code'])) { $s['yuztra_code'] = $s['yuztra_code']; }
         return $s;
     }
     // --- General Settings Fields ---
@@ -169,8 +169,8 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_default_language_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering default language field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering default language field');
-        $options_general = $this->normalize_general($settings ?: $this->settings->get_option('yuz_tra_ws_settings'));
-        $default_lang = (string) ($options_general['yuz_tra_default_language'] ?? '');
+        $options_general = $this->normalize_general($settings ?: $this->settings->get_option('yuztra_ws_settings'));
+        $default_lang = (string) ($options_general['yuztra_default_language'] ?? '');
         $all_languages = $this->languages->get_all_languages(); // here (117)
         if (empty($all_languages)) {
             $this->logger->log('warning', 'No languages available for default language field');
@@ -178,10 +178,10 @@ public function render_licenses_tab(array $settings = []): void {
         ?>
         <tr>
             <th scope="row">
-                <label for="yuz_tra_ws_settings[yuz_tra_default_language]"><?php esc_html_e('Default Language', 'yuz-tra'); ?></label>
+                <label for="yuztra_ws_settings[yuztra_default_language]"><?php esc_html_e('Default Language', 'yuz-tra'); ?></label>
             </th>
             <td>
-                <select id="yuz_tra_ws_settings[yuz_tra_default_language]" name="yuz_tra_ws_settings[yuz_tra_default_language]" style="border: 1px solid #ddd;">
+                <select id="yuztra_ws_settings[yuztra_default_language]" name="yuztra_ws_settings[yuztra_default_language]" style="border: 1px solid #ddd;">
                     <?php foreach ($all_languages as $lang) : ?>
                         <option value="<?php echo esc_attr($lang->get_code()); ?>" <?php selected($default_lang, $lang->get_code()); ?>>
                             <?php echo esc_html($lang->get_name() . ' (' . $lang->get_code() . ')'); ?>
@@ -203,8 +203,8 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_source_language_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering source language field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering source language field');
-        $options_general = $this->normalize_general($settings ?: $this->settings->get_option('yuz_tra_ws_settings'));
-        $source_lang = (string) ($options_general['yuz_tra_source_language'] ?? '');
+        $options_general = $this->normalize_general($settings ?: $this->settings->get_option('yuztra_ws_settings'));
+        $source_lang = (string) ($options_general['yuztra_source_language'] ?? '');
         $all_languages = $this->languages->get_all_languages();
         if (empty($all_languages)) {
             $this->logger->log('warning', 'No languages available for source language field');
@@ -212,10 +212,10 @@ public function render_licenses_tab(array $settings = []): void {
         ?>
         <tr>
             <th scope="row">
-                <label for="yuz_tra_ws_settings[yuz_tra_source_language]"><?php esc_html_e('Source Language', 'yuz-tra'); ?></label>
+                <label for="yuztra_ws_settings[yuztra_source_language]"><?php esc_html_e('Source Language', 'yuz-tra'); ?></label>
             </th>
             <td>
-                <select id="yuz_tra_ws_settings[yuz_tra_source_language]" name="yuz_tra_ws_settings[yuz_tra_source_language]" style="border: 1px solid #ddd;">
+                <select id="yuztra_ws_settings[yuztra_source_language]" name="yuztra_ws_settings[yuztra_source_language]" style="border: 1px solid #ddd;">
                     <?php foreach ($all_languages as $lang) : ?>
                         <option value="<?php echo esc_attr($lang->get_code()); ?>" <?php selected($source_lang, $lang->get_code()); ?>>
                             <?php echo esc_html($lang->get_name() . ' (' . $lang->get_code() . ')'); ?>
@@ -240,14 +240,14 @@ public function render_licenses_tab(array $settings = []): void {
         global $wpdb;
         $table_name = $wpdb->prefix . 'yuz_tra_languages';
         // Health check for table existence
-        if (class_exists('YUZ_Health_Check')) {
-            YUZ_Health_Check::ensure(
-                $wpdb->get_var("SHOW TABLES LIKE '$table_name'") !== null,
+        if (class_exists('YUZTRA_Health_Check')) {
+            YUZTRA_Health_Check::ensure(
+                $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))) !== null,
                 'Languages table missing',
                 __METHOD__
             );
         }
-        $options_general = $this->normalize_general($settings ?: $this->settings->get_option('yuz_tra_ws_settings'));
+        $options_general = $this->normalize_general($settings ?: $this->settings->get_option('yuztra_ws_settings'));
         $translatable_languages = $this->languages->get_translatable_languages();
         $translatable = array_map(function($lang_obj) {
             return $lang_obj->get_code();
@@ -276,7 +276,7 @@ public function render_licenses_tab(array $settings = []): void {
                     <span style="width: 100px;"><?php esc_html_e('Code', 'yuz-tra'); ?></span>
                     <span style="width: 32px;"></span>
                 </div>
-                <ul id="yuz_tra_translatable_list" class="yuz-tra-translatable-list" style="list-style: none; margin: 0; padding: 0;">
+                <ul id="yuztra_translatable_list" class="yuz-tra-translatable-list" style="list-style: none; margin: 0; padding: 0;">
                     <?php if (empty($translatable)) : ?>
                         <li style="color: #6c757d;"><?php esc_html_e('No translatable languages set. Add languages to start translating.', 'yuz-tra'); ?></li>
                         <?php $this->logger->log('warning', 'No translatable languages set'); ?>
@@ -289,9 +289,9 @@ public function render_licenses_tab(array $settings = []): void {
                                         <span style="flex: 1;">
                                             <?php echo esc_html($lang->get_name() . ' (' . $lang->get_code() . ')'); ?>
                                         </span>
-                                        <input type="text" class="yuz-tra-regular-text" name="yuz_tra_ws_settings[yuz_tra_slug][<?php echo esc_attr($lang->get_code()); ?>]" value="<?php echo esc_attr(isset($options_general['yuz_tra_slug'][$lang->get_code()]) ? $options_general['yuz_tra_slug'][$lang->get_code()] : strtolower(str_replace('-', '_', $lang->get_code()))); ?>" style="width: 100px;">
-                                        <input type="text" class="yuz-tra-regular-text" name="yuz_tra_ws_settings[yuz_tra_code][<?php echo esc_attr($lang->get_code()); ?>]" value="<?php echo esc_attr(isset($options_general['yuz_tra_code'][$lang->get_code()]) ? $options_general['yuz_tra_code'][$lang->get_code()] : $lang->get_code()); ?>" style="width: 100px;">
-                                        <button type="button" id="yuz_tra_yuz_remove_language_<?php echo esc_attr($lang->get_code()); ?>" class="yuz-tra-remove-language yuz-btn-remove" data-language-code="<?php echo esc_attr($lang->get_code()); ?>" title="<?php esc_attr_e('Remove', 'yuz-tra'); ?>">
+                                        <input type="text" class="yuz-tra-regular-text" name="yuztra_ws_settings[yuztra_slug][<?php echo esc_attr($lang->get_code()); ?>]" value="<?php echo esc_attr(isset($options_general['yuztra_slug'][$lang->get_code()]) ? $options_general['yuztra_slug'][$lang->get_code()] : strtolower(str_replace('-', '_', $lang->get_code()))); ?>" style="width: 100px;">
+                                        <input type="text" class="yuz-tra-regular-text" name="yuztra_ws_settings[yuztra_code][<?php echo esc_attr($lang->get_code()); ?>]" value="<?php echo esc_attr(isset($options_general['yuztra_code'][$lang->get_code()]) ? $options_general['yuztra_code'][$lang->get_code()] : $lang->get_code()); ?>" style="width: 100px;">
+                                        <button type="button" id="yuztra_yuz_remove_language_<?php echo esc_attr($lang->get_code()); ?>" class="yuz-tra-remove-language yuz-btn-remove" data-language-code="<?php echo esc_attr($lang->get_code()); ?>" title="<?php esc_attr_e('Remove', 'yuz-tra'); ?>">
                                             <span class="yuz-tra-icon" aria-hidden="true">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                     <line x1="18" y1="6" x2="6" y2="18"/>
@@ -299,7 +299,7 @@ public function render_licenses_tab(array $settings = []): void {
                                                 </svg>
                                             </span>
                                         </button>
-                                        <input type="hidden" name="yuz_tra_ws_settings[yuz_tra_translatable_languages][]" value="<?php echo esc_attr($lang->get_code()); ?>">
+                                        <input type="hidden" name="yuztra_ws_settings[yuztra_translatable_languages][]" value="<?php echo esc_attr($lang->get_code()); ?>">
                                     </li>
                                 <?php endif; ?>
                             <?php endforeach; ?>
@@ -307,7 +307,7 @@ public function render_licenses_tab(array $settings = []): void {
                     <?php endif; ?>
                 </ul>
                 <div class="yuz-tra-add-language-section" style="margin-top: 16px;">
-                    <select id="yuz_tra_yuz_add_language_select" style="border: 1px solid #ddd;">
+                    <select id="yuztra_yuz_add_language_select" style="border: 1px solid #ddd;">
                         <option value=""><?php echo esc_html__('Select a language to add', 'yuz-tra'); ?></option>
                         <?php foreach ($available as $lang) : ?>
                             <option value="<?php echo esc_attr($lang->get_code()); ?>">
@@ -315,9 +315,9 @@ public function render_licenses_tab(array $settings = []): void {
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <button type="button" id="yuz_tra_yuz_add_language_btn" class="yuz-tra-button yuz-add-language"><?php esc_html_e('Add Language', 'yuz-tra'); ?></button>
-                    <button type="button" id="yuz_tra_yuz_add_all_languages_btn" class="yuz-tra-button yuz-add-all-languages"><?php esc_html_e('Add All Languages', 'yuz-tra'); ?></button>
-                    <button type="button" id="yuz_tra_yuz_remove_all_languages_btn" class="yuz-tra-button yuz-remove-all-languages"><?php esc_html_e('Remove All Languages', 'yuz-tra'); ?></button>
+                    <button type="button" id="yuztra_yuz_add_language_btn" class="yuz-tra-button yuz-add-language"><?php esc_html_e('Add Language', 'yuz-tra'); ?></button>
+                    <button type="button" id="yuztra_yuz_add_all_languages_btn" class="yuz-tra-button yuz-add-all-languages"><?php esc_html_e('Add All Languages', 'yuz-tra'); ?></button>
+                    <button type="button" id="yuztra_yuz_remove_all_languages_btn" class="yuz-tra-button yuz-remove-all-languages"><?php esc_html_e('Remove All Languages', 'yuz-tra'); ?></button>
                 </div>
             </td>
         </tr>
@@ -333,16 +333,16 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_native_language_name_field(array $settings = []): void { // here (220)
         $this->logger->log('info', 'Rendering native language name field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering native language name field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ls_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_ls_settings');
         $value = $options_settings['native_language_name'] ?? '';
         ?>
         <div class="yuz-tra-field">
-            <input type="hidden" name="yuz_tra_ls_settings[native_language_name]" value="0">
+            <input type="hidden" name="yuztra_ls_settings[native_language_name]" value="0">
             <label class="switch">
-                <input type="checkbox" id="yuz_tra_ls_settings[native_language_name]" name="yuz_tra_ls_settings[native_language_name]" value="1" <?php checked(!empty($value)); ?>>
+                <input type="checkbox" id="yuztra_ls_settings[native_language_name]" name="yuztra_ls_settings[native_language_name]" value="1" <?php checked(!empty($value)); ?>>
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_ls_settings[native_language_name]"><?php esc_html_e('Use Native Language Names', 'yuz-tra'); ?></label>
+            <label for="yuztra_ls_settings[native_language_name]"><?php esc_html_e('Use Native Language Names', 'yuz-tra'); ?></label>
             <p class="yuz-tra-description"><?php esc_html_e('Display languages in their native names (e.g., Español instead of Spanish).', 'yuz-tra'); ?></p>
         </div>
 
@@ -359,16 +359,16 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_use_subdirectory_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering use subdirectory field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering use subdirectory field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ls_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_ls_settings');
         $value = $options_settings['use_subdirectory'] ?? '';
         ?>
         <div class="yuz-tra-field">
-            <input type="hidden" name="yuz_tra_ls_settings[use_subdirectory]" value="0">
+            <input type="hidden" name="yuztra_ls_settings[use_subdirectory]" value="0">
             <label class="switch">
-                <input type="checkbox" id="yuz_tra_ls_settings[use_subdirectory]" name="yuz_tra_ls_settings[use_subdirectory]" value="1" <?php checked(!empty($value)); ?>>
+                <input type="checkbox" id="yuztra_ls_settings[use_subdirectory]" name="yuztra_ls_settings[use_subdirectory]" value="1" <?php checked(!empty($value)); ?>>
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_ls_settings[use_subdirectory]"><?php esc_html_e('Use Subdirectory for Languages', 'yuz-tra'); ?></label>
+            <label for="yuztra_ls_settings[use_subdirectory]"><?php esc_html_e('Use Subdirectory for Languages', 'yuz-tra'); ?></label>
             <p class="yuz-tra-description"><?php esc_html_e('Enable to use subdirectories for languages (e.g., example.com/fr/).', 'yuz-tra'); ?></p>
         </div>
         <?php
@@ -383,16 +383,16 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_force_lang_in_links_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering force lang in links field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering force lang in links field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ls_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_ls_settings');
         $value = $options_settings['force_lang_in_links'] ?? '';
         ?>
         <div class="yuz-tra-field">
-            <input type="hidden" name="yuz_tra_ls_settings[force_lang_in_links]" value="0">
+            <input type="hidden" name="yuztra_ls_settings[force_lang_in_links]" value="0">
             <label class="switch">
-                <input type="checkbox" id="yuz_tra_ls_settings[force_lang_in_links]" name="yuz_tra_ls_settings[force_lang_in_links]" value="1" <?php checked(!empty($value)); ?>>
+                <input type="checkbox" id="yuztra_ls_settings[force_lang_in_links]" name="yuztra_ls_settings[force_lang_in_links]" value="1" <?php checked(!empty($value)); ?>>
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_ls_settings[force_lang_in_links]"><?php esc_html_e('Force Language in Links', 'yuz-tra'); ?></label>
+            <label for="yuztra_ls_settings[force_lang_in_links]"><?php esc_html_e('Force Language in Links', 'yuz-tra'); ?></label>
             <p class="yuz-tra-description"><?php esc_html_e('Force the language code in all internal links.', 'yuz-tra'); ?></p>
         </div>
         <?php
@@ -407,21 +407,21 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_shortcode_block(array $settings = []): void {
         $this->logger->log('info', 'Rendering shortcode block at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering shortcode block');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_sw_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_sw_settings');
         $value = $options_settings['shortcode_enabled'] ?? '';
         $shortcode_format = (string) ($options_settings['shortcode_format'] ?? 'flags-full-names');
         ?>
         <div class="yuz-tra-field yuz-field yuz-settings-checkbox">
-            <input type="hidden" name="yuz_tra_sw_settings[shortcode_enabled]" value="0">
-            <label class="switch" for="yuz_tra_sw_settings[shortcode_enabled]">
-                <input type="checkbox" id="yuz_tra_sw_settings[shortcode_enabled]" name="yuz_tra_sw_settings[shortcode_enabled]" value="1" <?php checked(!empty($value)); ?>>
+            <input type="hidden" name="yuztra_sw_settings[shortcode_enabled]" value="0">
+            <label class="switch" for="yuztra_sw_settings[shortcode_enabled]">
+                <input type="checkbox" id="yuztra_sw_settings[shortcode_enabled]" name="yuztra_sw_settings[shortcode_enabled]" value="1" <?php checked(!empty($value)); ?>>
                 <span class="slider round"></span>
             </label>
             <div class="yuz-checkbox-content">
-                <label for="yuz_tra_sw_settings[shortcode_enabled]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
+                <label for="yuztra_sw_settings[shortcode_enabled]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
                     <?php esc_html_e('Shortcode [language-switcher]', 'yuz-tra'); ?>
                 </label>
-                <select id="yuz_tra_sw_settings[shortcode_format]" name="yuz_tra_sw_settings[shortcode_format]" class="yuz-select yuz-tra-select yuz-ls-select-option">
+                <select id="yuztra_sw_settings[shortcode_format]" name="yuztra_sw_settings[shortcode_format]" class="yuz-select yuz-tra-select yuz-ls-select-option">
                     <?php $this->render_shortcode_format_options($shortcode_format); ?>
                 </select>
                 <p class="yuz-description-text yuz-tra-description">
@@ -442,21 +442,21 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_menu_item_block(array $settings = []): void {
         $this->logger->log('info', 'Rendering menu item block at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering menu item block');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_sw_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_sw_settings');
         $value = $options_settings['menu_enabled'] ?? '';
         $menu_format = (string) ($options_settings['menu_format'] ?? 'flags-full-names');
         ?>
         <div class="yuz-tra-field yuz-field yuz-settings-checkbox">
-            <input type="hidden" name="yuz_tra_sw_settings[menu_enabled]" value="0">
-            <label class="switch" for="yuz_tra_sw_settings[menu_enabled]">
-                <input type="checkbox" id="yuz_tra_sw_settings[menu_enabled]" name="yuz_tra_sw_settings[menu_enabled]" value="1" <?php checked(!empty($value)); ?>>
+            <input type="hidden" name="yuztra_sw_settings[menu_enabled]" value="0">
+            <label class="switch" for="yuztra_sw_settings[menu_enabled]">
+                <input type="checkbox" id="yuztra_sw_settings[menu_enabled]" name="yuztra_sw_settings[menu_enabled]" value="1" <?php checked(!empty($value)); ?>>
                 <span class="slider round"></span>
             </label>
             <div class="yuz-checkbox-content">
-                <label for="yuz_tra_sw_settings[menu_enabled]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
+                <label for="yuztra_sw_settings[menu_enabled]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
                     <?php esc_html_e('Menu item', 'yuz-tra'); ?>
                 </label>
-                <select id="yuz_tra_sw_settings[menu_format]" name="yuz_tra_sw_settings[menu_format]" class="yuz-select yuz-tra-select yuz-ls-select-option">
+                <select id="yuztra_sw_settings[menu_format]" name="yuztra_sw_settings[menu_format]" class="yuz-select yuz-tra-select yuz-ls-select-option">
                     <?php $this->render_menu_format_options($menu_format, true); ?>
                 </select>
                 <p class="yuz-description-text yuz-tra-description">
@@ -477,31 +477,31 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_floating_language_selection_block(array $settings = []): void {
         $this->logger->log('info', 'Rendering floating language selection block at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering floating language selection block');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_sw_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_sw_settings');
         $value = $options_settings['floating_enabled'] ?? '';
         $floating_format = (string) ($options_settings['floating_format'] ?? 'flags-full-names');
         $floating_theme = (string) ($options_settings['floating_theme'] ?? 'dark');
         $floating_pos = (string) ($options_settings['floating_position'] ?? 'bottom-right');
         ?>
         <div class="yuz-tra-field yuz-field yuz-settings-checkbox">
-            <input type="hidden" name="yuz_tra_sw_settings[floating_enabled]" value="0">
-            <label class="switch" for="yuz_tra_sw_settings[floating_enabled]">
-                <input type="checkbox" id="yuz_tra_sw_settings[floating_enabled]" name="yuz_tra_sw_settings[floating_enabled]" value="1" <?php checked(!empty($value)); ?>>
+            <input type="hidden" name="yuztra_sw_settings[floating_enabled]" value="0">
+            <label class="switch" for="yuztra_sw_settings[floating_enabled]">
+                <input type="checkbox" id="yuztra_sw_settings[floating_enabled]" name="yuztra_sw_settings[floating_enabled]" value="1" <?php checked(!empty($value)); ?>>
                 <span class="slider round"></span>
             </label>
             <div class="yuz-checkbox-content">
-                <label for="yuz_tra_sw_settings[floating_enabled]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
+                <label for="yuztra_sw_settings[floating_enabled]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
                     <?php esc_html_e('Floating language selection', 'yuz-tra'); ?>
                 </label>
                 <div class="yuz-select-group">
-                    <select id="yuz_tra_sw_settings[floating_format]" name="yuz_tra_sw_settings[floating_format]" class="yuz-select yuz-tra-select yuz-ls-select-option">
+                    <select id="yuztra_sw_settings[floating_format]" name="yuztra_sw_settings[floating_format]" class="yuz-select yuz-tra-select yuz-ls-select-option">
                         <?php $this->render_floater_format_options($floating_format); ?>
                     </select>
-                    <select id="yuz_tra_sw_settings[floating_theme]" name="yuz_tra_sw_settings[floating_theme]" class="yuz-select yuz-tra-select yuz-ls-select-option">
+                    <select id="yuztra_sw_settings[floating_theme]" name="yuztra_sw_settings[floating_theme]" class="yuz-select yuz-tra-select yuz-ls-select-option">
                         <option value="dark" <?php selected($floating_theme, 'dark'); ?>><?php esc_html_e('Dark', 'yuz-tra'); ?></option>
                         <option value="light" <?php selected($floating_theme, 'light'); ?>><?php esc_html_e('Light', 'yuz-tra'); ?></option>
                     </select>
-                    <select id="yuz_tra_sw_settings[floating_position]" name="yuz_tra_sw_settings[floating_position]" class="yuz-select yuz-tra-select yuz-ls-select-option">
+                    <select id="yuztra_sw_settings[floating_position]" name="yuztra_sw_settings[floating_position]" class="yuz-select yuz-tra-select yuz-ls-select-option">
                         <?php $this->render_positions($floating_pos); ?>
                     </select>
                 </div>
@@ -520,17 +520,17 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_powered_by_block(array $settings = []): void {
         $this->logger->log('info', 'Rendering powered by block at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering powered by block');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_sw_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_sw_settings');
         $value = $options_settings['show_poweredby'] ?? '';
         ?>
         <div class="yuz-tra-field yuz-field yuz-settings-checkbox">
-            <input type="hidden" name="yuz_tra_sw_settings[show_poweredby]" value="0">
-            <label class="switch" for="yuz_tra_sw_settings[show_poweredby]">
-                <input type="checkbox" id="yuz_tra_sw_settings[show_poweredby]" name="yuz_tra_sw_settings[show_poweredby]" value="1" <?php checked(!empty($value)); ?>>
+            <input type="hidden" name="yuztra_sw_settings[show_poweredby]" value="0">
+            <label class="switch" for="yuztra_sw_settings[show_poweredby]">
+                <input type="checkbox" id="yuztra_sw_settings[show_poweredby]" name="yuztra_sw_settings[show_poweredby]" value="1" <?php checked(!empty($value)); ?>>
                 <span class="slider round"></span>
             </label>
             <div class="yuz-checkbox-content">
-                <label for="yuz_tra_sw_settings[show_poweredby]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
+                <label for="yuztra_sw_settings[show_poweredby]" class="yuz-primary-text-bold yuz-tra-primary-text-bold">
                     <?php esc_html_e('Show "Powered by YoUZurz"', 'yuz-tra'); ?>
                 </label>
                 <p class="yuz-description-text yuz-tra-description"><?php esc_html_e('Show the small "Powered by YoUZurz" label in the floating language switcher.', 'yuz-tra'); ?></p>
@@ -558,7 +558,7 @@ public function render_licenses_tab(array $settings = []): void {
         $href = add_query_arg('yuz-edit-translation', '1', home_url('/'));
         ?>
         <a
-            id="yuz_tra_translate_now_link"
+            id="yuztra_translate_now_link"
             class="button button-primary"
             href="<?php echo esc_url($href); ?>"
             data-yuz-ts-action="start_translation"
@@ -584,25 +584,25 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_support_extra_languages_field(array $settings = []): void {
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $value = $options_settings['enable_extra_languages'] ?? '0';
     ?>
     <tr>
         <th scope="row"><?php esc_html_e('Support Extra Languages', 'yuz-tra'); ?></th>
         <td>
             <label class="switch">
-                <input type="hidden" name="yuz_tra_ts_settings[enable_extra_languages]" value="0">
+                <input type="hidden" name="yuztra_ts_settings[enable_extra_languages]" value="0">
                 <input
                     type="checkbox"
-                    id="yuz_tra_site_settings_enable_extra_languages"
-                    name="yuz_tra_ts_settings[enable_extra_languages]"
+                    id="yuztra_site_settings_enable_extra_languages"
+                    name="yuztra_ts_settings[enable_extra_languages]"
                     value="1" <?php checked($value, '1'); ?>
                     data-yuz-ts-action="update_settings"
                     data-yuz-ts-on="change"
                 >
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_site_settings_enable_extra_languages">
+            <label for="yuztra_site_settings_enable_extra_languages">
                 <?php esc_html_e('Enable support for over 130 additional languages.', 'yuz-tra'); ?>
             </label>
         </td>
@@ -617,7 +617,7 @@ public function render_licenses_tab(array $settings = []): void {
      */
     public function render_youzuruz_ai_field(array $settings = []): void {
     $this->logger->log('info', 'Rendering YoUZuruz AI field (delegated change)');
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $ai_flag   = $options_settings['enable_ai'] ?? ($options_settings['enable_youzuruz'] ?? false);
     $enable_ai = (string) ((bool) $ai_flag ? '1' : '0');
     ?>
@@ -627,15 +627,15 @@ public function render_licenses_tab(array $settings = []): void {
             <label class="switch">
                 <input
                     type="checkbox"
-                    id="yuz_tra_enable_ai"
-                    name="yuz_tra_ts_settings[enable_ai]"
+                    id="yuztra_enable_ai"
+                    name="yuztra_ts_settings[enable_ai]"
                     value="1" <?php checked($enable_ai, '1'); ?>
                     data-yuz-ts-action="update_settings"
                     data-yuz-ts-on="change"
                 >
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_enable_ai"><?php esc_html_e('Enable AI-powered translation features.', 'yuz-tra'); ?></label>
+            <label for="yuztra_enable_ai"><?php esc_html_e('Enable AI-powered translation features.', 'yuz-tra'); ?></label>
         </td>
     </tr>
     <?php
@@ -650,7 +650,7 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_advanced_tab_content(array $settings = []): void {
         $this->logger->log('info', 'Rendering advanced tab content at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering advanced tab content');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_av_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_av_settings');
         ?>
         <div class="yuz-tra-section">
             <h2 class="yuz-tra-section-title"><?php esc_html_e('Advanced Options', 'yuz-tra'); ?></h2>
@@ -663,24 +663,24 @@ public function render_licenses_tab(array $settings = []): void {
                 <tr>
                     <th scope="row"><?php esc_html_e('AI Model Selection', 'yuz-tra'); ?></th>
                     <td>
-                        <select id="yuz_tra_ai_model" name="yuz_tra_av_settings[ai_model]">
+                        <select id="yuztra_ai_model" name="yuztra_av_settings[ai_model]">
                             <option value="default" <?php selected($options_settings['ai_model'] ?? 'default', 'default'); ?>><?php esc_html_e('Default Model', 'yuz-tra'); ?></option>
                             <option value="custom" <?php selected($options_settings['ai_model'] ?? '', 'custom'); ?>><?php esc_html_e('Custom Model', 'yuz-tra'); ?></option>
                         </select>
                         <p class="yuz-tra-description"><?php esc_html_e('Choose the AI model for translations.', 'yuz-tra'); ?></p>
                     </td>
                 </tr>
-                <tr id="yuz_tra_custom_ai_endpoint_row" style="<?php echo ($options_settings['ai_model'] ?? 'default') === 'custom' ? '' : 'display:none;'; ?>">
+                <tr id="yuztra_custom_ai_endpoint_row" style="<?php echo ($options_settings['ai_model'] ?? 'default') === 'custom' ? '' : 'display:none;'; ?>">
                     <th scope="row"><?php esc_html_e('Custom AI Endpoint', 'yuz-tra'); ?></th>
                     <td>
-                        <input type="text" id="yuz_tra_custom_ai_endpoint" name="yuz_tra_av_settings[custom_ai_endpoint]" value="<?php echo esc_attr($options_settings['custom_ai_endpoint'] ?? ''); ?>" placeholder="<?php esc_attr_e('Enter custom AI endpoint', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                        <input type="text" id="yuztra_custom_ai_endpoint" name="yuztra_av_settings[custom_ai_endpoint]" value="<?php echo esc_attr($options_settings['custom_ai_endpoint'] ?? ''); ?>" placeholder="<?php esc_attr_e('Enter custom AI endpoint', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
                         <p class="yuz-tra-description"><?php esc_html_e('URL for a custom AI translation service.', 'yuz-tra'); ?></p>
                     </td>
                 </tr>
                 <tr>
                     <th scope="row"><?php esc_html_e('AI Translation Priority', 'yuz-tra'); ?></th>
                     <td>
-                        <input type="number" id="yuz_tra_ai_priority" name="yuz_tra_av_settings[ai_priority]" value="<?php echo esc_attr($options_settings['ai_priority'] ?? '50'); ?>" min="0" max="100" style="width: 100px;">
+                        <input type="number" id="yuztra_ai_priority" name="yuztra_av_settings[ai_priority]" value="<?php echo esc_attr($options_settings['ai_priority'] ?? '50'); ?>" min="0" max="100" style="width: 100px;">
                         <p class="yuz-tra-description"><?php esc_html_e('Priority level for AI translations (0-100, higher prioritizes AI).', 'yuz-tra'); ?></p>
                     </td>
                 </tr>
@@ -689,7 +689,7 @@ public function render_licenses_tab(array $settings = []): void {
                     <td>
                         <?php $adv_ui = !empty($options_settings['editor_advanced_ui']) ? '1' : '0'; ?>
                         <label>
-                            <input type="checkbox" name="yuz_tra_av_settings[editor_advanced_ui]" value="1" <?php checked($adv_ui, '1'); ?>>
+                            <input type="checkbox" name="yuztra_av_settings[editor_advanced_ui]" value="1" <?php checked($adv_ui, '1'); ?>>
                             <?php esc_html_e('Show advanced actions (Publish, Preview, Auto-translate, Reset, Refresh) in the compact editor.', 'yuz-tra'); ?>
                         </label>
                     </td>
@@ -699,22 +699,29 @@ public function render_licenses_tab(array $settings = []): void {
                     <td>
                         <?php $ta_enabled = !empty($options_settings['translate_admin_enabled']) ? '1' : '0'; ?>
                         <label>
-                            <input type="checkbox" name="yuz_tra_av_settings[translate_admin_enabled]" value="1" <?php checked($ta_enabled, '1'); ?>>
+                            <input type="checkbox" name="yuztra_av_settings[translate_admin_enabled]" value="1" <?php checked($ta_enabled, '1'); ?>>
                             <?php esc_html_e('Display the Strings entry in the admin bar.', 'yuz-tra'); ?>
                         </label>
                     </td>
                 </tr>
             </table>
-            <script type="text/javascript">
-                (function($) {
+            <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZTRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                     function toggleCustomEndpoint() {
-                        var model = $('#yuz_tra_ai_model').val();
-                        $('#yuz_tra_custom_ai_endpoint_row').toggle(model === 'custom');
+                        var model = $('#yuztra_ai_model').val();
+                        $('#yuztra_custom_ai_endpoint_row').toggle(model === 'custom');
                     }
-                    $('#yuz_tra_ai_model').on('change', toggleCustomEndpoint);
+                    $('#yuztra_ai_model').on('change', toggleCustomEndpoint);
                     toggleCustomEndpoint();
                 })(jQuery);
-            </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         </div>
         <?php
         // Maintenance tools (Advanced → Tools‑like section)
@@ -730,7 +737,7 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_translate_seo_field(array $settings = []): void {
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $translate_seo = (string) ($options_settings['translate_seo'] ?? '0');
     ?>
     <tr>
@@ -739,15 +746,15 @@ public function render_licenses_tab(array $settings = []): void {
             <label class="switch">
                 <input
                     type="checkbox"
-                    id="yuz_tra_translate_seo"
-                    name="yuz_tra_ts_settings[translate_seo]"
+                    id="yuztra_translate_seo"
+                    name="yuztra_ts_settings[translate_seo]"
                     value="1" <?php checked($translate_seo, '1'); ?>
                     data-yuz-ts-action="update_settings"
                     data-yuz-ts-on="change"
                 >
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_translate_seo">
+            <label for="yuztra_translate_seo">
                 <?php esc_html_e('Translate SEO metadata for better search engine visibility.', 'yuz-tra'); ?>
             </label>
         </td>
@@ -761,7 +768,7 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_publish_only_complete_field(array $settings = []): void {
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $require_comp = (string) ($options_settings['require_complete'] ?? '0');
     ?>
     <tr>
@@ -770,15 +777,15 @@ public function render_licenses_tab(array $settings = []): void {
             <label class="switch">
                 <input
                     type="checkbox"
-                    id="yuz_tra_require_complete"
-                    name="yuz_tra_ts_settings[require_complete]"
+                    id="yuztra_require_complete"
+                    name="yuztra_ts_settings[require_complete]"
                     value="1" <?php checked($require_comp, '1'); ?>
                     data-yuz-ts-action="update_settings"
                     data-yuz-ts-on="change"
                 >
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_require_complete">
+            <label for="yuztra_require_complete">
                 <?php esc_html_e('Only publish fully completed translations.', 'yuz-tra'); ?>
             </label>
         </td>
@@ -792,7 +799,7 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_translate_by_role_field(array $settings = []): void {
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $user_role = (string) ($options_settings['user_role_emulation'] ?? '');
     $roles = wp_roles()->get_names();
     ?>
@@ -800,8 +807,8 @@ public function render_licenses_tab(array $settings = []): void {
         <th scope="row"><?php esc_html_e('Translate by User Role', 'yuz-tra'); ?></th>
         <td>
             <select
-                id="yuz_tra_user_role_emulation"
-                name="yuz_tra_ts_settings[user_role_emulation]"
+                id="yuztra_user_role_emulation"
+                name="yuztra_ts_settings[user_role_emulation]"
                 style="margin-left: 10px; border: 1px solid #ddd;"
                 data-yuz-ts-action="update_settings"
                 data-yuz-ts-on="change"
@@ -827,7 +834,7 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_menu_per_language_field(array $settings = []): void {
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $menu_per = (string) ($options_settings['menu_per_lang'] ?? '0');
     ?>
     <tr>
@@ -836,15 +843,15 @@ public function render_licenses_tab(array $settings = []): void {
             <label class="switch">
                 <input
                     type="checkbox"
-                    id="yuz_tra_menu_per_lang"
-                    name="yuz_tra_ts_settings[menu_per_lang]"
+                    id="yuztra_menu_per_lang"
+                    name="yuztra_ts_settings[menu_per_lang]"
                     value="1" <?php checked($menu_per, '1'); ?>
                     data-yuz-ts-action="update_settings"
                     data-yuz-ts-on="change"
                 >
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_menu_per_lang">
+            <label for="yuztra_menu_per_lang">
                 <?php esc_html_e('Enable different menus for each language.', 'yuz-tra'); ?>
             </label>
             <p class="yuz-tra-description">
@@ -861,7 +868,7 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_browser_language_detect_field(array $settings = []): void {
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $browser_det = (string) ($options_settings['browser_language_detect'] ?? '0');
     ?>
     <tr>
@@ -870,15 +877,15 @@ public function render_licenses_tab(array $settings = []): void {
             <label class="switch">
                 <input
                     type="checkbox"
-                    id="yuz_tra_browser_language_detect"
-                    name="yuz_tra_ts_settings[browser_language_detect]"
+                    id="yuztra_browser_language_detect"
+                    name="yuztra_ts_settings[browser_language_detect]"
                     value="1" <?php checked($browser_det, '1'); ?>
                     data-yuz-ts-action="update_settings"
                     data-yuz-ts-on="change"
                 >
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_browser_language_detect">
+            <label for="yuztra_browser_language_detect">
                 <?php esc_html_e('Detect user language from browser settings.', 'yuz-tra'); ?>
             </label>
             <p class="yuz-tra-description">
@@ -895,7 +902,7 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_block_browser_translation_field(array $settings = []): void {
-    $options_settings = $settings ?: $this->settings->get_option('yuz_tra_ts_settings');
+    $options_settings = $settings ?: $this->settings->get_option('yuztra_ts_settings');
     $block_native = (string) ($options_settings['block_browser_translation'] ?? '0');
     ?>
     <tr>
@@ -904,15 +911,15 @@ public function render_licenses_tab(array $settings = []): void {
             <label class="switch">
                 <input
                     type="checkbox"
-                    id="yuz_tra_block_browser_translation"
-                    name="yuz_tra_ts_settings[block_browser_translation]"
+                    id="yuztra_block_browser_translation"
+                    name="yuztra_ts_settings[block_browser_translation]"
                     value="1" <?php checked($block_native, '1'); ?>
                     data-yuz-ts-action="update_settings"
                     data-yuz-ts-on="change"
                 >
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_block_browser_translation">
+            <label for="yuztra_block_browser_translation">
                 <?php esc_html_e('Ask browsers to disable their built-in translators on your site.', 'yuz-tra'); ?>
             </label>
             <p class="yuz-tra-description">
@@ -932,7 +939,7 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_enable_auto_translation_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering enable auto translation field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering enable auto translation field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $enable_auto = (string) ($options_settings['enable_auto_translate'] ?? '0');
         $mode = (string) ($options_settings['translation_mode'] ?? 'manual');
         $disabled = ($mode === 'manual');
@@ -941,30 +948,37 @@ public function render_licenses_tab(array $settings = []): void {
             <h2 class="yuz-tra-section-title"><?php esc_html_e('Enable Automatic Translation', 'yuz-tra'); ?></h2>
             <hr>
             <label class="switch">
-                <input type="checkbox" id="yuz_tra_enable_auto_translate" name="yuz_tra_at_settings[enable_auto_translate]" value="1" <?php checked($enable_auto, '1'); ?> <?php disabled($disabled, true); ?>>
+                <input type="checkbox" id="yuztra_enable_auto_translate" name="yuztra_at_settings[enable_auto_translate]" value="1" <?php checked($enable_auto, '1'); ?> <?php disabled($disabled, true); ?>>
                 <span class="slider round"></span>
             </label>
-            <label for="yuz_tra_enable_auto_translate"><?php esc_html_e('Automatically translate content using an API.', 'yuz-tra'); ?></label>
+            <label for="yuztra_enable_auto_translate"><?php esc_html_e('Automatically translate content using an API.', 'yuz-tra'); ?></label>
             <p class="yuz-tra-description">
                 <?php esc_html_e('This option is disabled in Manual mode, as translations are performed via the editor.', 'yuz-tra'); ?>
             </p>
         </div>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZTRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleAutoTranslationField() {
-                    var mode = $('#yuz_tra_translation_mode').val();
+                    var mode = $('#yuztra_translation_mode').val();
                     if (mode === 'manual') {
-                        $('#yuz_tra_enable_auto_translate').prop('disabled', true);
+                        $('#yuztra_enable_auto_translate').prop('disabled', true);
                         $('.yuz-auto-translation').css('opacity', '0.6');
                     } else {
-                        $('#yuz_tra_enable_auto_translate').prop('disabled', false);
+                        $('#yuztra_enable_auto_translate').prop('disabled', false);
                         $('.yuz-auto-translation').css('opacity', '1');
                     }
                 }
-                $('#yuz_tra_translation_mode').on('change', toggleAutoTranslationField);
+                $('#yuztra_translation_mode').on('change', toggleAutoTranslationField);
                 toggleAutoTranslationField();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'Enable auto translation field rendered successfully');
         $this->logger->log('success', 'Enable auto translation field rendered successfully');
@@ -976,7 +990,7 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings Translation site settings (optional).
      */
     public function render_allowed_roles_field(array $settings = []): void {
-        $current = (array) get_option('yuz_tra_allowed_roles', ['administrator']);
+        $current = (array) get_option('yuztra_allowed_roles', ['administrator']);
         if ( ! function_exists('get_editable_roles') ) {
             require_once ABSPATH . 'wp-admin/includes/user.php';
         }
@@ -986,8 +1000,8 @@ public function render_licenses_tab(array $settings = []): void {
             <th scope="row"><?php esc_html_e('Allowed roles for translation', 'yuz-tra'); ?></th>
             <td>
                 <select
-                    name="yuz_tra_ts_settings[allowed_roles][]"
-                    id="yuz_tra_allowed_roles"
+                    name="yuztra_ts_settings[allowed_roles][]"
+                    id="yuztra_allowed_roles"
                     style="min-width: 260px; border: 1px solid #ddd;"
                     multiple="multiple"
                     size="6"
@@ -1014,7 +1028,7 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_translation_mode_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering translation mode field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering translation mode field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $mode = (string) ($options_settings['translation_mode'] ?? 'manual');
         $options = [
             'manual' => __('Manual (Editor)', 'yuz-tra'),
@@ -1026,7 +1040,7 @@ public function render_licenses_tab(array $settings = []): void {
         <div class="yuz-tra-section">
             <h2 class="yuz-tra-section-title"><?php esc_html_e('Translation Mode', 'yuz-tra'); ?></h2>
             <hr>
-            <select id="yuz_tra_translation_mode" name="yuz_tra_at_settings[translation_mode]">
+            <select id="yuztra_translation_mode" name="yuztra_at_settings[translation_mode]">
                 <?php foreach ($options as $value => $label) : ?>
                     <option value="<?php echo esc_attr($value); ?>" <?php selected($mode, $value); ?>>
                         <?php echo esc_html($label); ?>
@@ -1035,20 +1049,27 @@ public function render_licenses_tab(array $settings = []): void {
             </select>
             <p class="yuz-tra-description"><?php esc_html_e('Choose how translations are performed: manually via an editor, page-by-page, silently in the background, or all modes combined.', 'yuz-tra'); ?></p>
         </div>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZTRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleCronField() {
-                    var mode = $('#yuz_tra_translation_mode').val();
+                    var mode = $('#yuztra_translation_mode').val();
                     if (mode === 'silent' || mode === 'all') {
                         $('.yuz-cron-interval').show();
                     } else {
                         $('.yuz-cron-interval').hide();
                     }
                 }
-                $('#yuz_tra_translation_mode').on('change', toggleCronField);
+                $('#yuztra_translation_mode').on('change', toggleCronField);
                 toggleCronField();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'Translation mode field rendered successfully');
         $this->logger->log('success', 'Translation mode field rendered successfully');
@@ -1061,7 +1082,7 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_cron_interval_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering cron interval field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering cron interval field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $interval = (string) ($options_settings['cron_interval'] ?? 'hourly');
         $options = [
             'hourly' => __('Hourly', 'yuz-tra'),
@@ -1072,7 +1093,7 @@ public function render_licenses_tab(array $settings = []): void {
         <div class="yuz-tra-section yuz-cron-interval" style="display: none;">
             <h2 class="yuz-tra-section-title"><?php esc_html_e('Cron Interval', 'yuz-tra'); ?></h2>
             <hr>
-            <select id="yuz_tra_cron_interval" name="yuz_tra_at_settings[cron_interval]">
+            <select id="yuztra_cron_interval" name="yuztra_at_settings[cron_interval]">
                 <?php foreach ($options as $value => $label) : ?>
                     <option value="<?php echo esc_attr($value); ?>" <?php selected($interval, $value); ?>>
                         <?php echo esc_html($label); ?>
@@ -1093,13 +1114,13 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_api_provider_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering API provider field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering API provider field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr>
             <th scope="row"><label for="api_provider"><?php esc_html_e('Translation Provider', 'yuz-tra'); ?></label></th>
             <td>
-                <select id="yuz_tra_api_provider" name="yuz_tra_at_settings[api_provider]" style="border: 1px solid #ddd;">
+                <select id="yuztra_api_provider" name="yuztra_at_settings[api_provider]" style="border: 1px solid #ddd;">
                     <option value="libretranslate" <?php selected($provider, 'libretranslate'); ?>><?php esc_html_e('LibreTranslate', 'yuz-tra'); ?></option>
                     <option value="google" <?php selected($provider, 'google'); ?>><?php esc_html_e('Google Translate', 'yuz-tra'); ?></option>
                     <option value="deepl" <?php selected($provider, 'deepl'); ?>><?php esc_html_e('DeepL', 'yuz-tra'); ?></option>
@@ -1115,29 +1136,39 @@ public function render_licenses_tab(array $settings = []): void {
             'num_ctx'=>'Contexte maximal (tokens)','num_predict'=>'Sortie maximale (tokens)','num_thread'=>'Threads CPU',
             'daily_token_limit'=>'Limite quotidienne de tokens'] as $key=>$label): ?>
         <tr class="yuz-tra-api-provider-field yuz-ollama" style="<?php echo $provider==='ollama' ? '' : 'display:none;'; ?>">
-            <th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th>
-            <td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ['provider_timeout'=>45,'num_ctx'=>2048,'num_predict'=>512,'num_thread'=>2,'daily_token_limit'=>100000][$key] ?? ''); ?>"></td>
+            <th><label for="yuztra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th>
+            <td><input id="yuztra_<?php echo esc_attr($key); ?>" name="yuztra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ['provider_timeout'=>45,'num_ctx'=>2048,'num_predict'=>512,'num_thread'=>2,'daily_token_limit'=>100000][$key] ?? ''); ?>"></td>
         </tr>
         <?php endforeach; ?>
-        <?php foreach (['openai_url'=>'URL OpenAI (endpoint compatible)','openai_model'=>'Modèle OpenAI exact'] as $key=>$label): ?>
-        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ($key==='openai_url' ? 'https://api.openai.com/v1/chat/completions' : '')); ?>"></td></tr>
+        <?php // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- This admin-only field renders configuration for the explicitly selected OpenAI-compatible provider; rendering performs no network request.
+        foreach (['openai_url'=>'URL OpenAI (endpoint compatible)','openai_model'=>'Modèle OpenAI exact'] as $key=>$label): ?>
+        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuztra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuztra_<?php echo esc_attr($key); ?>" name="yuztra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php
+            // phpcs:ignore PluginCheck.CodeAnalysis.AIProvider.DirectIntegration -- Admin-only provider configuration display; no provider call occurs here.
+            echo esc_attr($options_settings[$key] ?? ($key==='openai_url' ? 'https://api.openai.com/v1/chat/completions' : '')); ?>"></td></tr>
         <?php endforeach; ?>
-        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuz_tra_openai_key">Clé API OpenAI</label></th><td><input type="password" id="yuz_tra_openai_key" name="yuz_tra_at_settings[openai_key]" value="" autocomplete="new-password" placeholder="Conservée si laissée vide"></td></tr>
+        <tr class="yuz-tra-api-provider-field yuz-openai" style="<?php echo $provider==='openai' ? '' : 'display:none;'; ?>"><th><label for="yuztra_openai_key">Clé API OpenAI</label></th><td><input type="password" id="yuztra_openai_key" name="yuztra_at_settings[openai_key]" value="" autocomplete="new-password" placeholder="Conservée si laissée vide"></td></tr>
         <tr class="yuz-cost-accounting"><th colspan="2"><h3>Comptabilité de rentabilité (USD, estimation administrateur)</h3><p class="description">Ces champs ne lisent pas la facturation OpenAI. Saisissez les tarifs réellement applicables ; aucun appel ne sera lancé par cette saisie.</p></th></tr>
         <?php foreach (['available_balance_usd'=>'Solde fournisseur disponible','minimum_balance_usd'=>'Réserve minimale à protéger','input_cost_usd_per_million'=>'Coût entrant / million de tokens','output_cost_usd_per_million'=>'Coût sortant / million de tokens','sale_price_usd_per_million'=>'Prix de vente / million de tokens','fixed_monthly_cost_usd'=>'Coûts fixes mensuels','pricing_source'=>'Source/version des tarifs'] as $key=>$label): ?>
-        <tr class="yuz-cost-accounting"><th><label for="yuz_tra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuz_tra_<?php echo esc_attr($key); ?>" name="yuz_tra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ''); ?>" inputmode="decimal"></td></tr>
+        <tr class="yuz-cost-accounting"><th><label for="yuztra_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></th><td><input id="yuztra_<?php echo esc_attr($key); ?>" name="yuztra_at_settings[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($options_settings[$key] ?? ''); ?>" inputmode="decimal"></td></tr>
         <?php endforeach; ?>
-        <script type="text/javascript">
-            (function($) {
+        <?php
+wp_register_script('yuz-tra-renderer-fields', false, ['jquery'], YUZTRA_VERSION, true);
+wp_enqueue_script('yuz-tra-renderer-fields');
+wp_add_inline_script('yuz-tra-renderer-fields', <<<'YUZTRA_JS'
+jQuery(function ($) {
+(function($) {
                 function toggleProviderFields() {
-                    var provider = $('#yuz_tra_api_provider').val();
+                    var provider = $('#yuztra_api_provider').val();
                     $('.yuz-tra-api-provider-field').hide();
                     $('.yuz-' + provider).show();
                 }
-                $('#yuz_tra_api_provider').on('change', toggleProviderFields);
+                $('#yuztra_api_provider').on('change', toggleProviderFields);
                 toggleProviderFields();
             })(jQuery);
-        </script>
+});
+YUZTRA_JS
+, 'after');
+?>
         <?php
         $this->logger->log('info', 'API provider field rendered successfully');
         $this->logger->log('success', 'API provider field rendered successfully');
@@ -1150,23 +1181,22 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_libretranslate_fields(array $settings = []): void {
         $this->logger->log('info', 'Rendering LibreTranslate fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering LibreTranslate fields');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $libre_url = (string) ($options_settings['libre_url'] ?? '');
-        $libre_key = (string) ($options_settings['libre_key'] ?? '');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-libretranslate" style="<?php echo ($provider === 'libretranslate') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="libre_url"><?php esc_html_e('LibreTranslate API Endpoint', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_libre_url" name="yuz_tra_at_settings[libre_url]" value="<?php echo esc_attr($libre_url); ?>" placeholder="<?php esc_attr_e('Enter API endpoint', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <input type="text" id="yuztra_libre_url" name="yuztra_at_settings[libre_url]" value="<?php echo esc_attr($libre_url); ?>" placeholder="<?php esc_attr_e('Enter API endpoint', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
                 <p class="yuz-tra-description"><?php esc_html_e('The endpoint for LibreTranslate API.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-libretranslate" style="<?php echo ($provider === 'libretranslate') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="libre_key"><?php esc_html_e('LibreTranslate API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_libre_key" name="yuz_tra_at_settings[libre_key]" value="<?php echo esc_attr($libre_key); ?>" placeholder="<?php esc_attr_e('Enter API key (optional)', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('Optional API key for LibreTranslate.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuztra_libre_key" name="yuztra_at_settings[libre_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('Optional API key for LibreTranslate. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <?php
@@ -1181,14 +1211,14 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_alternatives_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering alternatives field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering alternatives field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $alternatives = (string) ($options_settings['alternatives'] ?? '3');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-libretranslate" style="<?php echo ($provider === 'libretranslate') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="alternatives"><?php esc_html_e('Number of Alternatives (LibreTranslate)', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="number" id="yuz_tra_alternatives" name="yuz_tra_at_settings[alternatives]" value="<?php echo esc_attr($alternatives); ?>" min="0" max="5" style="width: 100%; max-width: 100px;">
+                <input type="number" id="yuztra_alternatives" name="yuztra_at_settings[alternatives]" value="<?php echo esc_attr($alternatives); ?>" min="0" max="5" style="width: 100%; max-width: 100px;">
                 <p class="yuz-tra-description"><?php esc_html_e('Set the number of alternative translations to request from LibreTranslate (0 to 5).', 'yuz-tra'); ?></p>
             </td>
         </tr>
@@ -1204,22 +1234,21 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_google_fields(array $settings = []): void {
         $this->logger->log('info', 'Rendering Google fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering Google fields');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
-        $google_key = (string) ($options_settings['google_key'] ?? '');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $google_proj = (string) ($options_settings['google_project'] ?? '');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-google" style="<?php echo ($provider === 'google') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="google_key"><?php esc_html_e('Google API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_google_key" name="yuz_tra_at_settings[google_key]" value="<?php echo esc_attr($google_key); ?>" placeholder="<?php esc_attr_e('Enter Google API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for Google Translate.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuztra_google_key" name="yuztra_at_settings[google_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for Google Translate. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-google" style="<?php echo ($provider === 'google') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="google_project"><?php esc_html_e('Google Project ID', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_google_project" name="yuz_tra_at_settings[google_project]" value="<?php echo esc_attr($google_proj); ?>" placeholder="<?php esc_attr_e('Enter project ID (optional)', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <input type="text" id="yuztra_google_project" name="yuztra_at_settings[google_project]" value="<?php echo esc_attr($google_proj); ?>" placeholder="<?php esc_attr_e('Enter project ID (optional)', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
                 <p class="yuz-tra-description"><?php esc_html_e('Optional project ID for Google Translate.', 'yuz-tra'); ?></p>
             </td>
         </tr>
@@ -1235,26 +1264,25 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_deepl_fields(array $settings = []): void {
         $this->logger->log('info', 'Rendering DeepL fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering DeepL fields');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
-        $deepl_key = (string) ($options_settings['deepl_key'] ?? '');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $deepl_free = (string) ($options_settings['deepl_free'] ?? '0');
         $provider = (string) ($options_settings['api_provider'] ?? 'libretranslate');
         ?>
         <tr class="yuz-tra-api-provider-field yuz-deepl" style="<?php echo ($provider === 'deepl') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="deepl_key"><?php esc_html_e('DeepL API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_deepl_key" name="yuz_tra_at_settings[deepl_key]" value="<?php echo esc_attr($deepl_key); ?>" placeholder="<?php esc_attr_e('Enter DeepL API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for DeepL.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuztra_deepl_key" name="yuztra_at_settings[deepl_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for DeepL. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-deepl" style="<?php echo ($provider === 'deepl') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="deepl_free"><?php esc_html_e('Use DeepL Free Tier', 'yuz-tra'); ?></label></th>
             <td>
                 <label class="switch">
-                    <input type="checkbox" id="yuz_tra_deepl_free" name="yuz_tra_at_settings[deepl_free]" value="1" <?php checked($deepl_free, '1'); ?>>
+                    <input type="checkbox" id="yuztra_deepl_free" name="yuztra_at_settings[deepl_free]" value="1" <?php checked($deepl_free, '1'); ?>>
                     <span class="slider round"></span>
                 </label>
-                <label for="yuz_tra_deepl_free"><?php esc_html_e('Enable DeepL’s free tier.', 'yuz-tra'); ?></label>
+                <label for="yuztra_deepl_free"><?php esc_html_e('Enable DeepL’s free tier.', 'yuz-tra'); ?></label>
                 <p class="yuz-tra-description"><?php esc_html_e('Enable DeepL’s free tier.', 'yuz-tra'); ?></p>
             </td>
         </tr>
@@ -1270,9 +1298,8 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_custom_fields(array $settings = []): void {
         $this->logger->log('info', 'Rendering custom fields at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering custom fields');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $custom_url = (string) ($options_settings['custom_url'] ?? '');
-        $custom_key = (string) ($options_settings['custom_key'] ?? '');
         $custom_auth = (string) ($options_settings['custom_auth'] ?? 'none');
         $custom_method = (string) ($options_settings['custom_method'] ?? 'POST');
         $custom_fmt = (string) ($options_settings['custom_format'] ?? 'JSON');
@@ -1281,21 +1308,21 @@ public function render_licenses_tab(array $settings = []): void {
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="custom_url"><?php esc_html_e('Custom API Endpoint', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_custom_url" name="yuz_tra_at_settings[custom_url]" value="<?php echo esc_attr($custom_url); ?>" placeholder="<?php esc_attr_e('Enter custom API endpoint', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <input type="text" id="yuztra_custom_url" name="yuztra_at_settings[custom_url]" value="<?php echo esc_attr($custom_url); ?>" placeholder="<?php esc_attr_e('Enter custom API endpoint', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
                 <p class="yuz-tra-description"><?php esc_html_e('The endpoint for the custom API.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="custom_key"><?php esc_html_e('Custom API Key', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="text" id="yuz_tra_custom_key" name="yuz_tra_at_settings[custom_key]" value="<?php echo esc_attr($custom_key); ?>" placeholder="<?php esc_attr_e('Enter custom API key', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
-                <p class="yuz-tra-description"><?php esc_html_e('API key for the custom API.', 'yuz-tra'); ?></p>
+                <input type="password" id="yuztra_custom_key" name="yuztra_at_settings[custom_key]" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Preserved when left empty', 'yuz-tra'); ?>" style="width: 100%; max-width: 400px;">
+                <p class="yuz-tra-description"><?php esc_html_e('API key for the custom API. The saved value is never displayed.', 'yuz-tra'); ?></p>
             </td>
         </tr>
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="custom_auth"><?php esc_html_e('Authentication Method', 'yuz-tra'); ?></label></th>
             <td>
-                <select id="yuz_tra_custom_auth" name="yuz_tra_at_settings[custom_auth]">
+                <select id="yuztra_custom_auth" name="yuztra_at_settings[custom_auth]">
                     <option value="none" <?php selected($custom_auth, 'none'); ?>><?php esc_html_e('None', 'yuz-tra'); ?></option>
                     <option value="bearer" <?php selected($custom_auth, 'bearer'); ?>><?php esc_html_e('Bearer', 'yuz-tra'); ?></option>
                     <option value="basic" <?php selected($custom_auth, 'basic'); ?>><?php esc_html_e('Basic Auth', 'yuz-tra'); ?></option>
@@ -1306,7 +1333,7 @@ public function render_licenses_tab(array $settings = []): void {
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="custom_method"><?php esc_html_e('HTTP Method', 'yuz-tra'); ?></label></th>
             <td>
-                <select id="yuz_tra_custom_method" name="yuz_tra_at_settings[custom_method]">
+                <select id="yuztra_custom_method" name="yuztra_at_settings[custom_method]">
                     <option value="POST" <?php selected($custom_method, 'POST'); ?>><?php esc_html_e('POST', 'yuz-tra'); ?></option>
                     <option value="GET" <?php selected($custom_method, 'GET'); ?>><?php esc_html_e('GET', 'yuz-tra'); ?></option>
                 </select>
@@ -1316,7 +1343,7 @@ public function render_licenses_tab(array $settings = []): void {
         <tr class="yuz-tra-api-provider-field yuz-custom" style="<?php echo ($provider === 'custom') ? '' : 'display:none;'; ?>">
             <th scope="row"><label for="custom_format"><?php esc_html_e('Response Format', 'yuz-tra'); ?></label></th>
             <td>
-                <select id="yuz_tra_custom_format" name="yuz_tra_at_settings[custom_format]">
+                <select id="yuztra_custom_format" name="yuztra_at_settings[custom_format]">
                     <option value="JSON" <?php selected($custom_fmt, 'JSON'); ?>><?php esc_html_e('JSON', 'yuz-tra'); ?></option>
                     <option value="Text" <?php selected($custom_fmt, 'Text'); ?>><?php esc_html_e('Text', 'yuz-tra'); ?></option>
                 </select>
@@ -1335,13 +1362,13 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_char_limit_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering char limit field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering char limit field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $char_limit = (string) ($options_settings['char_limit'] ?? '50000');
         ?>
         <tr>
-            <th scope="row"><label for="yuz_tra_char_limit"><?php esc_html_e('Character Limit per Day', 'yuz-tra'); ?></label></th>
+            <th scope="row"><label for="yuztra_char_limit"><?php esc_html_e('Character Limit per Day', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="number" id="yuz_tra_char_limit" name="yuz_tra_at_settings[char_limit]" value="<?php echo esc_attr($char_limit); ?>" min="1" style="width: 100%; max-width: 100px;">
+                <input type="number" id="yuztra_char_limit" name="yuztra_at_settings[char_limit]" value="<?php echo esc_attr($char_limit); ?>" min="1" style="width: 100%; max-width: 100px;">
                 <p class="yuz-tra-description"><?php esc_html_e('Maximum number of characters translated per day.', 'yuz-tra'); ?></p>
             </td>
         </tr>
@@ -1357,13 +1384,13 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_requests_limit_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering requests limit field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering requests limit field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $req_limit = (string) ($options_settings['requests_limit'] ?? '100');
         ?>
         <tr>
-            <th scope="row"><label for="yuz_tra_requests_limit"><?php esc_html_e('Requests Limit per Minute', 'yuz-tra'); ?></label></th>
+            <th scope="row"><label for="yuztra_requests_limit"><?php esc_html_e('Requests Limit per Minute', 'yuz-tra'); ?></label></th>
             <td>
-                <input type="number" id="yuz_tra_requests_limit" name="yuz_tra_at_settings[requests_limit]" value="<?php echo esc_attr($req_limit); ?>" min="1" style="width: 100%; max-width: 100px;">
+                <input type="number" id="yuztra_requests_limit" name="yuztra_at_settings[requests_limit]" value="<?php echo esc_attr($req_limit); ?>" min="1" style="width: 100%; max-width: 100px;">
                 <p class="yuz-tra-description"><?php esc_html_e('Maximum number of translation requests per minute.', 'yuz-tra'); ?></p>
             </td>
         </tr>
@@ -1379,17 +1406,17 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_block_crawlers_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering block crawlers field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering block crawlers field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $block_crawlers = (string) ($options_settings['block_crawlers'] ?? '0');
         ?>
         <tr>
-            <th scope="row"><label for="yuz_tra_block_crawlers"><?php esc_html_e('Block Crawlers', 'yuz-tra'); ?></label></th>
+            <th scope="row"><label for="yuztra_block_crawlers"><?php esc_html_e('Block Crawlers', 'yuz-tra'); ?></label></th>
             <td>
                 <label class="switch">
-                    <input type="checkbox" id="yuz_tra_block_crawlers" name="yuz_tra_at_settings[block_crawlers]" value="1" <?php checked($block_crawlers, '1'); ?>>
+                    <input type="checkbox" id="yuztra_block_crawlers" name="yuztra_at_settings[block_crawlers]" value="1" <?php checked($block_crawlers, '1'); ?>>
                     <span class="slider round"></span>
                 </label>
-                <label for="yuz_tra_block_crawlers"><?php esc_html_e('Prevent crawlers from triggering translations.', 'yuz-tra'); ?></label>
+                <label for="yuztra_block_crawlers"><?php esc_html_e('Prevent crawlers from triggering translations.', 'yuz-tra'); ?></label>
                 <p class="yuz-tra-description"><?php esc_html_e('Prevent crawlers from triggering translations.', 'yuz-tra'); ?></p>
             </td>
         </tr>
@@ -1405,17 +1432,17 @@ public function render_licenses_tab(array $settings = []): void {
     public function render_log_queries_field(array $settings = []): void {
         $this->logger->log('info', 'Rendering log queries field at ' . current_time('mysql'));
         $this->logger->log('info', 'Rendering log queries field');
-        $options_settings = $settings ?: $this->settings->get_option('yuz_tra_at_settings');
+        $options_settings = $settings ?: $this->settings->get_option('yuztra_at_settings');
         $log_queries = (string) ($options_settings['log_queries'] ?? '0');
         ?>
         <tr>
-            <th scope="row"><label for="yuz_tra_log_queries"><?php esc_html_e('Log Translation Queries', 'yuz-tra'); ?></label></th>
+            <th scope="row"><label for="yuztra_log_queries"><?php esc_html_e('Log Translation Queries', 'yuz-tra'); ?></label></th>
             <td>
                 <label class="switch">
-                    <input type="checkbox" id="yuz_tra_log_queries" name="yuz_tra_at_settings[log_queries]" value="1" <?php checked($log_queries, '1'); ?>>
+                    <input type="checkbox" id="yuztra_log_queries" name="yuztra_at_settings[log_queries]" value="1" <?php checked($log_queries, '1'); ?>>
                     <span class="slider round"></span>
                 </label>
-                <label for="yuz_tra_log_queries"><?php esc_html_e('Log all translation API queries for debugging.', 'yuz-tra'); ?></label>
+                <label for="yuztra_log_queries"><?php esc_html_e('Log all translation API queries for debugging.', 'yuz-tra'); ?></label>
                 <p class="yuz-tra-description"><?php esc_html_e('Log all translation API queries for debugging.', 'yuz-tra'); ?></p>
             </td>
         </tr>
@@ -1435,8 +1462,8 @@ public function render_licenses_tab(array $settings = []): void {
         <div class="yuz-tra-section">
             <h2 class="yuz-tra-section-title"><?php esc_html_e('Test API Connection', 'yuz-tra'); ?></h2>
             <hr>
-            <button type="button" id="yuz_tra_test_btn" class="yuz-tra-button"><?php esc_html_e('Test Connection', 'yuz-tra'); ?></button>
-            <span id="yuz_tra_test_status"></span>
+            <button type="button" id="yuztra_test_btn" class="yuz-tra-button"><?php esc_html_e('Test Connection', 'yuz-tra'); ?></button>
+            <span id="yuztra_test_status"></span>
             <p class="yuz-tra-description"><?php esc_html_e('Test the current API configuration.', 'yuz-tra'); ?></p>
         </div>
         <?php
@@ -1449,12 +1476,12 @@ public function render_licenses_tab(array $settings = []): void {
      * @param array $settings API settings (optional).
      */
     public function render_monitoring_dashboard(array $settings = []): void {
-        if (!YUZ_DB::ensure_string_tables()) {
+        if (!YUZTRA_DB::ensure_string_tables()) {
             echo '<p>Le stockage du suivi est indisponible.</p>';
             return;
         }
-        $usage=YUZ_Translation_Budget::usage();
-        $finance=YUZ_Translation_Budget::financial_snapshot();
+        $usage=YUZTRA_Translation_Budget::usage();
+        $finance=YUZTRA_Translation_Budget::financial_snapshot();
         echo '<section class="yuz-tra-section"><h2>Consommation réelle (UTC)</h2>';
         echo '<p>'.esc_html(sprintf('%d / %d caractères aujourd’hui ; %d / %d requêtes cette minute.',
             $usage['characters'],$usage['char_limit'],$usage['minute_requests'],$usage['requests_limit'])).'</p>';
@@ -1464,7 +1491,7 @@ public function render_licenses_tab(array $settings = []): void {
         echo '<p>'.esc_html(sprintf('Coût variable : %.6f · valeur facturable estimée : %.6f · marge estimée : %.6f.', $finance['variable_cost_usd'], $finance['estimated_revenue_usd'], $finance['estimated_margin_usd'])).'</p>';
         echo '<p>'.esc_html($finance['is_profitable'] ? 'Seuil de rentabilité atteint selon les hypothèses saisies.' : 'Seuil de rentabilité non atteint selon les hypothèses saisies.').'</p>';
         echo '<p class="description">Source des prix : '.esc_html($finance['prices_source']).'. Cette vue est un registre interne estimatif, pas une facture OpenAI.</p>';
-        $last=get_option('yuz_tra_worker_last',[]);
+        $last=get_option('yuztra_worker_last',[]);
         if ($last) echo '<pre>'.esc_html(wp_json_encode($last,JSON_PRETTY_PRINT)).'</pre>';
         echo '</section>';
     }
@@ -1570,7 +1597,7 @@ public function render_license_plans_card(array $args = []): void {
         $this->logger->log('info', 'Render license plans card', $args);
     }
 
-    $plans = YUZ_Product_Catalog::current_offers();
+    $plans = YUZTRA_Product_Catalog::current_offers();
     echo '<div class="card" style="padding:16px;margin:0 0 16px;background:#fff;border:1px solid #e5e5e5;">';
     echo '<h2>'.esc_html($args['title']).'</h2>';
     echo '<p>Choisissez une offre, consultez ses limites, puis ouvrez le paiement sécurisé. Le plugin reste utilisable sans abonnement.</p>';
@@ -1597,7 +1624,7 @@ public function render_product_catalog_card(): void {
     echo '<h2>Catalogue des services YOUZURZ</h2>';
     echo '<p>Retrouvez les produits installés et les services compatibles depuis un seul espace. Rien n’est affiché sur votre site public.</p>';
     echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">';
-    foreach (YUZ_Product_Catalog::all() as $product) {
+    foreach (YUZTRA_Product_Catalog::all() as $product) {
         echo '<section style="border:1px solid #dcdcde;border-radius:8px;padding:14px;">';
         echo '<h3 style="margin-top:0;">'.esc_html($product['name']).'</h3>';
         echo '<p>'.esc_html($product['summary']).'</p>';
@@ -1614,8 +1641,10 @@ public function render_product_catalog_card(): void {
  *  - 'yuz/licenses/card_args' → ex: ['plans' => ['title' => 'Pro Plans']]
  */
 public function render_licenses_content(array $context = []): void {
-    $sections   = apply_filters('yuz/licenses/sections', ['account','ai','plans'], $context);
-    $cards_args = (array) apply_filters('yuz/licenses/card_args', [], $context);
+
+    $sections   = apply_filters('yuztra/licenses/sections', ['account','ai','plans'], $context);
+
+    $cards_args = (array) apply_filters('yuztra/licenses/card_args', [], $context);
 
     if (isset($this->logger)) {
         $this->logger->log('info', 'Render licenses content (wrapper)', ['sections' => $sections]);
@@ -1680,8 +1709,10 @@ public function render_upgrade_link(array $args = []): void {
  *  - 'yuz/support/toolbar_args'     → ex: ['upgrade' => ['label' => 'Go Pro']]
  */
 public function render_support_toolbar(array $context = []): void {
-    $sections = apply_filters('yuz/support/toolbar_sections', ['support','docs','upgrade'], $context);
-    $args     = (array) apply_filters('yuz/support/toolbar_args', [], $context);
+
+    $sections = apply_filters('yuztra/support/toolbar_sections', ['support','docs','upgrade'], $context);
+
+    $args     = (array) apply_filters('yuztra/support/toolbar_args', [], $context);
 
     if (isset($this->logger)) {
         $this->logger->log('info', 'Render support toolbar', ['sections' => $sections, 'context' => $context]);

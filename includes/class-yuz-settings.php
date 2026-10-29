@@ -65,13 +65,13 @@
  *   — Les chemins d’assets ne doivent JAMAIS être câblés en dur hors class-yuz-assets.php.
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-define('YUZ_MIGRATION_MODE', false);
+define('YUZTRA_MIGRATION_MODE', false);
 
 // Minimal requires (interfaces/fallbacks only, no heavy classes)
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
 // Routeur d’affichage : on s’appuie sur YUZ_Renderer::render_tab()
-require_once YUZ_TRA_INCLUDES . 'class-yuz-renderer.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-renderer.php';
 
 use YUZTRA\Interfaces\SettingsInterface;
 use YUZTRA\Interfaces\LanguagesInterface;
@@ -86,8 +86,8 @@ use YUZTRA\Fallbacks\NullTranslationManager;
 use YUZTRA\Fallbacks\NullLanguageManager;
 use YUZTRA\Fallbacks\NullLogger;
 
-if (!class_exists('YUZ_Settings')) {
-class YUZ_Settings implements SettingsInterface {
+if (!class_exists('YUZTRA_Settings')) {
+class YUZTRA_Settings implements SettingsInterface {
 
     /** @var LanguagesInterface */
     private $languages;
@@ -122,10 +122,10 @@ class YUZ_Settings implements SettingsInterface {
         $this->logger            = $logger;
 
         $this->maybe_migrate_site_settings();
-        $this->logger->log('info', 'YUZ_Settings instantiated with dependencies');
+        $this->logger->log('info', 'YUZTRA_Settings instantiated with dependencies');
 
-        add_action('wp_ajax_yuz_tra_sw_upd_settings', [$this, 'ajax_router']);
-        add_action('wp_ajax_yuz_tra_ls_upd_settings', [$this, 'ajax_router']);
+        add_action('wp_ajax_yuztra_sw_upd_settings', [$this, 'ajax_router']);
+        add_action('wp_ajax_yuztra_ls_upd_settings', [$this, 'ajax_router']);
     }
 
     private function can_run_site_settings_migration(): bool {
@@ -163,11 +163,11 @@ class YUZ_Settings implements SettingsInterface {
         // Hooks (admin only, conditional in Core)
         add_action('admin_init', [$instance, 'register_settings']);
         add_action('admin_menu', [$instance, 'add_admin_page']);
-        $logger->log('success', 'YUZ_Settings initialized');
+        $logger->log('success', 'YUZTRA_Settings initialized');
 
         // One-time migrations (ADMIN ONLY) — OK d’utiliser get_option() sur legacy ici
         add_action('admin_init', function () use ($logger) {
-            try { \YUZ_Settings::run_canonical_migration($logger); }
+            try { \YUZTRA_Settings::run_canonical_migration($logger); }
             catch (\Throwable $e) { $logger->log('warning', 'Canonical migration failed: ' . $e->getMessage()); }
         });
     }
@@ -190,20 +190,20 @@ class YUZ_Settings implements SettingsInterface {
             'translate_admin_enabled' => true,
         ];
 
-        $stored = yuz_settings_get_all(); // SSOT only (runtime cache en amont)
+        $stored = yuztra_settings_get_all(); // SSOT only (runtime cache en amont)
         $flags  = array_replace_recursive($defaults, is_array($stored) ? $stored : []);
 
         // >>> DÉDUCTION RUNTIME DES MODES (ne touche pas la DB)
-        $api  = isset($flags['yuz_tra_api_settings']) && is_array($flags['yuz_tra_api_settings'])
-            ? $flags['yuz_tra_api_settings'] : [];
-        $canonical_api = get_option('yuz_tra_at_settings', []);
+        $api  = isset($flags['yuztra_api_settings']) && is_array($flags['yuztra_api_settings'])
+            ? $flags['yuztra_api_settings'] : [];
+        $canonical_api = get_option('yuztra_at_settings', []);
         if (is_array($canonical_api) && $canonical_api) $api = $canonical_api;
         $mode = isset($api['translation_mode']) ? (string)$api['translation_mode'] : 'manual';
         $auto = !empty($api['enable_auto_translate']);
 
         // UI override from Translate Site (full/half)
-        if (isset($flags['yuz_tra_site_settings']) && is_array($flags['yuz_tra_site_settings'])) {
-            $uiMode = (string) ($flags['yuz_tra_site_settings']['translation_mode'] ?? '');
+        if (isset($flags['yuztra_site_settings']) && is_array($flags['yuztra_site_settings'])) {
+            $uiMode = (string) ($flags['yuztra_site_settings']['translation_mode'] ?? '');
             if ($uiMode === 'full')  { $mode = 'background'; }
             elseif ($uiMode === 'half') { $mode = 'semi'; }
         }
@@ -218,8 +218,8 @@ class YUZ_Settings implements SettingsInterface {
         }
 
         // Elevate advanced toggles
-        if (isset($flags['yuz_tra_advanced']) && is_array($flags['yuz_tra_advanced'])) {
-            $adv = (array) $flags['yuz_tra_advanced'];
+        if (isset($flags['yuztra_advanced']) && is_array($flags['yuztra_advanced'])) {
+            $adv = (array) $flags['yuztra_advanced'];
             if (array_key_exists('editor_advanced_ui', $adv)) {
                 $flags['editor_advanced_ui'] = !empty($adv['editor_advanced_ui']);
             }
@@ -237,8 +237,8 @@ class YUZ_Settings implements SettingsInterface {
      * - toute autre clé → section du SSOT si présente, sinon []
      */
     public function get_option(string $option_name) {
-        $all = yuz_settings_get_all(); // SSOT + runtime cache
-        if ($option_name === 'yuz_tra_all_settings') {
+        $all = yuztra_settings_get_all(); // SSOT + runtime cache
+        if ($option_name === 'yuztra_all_settings') {
             return is_array($all) ? $all : [];
         }
         if (is_array($all) && array_key_exists($option_name, $all)) {
@@ -252,7 +252,7 @@ class YUZ_Settings implements SettingsInterface {
      * Sanitizes option (par section).
      */
     public function sanitize_option(string $option_name, $value) {
-        $lookup = function_exists('yuz_settings_registry_lookup') ? yuz_settings_registry_lookup() : [];
+        $lookup = function_exists('yuztra_settings_registry_lookup') ? yuztra_settings_registry_lookup() : [];
         if (!isset($lookup[$option_name])) {
             return is_array($value) ? $value : [];
         }
@@ -261,42 +261,42 @@ class YUZ_Settings implements SettingsInterface {
         $alias     = $lookup[$option_name]['alias'];
 
         $prepared  = $this->prepare_legacy_payload($alias, $value);
-        $sanitized = yuz_settings_sanitize_section($canonical, $prepared);
+        $sanitized = yuztra_settings_sanitize_section($canonical, $prepared);
 
         switch ($canonical) {
-            case 'yuz_tra_ws_settings':
+            case 'yuztra_ws_settings':
                 $this->logger->log('success', 'Sanitized website languages settings', ['settings' => $sanitized]);
                 break;
 
-            case 'yuz_tra_ls_settings':
+            case 'yuztra_ls_settings':
                 $this->logger->log('success', 'Sanitized language settings toggles', ['settings' => $sanitized]);
                 break;
 
-            case 'yuz_tra_sw_settings':
+            case 'yuztra_sw_settings':
                 $this->logger->log('success', 'Sanitized language switcher settings', ['settings' => $sanitized]);
                 break;
 
-            case 'yuz_tra_ts_settings':
+            case 'yuztra_ts_settings':
                 if (empty($sanitized['allowed_roles'])) {
                     $sanitized['allowed_roles'] = ['administrator', 'editor', 'translator'];
                 }
                 $this->logger->log('success', 'Sanitized translate site settings', ['settings' => $sanitized]);
                 break;
 
-            case 'yuz_tra_at_settings':
+            case 'yuztra_at_settings':
                 $this->logger->log('success', 'Sanitized automatic translation settings', ['settings' => $sanitized]);
                 break;
 
-            case 'yuz_tra_av_settings':
+            case 'yuztra_av_settings':
                 $this->logger->log('success', 'Sanitized advanced settings', ['settings' => $sanitized]);
                 break;
 
-            case 'yuz_tra_ad_settings':
-            case 'yuz_tra_li_settings':
+            case 'yuztra_ad_settings':
+            case 'yuztra_li_settings':
                 $this->logger->log('success', sprintf('Sanitized list settings (%s)', $canonical), ['settings' => $sanitized]);
                 break;
 
-            case 'yuz_tra_ai_settings':
+            case 'yuztra_ai_settings':
                 $this->logger->log('success', 'Sanitized AI settings', ['settings' => $sanitized]);
                 break;
         }
@@ -307,26 +307,26 @@ class YUZ_Settings implements SettingsInterface {
     private function prepare_legacy_payload(string $alias, $value): array {
         $payload = is_array($value) ? $value : [];
 
-        if ($alias === 'yuz_tra_general') {
-            if (!isset($payload['yuz_tra_slug']) && isset($payload['yuz_slug'])) {
-                $payload['yuz_tra_slug'] = $payload['yuz_slug'];
+        if ($alias === 'yuztra_general') {
+            if (!isset($payload['yuztra_slug']) && isset($payload['yuztra_slug'])) {
+                $payload['yuztra_slug'] = $payload['yuztra_slug'];
             }
-            if (!isset($payload['yuz_tra_code']) && isset($payload['yuz_code'])) {
-                $payload['yuz_tra_code'] = $payload['yuz_code'];
+            if (!isset($payload['yuztra_code']) && isset($payload['yuztra_code'])) {
+                $payload['yuztra_code'] = $payload['yuztra_code'];
             }
-            if (!isset($payload['yuz_tra_translatable_languages']) && isset($payload['yuz_translatable_languages'])) {
-                $payload['yuz_tra_translatable_languages'] = $payload['yuz_translatable_languages'];
+            if (!isset($payload['yuztra_translatable_languages']) && isset($payload['yuztra_translatable_languages'])) {
+                $payload['yuztra_translatable_languages'] = $payload['yuztra_translatable_languages'];
             }
-            if (!isset($payload['yuz_tra_default_language']) && isset($payload['yuz_default_language'])) {
-                $payload['yuz_tra_default_language'] = $payload['yuz_default_language'];
+            if (!isset($payload['yuztra_default_language']) && isset($payload['yuztra_default_language'])) {
+                $payload['yuztra_default_language'] = $payload['yuztra_default_language'];
             }
-            if (!isset($payload['yuz_tra_source_language']) && isset($payload['yuz_source_language'])) {
-                $payload['yuz_tra_source_language'] = $payload['yuz_source_language'];
+            if (!isset($payload['yuztra_source_language']) && isset($payload['yuztra_source_language'])) {
+                $payload['yuztra_source_language'] = $payload['yuztra_source_language'];
             }
-        } elseif ($alias === 'yuz_tra_settings') {
+        } elseif ($alias === 'yuztra_settings') {
             $allowed = ['native_language_name', 'use_subdirectory', 'force_lang_in_links'];
             $payload = array_intersect_key($payload, array_flip($allowed));
-        } elseif ($alias === 'yuz_tra_site_settings') {
+        } elseif ($alias === 'yuztra_site_settings') {
             if (isset($payload['allowed_roles']) && !is_array($payload['allowed_roles'])) {
                 $payload['allowed_roles'] = [$payload['allowed_roles']];
             }
@@ -340,31 +340,31 @@ class YUZ_Settings implements SettingsInterface {
             return;
         }
 
-        $legacy = get_option('yuz_tra_site_settings', null);
+        $legacy = get_option('yuztra_site_settings', null);
         if ($legacy === null || $legacy === false || $legacy === []) {
             return;
         }
 
         $legacy_arr = is_array($legacy) ? $legacy : (array) maybe_unserialize($legacy);
-        if (function_exists('yuz_settings_sanitize_section')) {
-            $legacy_arr = yuz_settings_sanitize_section('yuz_tra_ts_settings', $legacy_arr);
+        if (function_exists('yuztra_settings_sanitize_section')) {
+            $legacy_arr = yuztra_settings_sanitize_section('yuztra_ts_settings', $legacy_arr);
         }
 
-        $canonical = get_option('yuz_tra_ts_settings', []);
+        $canonical = get_option('yuztra_ts_settings', []);
         if (is_array($canonical) && !empty($canonical)) {
-            if (function_exists('yuz_settings_sanitize_section')) {
-                $canonical = yuz_settings_sanitize_section('yuz_tra_ts_settings', $canonical);
+            if (function_exists('yuztra_settings_sanitize_section')) {
+                $canonical = yuztra_settings_sanitize_section('yuztra_ts_settings', $canonical);
             }
             $merged = array_merge($legacy_arr, $canonical);
         } else {
             $merged = $legacy_arr;
         }
 
-        update_option('yuz_tra_ts_settings', $merged, false);
-        delete_option('yuz_tra_site_settings');
+        update_option('yuztra_ts_settings', $merged, false);
+        delete_option('yuztra_site_settings');
 
         if ($this->logger) {
-            $this->logger->log('info', 'Migrated legacy yuz_tra_site_settings to yuz_tra_ts_settings', ['settings' => $merged]);
+            $this->logger->log('info', 'Migrated legacy yuztra_site_settings to yuztra_ts_settings', ['settings' => $merged]);
         }
     }
 
@@ -378,18 +378,18 @@ class YUZ_Settings implements SettingsInterface {
         }
 
         $rawArray = is_array($raw) ? $raw : [];
-        $talsProvided = array_key_exists('yuz_tra_translatable_languages', $rawArray)
-            || array_key_exists('yuz_translatable_languages', $rawArray);
+        $talsProvided = array_key_exists('yuztra_translatable_languages', $rawArray)
+            || array_key_exists('yuztra_translatable_languages', $rawArray);
         if (!$talsProvided) {
-            $this->logger->log('info', 'update_option(yuz_tra_ws_settings): skipping DB updates (translatable list not provided)');
+            $this->logger->log('info', 'update_option(yuztra_ws_settings): skipping DB updates (translatable list not provided)');
             return;
         }
 
         $this->handle_db_updates($sanitized, $tbl);
         try {
-            $src  = (string) ($sanitized['yuz_tra_source_language'] ?? '');
-            $def  = (string) ($sanitized['yuz_tra_default_language'] ?? '');
-            $tals = (array) ($sanitized['yuz_tra_translatable_languages'] ?? []);
+            $src  = (string) ($sanitized['yuztra_source_language'] ?? '');
+            $def  = (string) ($sanitized['yuztra_default_language'] ?? '');
+            $tals = (array) ($sanitized['yuztra_translatable_languages'] ?? []);
             $this->languageManager->enforce_language_rules($src, $def, $tals);
         } catch (\Throwable $e) {
             $this->logger->log('warning', 'enforce_language_rules failed after DB update: ' . $e->getMessage());
@@ -442,12 +442,12 @@ class YUZ_Settings implements SettingsInterface {
 
     private function sync_url_to_load($raw): void {
         $url = esc_url_raw(is_array($raw) ? '' : (string) wp_unslash($raw ?? ''));
-        yuz_settings_update(function (array $current) use ($url) {
-            $api = isset($current['yuz_tra_at_settings']) && is_array($current['yuz_tra_at_settings'])
-                ? $current['yuz_tra_at_settings']
-                : yuz_settings_section_default('yuz_tra_at_settings');
+        yuztra_settings_update(function (array $current) use ($url) {
+            $api = isset($current['yuztra_at_settings']) && is_array($current['yuztra_at_settings'])
+                ? $current['yuztra_at_settings']
+                : yuztra_settings_section_default('yuztra_at_settings');
             $api['url_to_load'] = $url;
-            $current['yuz_tra_at_settings'] = $api;
+            $current['yuztra_at_settings'] = $api;
             return $current;
         });
     }
@@ -456,7 +456,7 @@ class YUZ_Settings implements SettingsInterface {
      * Updates option (only on submit) → écrit dans les options canoniques.
      */
     public function update_option(string $option_name, $value): bool {
-        $lookup = function_exists('yuz_settings_registry_lookup') ? yuz_settings_registry_lookup() : [];
+        $lookup = function_exists('yuztra_settings_registry_lookup') ? yuztra_settings_registry_lookup() : [];
         if (!isset($lookup[$option_name])) {
             $this->logger->log('warning', sprintf('Attempt to update unknown option \"%s\"', $option_name));
             return false;
@@ -465,13 +465,13 @@ class YUZ_Settings implements SettingsInterface {
         $canonical = $lookup[$option_name]['canonical'];
         $alias     = $lookup[$option_name]['alias'];
 
-        if ($alias === 'yuz_tra_settings' && is_array($value) && array_key_exists('url_to_load', $value)) {
+        if ($alias === 'yuztra_settings' && is_array($value) && array_key_exists('url_to_load', $value)) {
             $this->sync_url_to_load($value['url_to_load']);
         }
 
         $sanitized = $this->sanitize_option($alias, $value);
-        $defaults  = function_exists('yuz_settings_section_default')
-            ? yuz_settings_section_default($canonical)
+        $defaults  = function_exists('yuztra_settings_section_default')
+            ? yuztra_settings_section_default($canonical)
             : [];
         if (is_array($sanitized) && is_array($defaults) && $defaults) {
             $sanitized = array_replace($defaults, $sanitized);
@@ -480,8 +480,8 @@ class YUZ_Settings implements SettingsInterface {
         $existing = get_option($canonical, []);
         if (!is_array($existing)) {
             $existing = [];
-        } elseif (function_exists('yuz_settings_sanitize_section')) {
-            $existing = yuz_settings_sanitize_section($canonical, $existing);
+        } elseif (function_exists('yuztra_settings_sanitize_section')) {
+            $existing = yuztra_settings_sanitize_section($canonical, $existing);
         }
 
         if (
@@ -499,56 +499,72 @@ class YUZ_Settings implements SettingsInterface {
             return true;
         }
 
-        if ($canonical === 'yuz_tra_ws_settings') {
+        if ($canonical === 'yuztra_ws_settings') {
             $this->maybe_sync_languages_table($sanitized, $value);
         }
 
-        $result = yuz_settings_update(function (array $current) use ($canonical, $sanitized) {
+        $result = yuztra_settings_update(function (array $current) use ($canonical, $sanitized) {
             $current[$canonical] = $sanitized;
             return $current;
         });
 
-        if ($result && in_array($canonical, ['yuz_tra_ws_settings', 'yuz_tra_sw_settings', 'yuz_tra_ls_settings'], true)) {
-            do_action('yuz_tra_settings_updated', $alias, $sanitized);
+        if ($result && in_array($canonical, ['yuztra_ws_settings', 'yuztra_sw_settings', 'yuztra_ls_settings'], true)) {
+
+            do_action('yuztra_settings_updated', $alias, $sanitized);
         }
         return (bool) $result;
     }
 
     public function ajax_router() {
-        error_log('[YUZ][AJAX] handling ' . ($_POST['action'] ?? '(none)') . ' with data=' . wp_json_encode($_POST));
-        $action = sanitize_text_field($_POST['action'] ?? '');
-        $nonce  = $_POST['nonce'] ?? '';
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['error' => 'Insufficient permissions'], 403);
+            return;
+        }
+        $nonce = isset($_POST['nonce']) && is_string($_POST['nonce'])
+            ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
 
-        $nonce_ok = wp_verify_nonce($nonce, 'yuz_tra_nonce') || wp_verify_nonce($nonce, 'yuz_con_nonce');
+        $nonce_ok = wp_verify_nonce($nonce, 'yuztra_nonce') || wp_verify_nonce($nonce, 'yuztra_con_nonce');
         if (!$nonce_ok) {
-            error_log('[YUZ][AJAX] invalid nonce for ' . $action);
-            wp_send_json_error(['error' => 'Invalid nonce']);
+            wp_send_json_error(['error' => 'Invalid nonce'], 403);
+            return;
+        }
+        $action = isset($_POST['action']) && is_string($_POST['action'])
+            ? sanitize_key(wp_unslash($_POST['action'])) : '';
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            yuztra_debug_log('[YUZ][AJAX] handling authenticated action=' . $action);
         }
 
         switch ($action) {
-            case 'yuz_tra_sw_upd_settings':
-                if (!current_user_can('manage_options')) {
-                    wp_send_json_error(['error' => 'Insufficient permissions'], 403);
-                }
-                $data = isset($_POST['switcher_settings'])
-                    ? (array) wp_unslash($_POST['switcher_settings'])
-                    : [];
-                $this->update_settings_bucket('yuz_tra_sw_settings', $data);
+            case 'yuztra_sw_upd_settings':
+                // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Typed section validator below rejects unknown keys and unsafe values before persistence.
+                $data = $this->read_general_settings_patch(isset($_POST['switcher_settings']) && is_array($_POST['switcher_settings']) ? wp_unslash($_POST['switcher_settings']) : null, 'yuztra_sw_settings');
+                $this->update_settings_bucket('yuztra_sw_settings', $data);
                 break;
 
-            case 'yuz_tra_ls_upd_settings':
-                if (!current_user_can('manage_options')) {
-                    wp_send_json_error(['error' => 'Insufficient permissions'], 403);
-                }
-                $data = isset($_POST['language_settings'])
-                    ? (array) wp_unslash($_POST['language_settings'])
-                    : [];
-                $this->update_settings_bucket('yuz_tra_ls_settings', $data);
+            case 'yuztra_ls_upd_settings':
+                // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Typed section validator below rejects unknown keys and unsafe values before persistence.
+                $data = $this->read_general_settings_patch(isset($_POST['language_settings']) && is_array($_POST['language_settings']) ? wp_unslash($_POST['language_settings']) : null, 'yuztra_ls_settings');
+                $this->update_settings_bucket('yuztra_ls_settings', $data);
                 break;
 
             default:
-                error_log('[YUZ][AJAX] unknown action ' . $action);
+                yuztra_debug_log('[YUZ][AJAX] unknown action ' . $action);
                 wp_send_json_error(['error' => 'Unknown action']);
+        }
+    }
+
+    /** Called only after the AJAX capability and nonce checks above. */
+    private function read_general_settings_patch($raw, string $section): array {
+        if (!is_array($raw)) {
+            wp_send_json_error(['error' => 'Invalid settings payload'], 400);
+            return [];
+        }
+        try {
+            return yuztra_sanitize_general_patch($section, $raw);
+        } catch (InvalidArgumentException $e) {
+            wp_send_json_error(['error' => 'Invalid settings payload'], 400);
+            return [];
         }
     }
 
@@ -561,12 +577,14 @@ class YUZ_Settings implements SettingsInterface {
         $payload = $data;
 
         $merged    = array_merge($old, $payload);
-        $sanitized = function_exists('yuz_settings_sanitize_section')
-            ? yuz_settings_sanitize_section($option_name, $merged)
+        $sanitized = function_exists('yuztra_settings_sanitize_section')
+            ? yuztra_settings_sanitize_section($option_name, $merged)
             : $merged;
+        // Preserve stored extension/legacy fields outside the submitted schema.
+        $sanitized = array_replace($old, $sanitized);
 
         update_option($option_name, $sanitized);
-        error_log('[YUZ][UPDATE] ' . $option_name . '=' . wp_json_encode($sanitized));
+        yuztra_debug_log('[YUZ][UPDATE] ' . $option_name . '=' . wp_json_encode($sanitized));
 
         wp_send_json_success([
             'updated' => $sanitized,
@@ -593,15 +611,15 @@ class YUZ_Settings implements SettingsInterface {
      */
     private static function sync_switcher_into_yuz_tra_settings(array $switcher): void {
         $map = [
-            'shortcode_enabled'  => 'yuz_shortcode_enabled',
-            'shortcode_format'   => 'yuz_shortcode_format',
-            'menu_enabled'       => 'yuz_menu_enabled',
-            'menu_format'        => 'yuz_menu_format',
-            'floating_enabled'   => 'yuz_floating_enabled',
-            'floating_format'    => 'yuz_floating_format',
-            'floating_theme'     => 'yuz_floating_theme',
-            'floating_position'  => 'yuz_floating_position',
-            'show_poweredby'     => 'yuz_show_poweredby',
+            'shortcode_enabled'  => 'yuztra_shortcode_enabled',
+            'shortcode_format'   => 'yuztra_shortcode_format',
+            'menu_enabled'       => 'yuztra_menu_enabled',
+            'menu_format'        => 'yuztra_menu_format',
+            'floating_enabled'   => 'yuztra_floating_enabled',
+            'floating_format'    => 'yuztra_floating_format',
+            'floating_theme'     => 'yuztra_floating_theme',
+            'floating_position'  => 'yuztra_floating_position',
+            'show_poweredby'     => 'yuztra_show_poweredby',
         ];
         $legacyPatch = [];
         foreach ($map as $from => $to) {
@@ -613,11 +631,11 @@ class YUZ_Settings implements SettingsInterface {
                 $legacyPatch[$to] = is_string($val) ? $val : strval($val);
             }
         }
-        yuz_settings_update(function (array $current) use ($legacyPatch) {
-            $existing = isset($current['yuz_tra_settings']) && is_array($current['yuz_tra_settings'])
-                ? $current['yuz_tra_settings']
+        yuztra_settings_update(function (array $current) use ($legacyPatch) {
+            $existing = isset($current['yuztra_settings']) && is_array($current['yuztra_settings'])
+                ? $current['yuztra_settings']
                 : [];
-            $current['yuz_tra_settings'] = array_merge($existing, $legacyPatch);
+            $current['yuztra_settings'] = array_merge($existing, $legacyPatch);
             return $current;
         });
     }
@@ -628,20 +646,20 @@ class YUZ_Settings implements SettingsInterface {
     public function get_js_config(): array {
         $all = self::runtime_flags(); // SSOT only
 
-        $gen = $all['yuz_tra_general'] ?? [];
-        $dl  = $gen['yuz_tra_default_language'] ?? ($gen['yuz_default_language'] ?? $this->languages->get_default_language());
-        $sl  = $gen['yuz_tra_source_language']  ?? ($gen['yuz_source_language']  ?? $this->languages->get_source_language());
-        $tl  = $gen['yuz_tra_translatable_languages'] ?? ($gen['yuz_translatable_languages'] ?? $this->languages->get_translatable_languages());
+        $gen = $all['yuztra_general'] ?? [];
+        $dl  = $gen['yuztra_default_language'] ?? ($gen['yuztra_default_language'] ?? $this->languages->get_default_language());
+        $sl  = $gen['yuztra_source_language']  ?? ($gen['yuztra_source_language']  ?? $this->languages->get_source_language());
+        $tl  = $gen['yuztra_translatable_languages'] ?? ($gen['yuztra_translatable_languages'] ?? $this->languages->get_translatable_languages());
 
         $settings = [
-            'yuz_tra_default_language' => $dl,
-            'yuz_tra_source_language'  => $sl,
+            'yuztra_default_language' => $dl,
+            'yuztra_source_language'  => $sl,
             'translation-languages'    => $tl,
-            'url_to_load'              => $all['yuz_tra_settings']['url_to_load'] ?? home_url(),
-            'yuz_shortcode_enabled'    => $all['yuz_tra_switcher']['shortcode_enabled'] ?? false,
+            'url_to_load'              => $all['yuztra_settings']['url_to_load'] ?? home_url(),
+            'yuztra_shortcode_enabled'    => $all['yuztra_switcher']['shortcode_enabled'] ?? false,
         ];
         // Expose full site settings to JS (used by editor/site modules)
-        $settings['site_settings'] = is_array($all['yuz_tra_site_settings'] ?? null) ? $all['yuz_tra_site_settings'] : [];
+        $settings['site_settings'] = is_array($all['yuztra_site_settings'] ?? null) ? $all['yuztra_site_settings'] : [];
 
         return [
             // ⬇⬇⬇ ce que tes scripts attendent vraiment
@@ -651,7 +669,7 @@ class YUZ_Settings implements SettingsInterface {
             'capabilities'        => ['can_manage_options' => current_user_can('manage_options')],
             // existant
             'settings' => $settings,
-            'switcher' => $all['yuz_tra_switcher'] ?? [],
+            'switcher' => $all['yuztra_switcher'] ?? [],
         ];
     }
 
@@ -691,18 +709,18 @@ class YUZ_Settings implements SettingsInterface {
      * Registers settings (SSOT).
      */
     public function register_settings() {
-        if (!function_exists('yuz_settings_registry')) {
+        if (!function_exists('yuztra_settings_registry')) {
             $this->logger->log('critical', 'Cannot register settings: registry helper missing');
             return;
         }
 
-        $registry = yuz_settings_registry();
+        $registry = yuztra_settings_registry();
         foreach ($registry as $canonical => $config) {
             $defaults = [];
-            if (class_exists('YUZ_Options_Bridge') && method_exists('YUZ_Options_Bridge', 'get_defaults')) {
-                $defaults = YUZ_Options_Bridge::get_defaults($canonical);
+            if (class_exists('YUZTRA_Options_Bridge') && method_exists('YUZTRA_Options_Bridge', 'get_defaults')) {
+                $defaults = YUZTRA_Options_Bridge::get_defaults($canonical);
             } else {
-                $defaults = yuz_settings_section_default($canonical);
+                $defaults = yuztra_settings_section_default($canonical);
             }
 
             // Enregistrer dans le groupe correspondant à la source d'écriture réelle
@@ -712,7 +730,7 @@ class YUZ_Settings implements SettingsInterface {
                 $canonical,
                 [
                     'sanitize_callback' => function ($value) use ($canonical) {
-                        return yuz_settings_sanitize_section($canonical, $value);
+                        return yuztra_settings_sanitize_section($canonical, $value);
                     },
                     'default' => $defaults,
                 ]
@@ -726,17 +744,17 @@ class YUZ_Settings implements SettingsInterface {
      * Mappe un bucket canonique vers le groupe Settings API utilisé par l’UI.
      */
     private static function group_for_canonical(string $canonical): string {
-        $general = ['yuz_tra_ws_settings', 'yuz_tra_ls_settings', 'yuz_tra_sw_settings'];
+        $general = ['yuztra_ws_settings', 'yuztra_ls_settings', 'yuztra_sw_settings'];
         if (in_array($canonical, $general, true)) {
-            return 'yuz_tra_general_settings_group';
+            return 'yuztra_general_settings_group';
         }
-        if ($canonical === 'yuz_tra_at_settings') {
-            return 'yuz_tra_at_settings';
+        if ($canonical === 'yuztra_at_settings') {
+            return 'yuztra_at_settings';
         }
-        if ($canonical === 'yuz_tra_ts_settings') {
-            return 'yuz_tra_ts_settings_group';
+        if ($canonical === 'yuztra_ts_settings') {
+            return 'yuztra_ts_settings_group';
         }
-        return 'yuz_tra_settings_group';
+        return 'yuztra_settings_group';
     }
 
     /**
@@ -753,15 +771,15 @@ class YUZ_Settings implements SettingsInterface {
 
             // même liste de sections que v398 (et +)
             $sections = [
-                'yuz_tra_general',
-                'yuz_tra_settings',
-                'yuz_tra_switcher',
-                'yuz_tra_site_settings',
-                'yuz_tra_api_settings',
-                'yuz_tra_advanced',
-                'yuz_tra_addons',
-                'yuz_tra_licenses',
-                'yuz_tra_ai',
+                'yuztra_general',
+                'yuztra_settings',
+                'yuztra_switcher',
+                'yuztra_site_settings',
+                'yuztra_api_settings',
+                'yuztra_advanced',
+                'yuztra_addons',
+                'yuztra_licenses',
+                'yuztra_ai',
             ];
 
             $sanitized = [];
@@ -789,44 +807,44 @@ class YUZ_Settings implements SettingsInterface {
             $logger = null;
         }
 
-        if (!function_exists('yuz_settings_registry')) {
+        if (!function_exists('yuztra_settings_registry')) {
             if ($logger) { $logger->log('warning', 'Migration skipped: settings registry unavailable'); }
             return;
         }
 
-        $registry = yuz_settings_registry();
+        $registry = yuztra_settings_registry();
         if (empty($registry)) {
             if ($logger) { $logger->log('info', 'Migration skipped: empty registry'); }
             return;
         }
 
-        $allLegacy = self::legacy_array(self::get_raw_option('yuz_tra_all_settings'));
+        $allLegacy = self::legacy_array(self::get_raw_option('yuztra_all_settings'));
 
         $generalRaw  = self::merge_precedence([
-            self::get_raw_option('yuz_tra_general'),
-            $allLegacy['yuz_tra_general'] ?? [],
+            self::get_raw_option('yuztra_general'),
+            $allLegacy['yuztra_general'] ?? [],
         ]);
         $settingsRaw = self::merge_precedence([
-            self::get_raw_option('yuz_tra_settings'),
-            $allLegacy['yuz_tra_settings'] ?? [],
+            self::get_raw_option('yuztra_settings'),
+            $allLegacy['yuztra_settings'] ?? [],
         ]);
         $switcherRaw = self::merge_precedence([
-            self::get_raw_option('yuz_tra_switcher_settings'),
-            self::get_raw_option('yuz_tra_switcher'),
-            $allLegacy['yuz_tra_switcher'] ?? [],
+            self::get_raw_option('yuztra_switcher_settings'),
+            self::get_raw_option('yuztra_switcher'),
+            $allLegacy['yuztra_switcher'] ?? [],
         ]);
         $siteRaw = self::merge_precedence([
-            self::get_raw_option('yuz_translation_site_settings'),
-            self::get_raw_option('yuz_tra_site_settings'),
-            $allLegacy['yuz_tra_site_settings'] ?? [],
+            self::get_raw_option('yuztra_translation_site_settings'),
+            self::get_raw_option('yuztra_site_settings'),
+            $allLegacy['yuztra_site_settings'] ?? [],
         ]);
         if (empty($siteRaw['allowed_roles'])) {
-            $siteRaw['allowed_roles'] = self::get_raw_option('yuz_tra_allowed_roles') ?: [];
+            $siteRaw['allowed_roles'] = self::get_raw_option('yuztra_allowed_roles') ?: [];
         }
         $apiRaw = self::merge_precedence([
-            self::get_raw_option('yuz_tra_api_settings'),
-            $allLegacy['yuz_tra_api_settings'] ?? [],
-            get_option('yuz_tra_at_settings', []),
+            self::get_raw_option('yuztra_api_settings'),
+            $allLegacy['yuztra_api_settings'] ?? [],
+            get_option('yuztra_at_settings', []),
         ]);
         if (!isset($apiRaw['url_to_load']) && isset($settingsRaw['url_to_load'])) {
             $apiRaw['url_to_load'] = $settingsRaw['url_to_load'];
@@ -839,20 +857,20 @@ class YUZ_Settings implements SettingsInterface {
         }
 
         $advancedRaw = self::merge_precedence([
-            get_option('yuz_tra_advanced', []),
-            $allLegacy['yuz_tra_advanced'] ?? [],
+            get_option('yuztra_advanced', []),
+            $allLegacy['yuztra_advanced'] ?? [],
         ]);
         $addonsRaw   = self::pick_first_non_empty([
-            $allLegacy['yuz_tra_addons'] ?? [],
-            get_option('yuz_tra_addons', []),
+            $allLegacy['yuztra_addons'] ?? [],
+            get_option('yuztra_addons', []),
         ]);
         $licensesRaw = self::pick_first_non_empty([
-            $allLegacy['yuz_tra_licenses'] ?? [],
-            get_option('yuz_tra_licenses', []),
+            $allLegacy['yuztra_licenses'] ?? [],
+            get_option('yuztra_licenses', []),
         ]);
         $aiRaw       = self::merge_precedence([
-            get_option('yuz_tra_ai', []),
-            $allLegacy['yuz_tra_ai'] ?? [],
+            get_option('yuztra_ai', []),
+            $allLegacy['yuztra_ai'] ?? [],
         ]);
 
         $lsRaw = [
@@ -862,15 +880,15 @@ class YUZ_Settings implements SettingsInterface {
         ];
 
         $desired = [
-            'yuz_tra_ws_settings' => yuz_settings_sanitize_section('yuz_tra_ws_settings', $generalRaw),
-            'yuz_tra_ls_settings' => yuz_settings_sanitize_section('yuz_tra_ls_settings', $lsRaw),
-            'yuz_tra_sw_settings' => yuz_settings_sanitize_section('yuz_tra_sw_settings', $switcherRaw),
-            'yuz_tra_ts_settings' => yuz_settings_sanitize_section('yuz_tra_ts_settings', $siteRaw),
-            'yuz_tra_at_settings' => yuz_settings_sanitize_section('yuz_tra_at_settings', $apiRaw),
-            'yuz_tra_av_settings' => yuz_settings_sanitize_section('yuz_tra_av_settings', $advancedRaw),
-            'yuz_tra_ad_settings' => yuz_settings_sanitize_section('yuz_tra_ad_settings', $addonsRaw),
-            'yuz_tra_li_settings' => yuz_settings_sanitize_section('yuz_tra_li_settings', $licensesRaw),
-            'yuz_tra_ai_settings' => yuz_settings_sanitize_section('yuz_tra_ai_settings', $aiRaw),
+            'yuztra_ws_settings' => yuztra_settings_sanitize_section('yuztra_ws_settings', $generalRaw),
+            'yuztra_ls_settings' => yuztra_settings_sanitize_section('yuztra_ls_settings', $lsRaw),
+            'yuztra_sw_settings' => yuztra_settings_sanitize_section('yuztra_sw_settings', $switcherRaw),
+            'yuztra_ts_settings' => yuztra_settings_sanitize_section('yuztra_ts_settings', $siteRaw),
+            'yuztra_at_settings' => yuztra_settings_sanitize_section('yuztra_at_settings', $apiRaw),
+            'yuztra_av_settings' => yuztra_settings_sanitize_section('yuztra_av_settings', $advancedRaw),
+            'yuztra_ad_settings' => yuztra_settings_sanitize_section('yuztra_ad_settings', $addonsRaw),
+            'yuztra_li_settings' => yuztra_settings_sanitize_section('yuztra_li_settings', $licensesRaw),
+            'yuztra_ai_settings' => yuztra_settings_sanitize_section('yuztra_ai_settings', $aiRaw),
         ];
 
         $preState = self::evaluate_canonical_sections($desired);
@@ -879,9 +897,9 @@ class YUZ_Settings implements SettingsInterface {
             return;
         }
 
-        $updated = yuz_settings_update_all($desired);
+        $updated = yuztra_settings_update_all($desired);
         if ($updated) {
-            yuz_settings_runtime_flush();
+            yuztra_settings_runtime_flush();
 
             $validated = true;
             foreach ($desired as $canonical => $expected) {
@@ -894,7 +912,7 @@ class YUZ_Settings implements SettingsInterface {
                     break;
                 }
 
-                $normalized = yuz_settings_sanitize_section($canonical, $data);
+                $normalized = yuztra_settings_sanitize_section($canonical, $data);
                 if ($normalized !== $expected) {
                     $validated = false;
                     if ($logger) {
@@ -912,8 +930,8 @@ class YUZ_Settings implements SettingsInterface {
             }
 
             if ($validated) {
-                delete_option('yuz_tra_all_settings');
-                delete_option('yuz_tra_settings');
+                delete_option('yuztra_all_settings');
+                delete_option('yuztra_settings');
                 if ($logger) {
                     $logger->log('success', '🎯 Canonical settings migration validated and cleaned up', ['sections' => array_keys($desired)]);
                 }
@@ -977,7 +995,7 @@ class YUZ_Settings implements SettingsInterface {
                 continue;
             }
 
-            $normalized = yuz_settings_sanitize_section($canonical, $stored);
+            $normalized = yuztra_settings_sanitize_section($canonical, $stored);
 
             if ($normalized !== $section) {
                 $match = false;
@@ -1028,15 +1046,15 @@ class YUZ_Settings implements SettingsInterface {
      */
     public static function validate_all(): array {
         $sections = [
-            'yuz_tra_ws_settings' => 'validate_ws',
-            'yuz_tra_ls_settings' => 'validate_ls',
-            'yuz_tra_sw_settings' => 'validate_sw',
-            'yuz_tra_ts_settings' => 'validate_ts',
-            'yuz_tra_at_settings' => 'validate_at',
-            'yuz_tra_av_settings' => 'validate_av',
-            'yuz_tra_ad_settings' => 'validate_ad',
-            'yuz_tra_li_settings' => 'validate_li',
-            'yuz_tra_ai_settings' => 'validate_ai',
+            'yuztra_ws_settings' => 'validate_ws',
+            'yuztra_ls_settings' => 'validate_ls',
+            'yuztra_sw_settings' => 'validate_sw',
+            'yuztra_ts_settings' => 'validate_ts',
+            'yuztra_at_settings' => 'validate_at',
+            'yuztra_av_settings' => 'validate_av',
+            'yuztra_ad_settings' => 'validate_ad',
+            'yuztra_li_settings' => 'validate_li',
+            'yuztra_ai_settings' => 'validate_ai',
         ];
 
         $report = [
@@ -1045,7 +1063,7 @@ class YUZ_Settings implements SettingsInterface {
             'errors'   => [],
         ];
 
-        $all = yuz_settings_get_all();
+        $all = yuztra_settings_get_all();
         foreach ($sections as $canonical => $method) {
             $data = isset($all[$canonical]) && is_array($all[$canonical]) ? $all[$canonical] : [];
             if (!method_exists(__CLASS__, $method)) {
@@ -1073,25 +1091,25 @@ class YUZ_Settings implements SettingsInterface {
         $errors = [];
         $warnings = [];
 
-        if (empty($section['yuz_tra_default_language']) || !is_string($section['yuz_tra_default_language'])) {
-            $errors[] = 'yuz_tra_default_language missing or invalid';
+        if (empty($section['yuztra_default_language']) || !is_string($section['yuztra_default_language'])) {
+            $errors[] = 'yuztra_default_language missing or invalid';
         }
-        if (empty($section['yuz_tra_source_language']) || !is_string($section['yuz_tra_source_language'])) {
-            $errors[] = 'yuz_tra_source_language missing or invalid';
+        if (empty($section['yuztra_source_language']) || !is_string($section['yuztra_source_language'])) {
+            $errors[] = 'yuztra_source_language missing or invalid';
         }
 
-        if (!isset($section['yuz_tra_translatable_languages']) || !is_array($section['yuz_tra_translatable_languages'])) {
-            $warnings[] = 'yuz_tra_translatable_languages not set; defaulting to empty array';
+        if (!isset($section['yuztra_translatable_languages']) || !is_array($section['yuztra_translatable_languages'])) {
+            $warnings[] = 'yuztra_translatable_languages not set; defaulting to empty array';
         } else {
-            foreach ($section['yuz_tra_translatable_languages'] as $code) {
+            foreach ($section['yuztra_translatable_languages'] as $code) {
                 if (!is_string($code) || $code === '') {
-                    $warnings[] = 'yuz_tra_translatable_languages contains invalid entries';
+                    $warnings[] = 'yuztra_translatable_languages contains invalid entries';
                     break;
                 }
             }
         }
 
-        foreach (['yuz_tra_slug', 'yuz_tra_code'] as $listKey) {
+        foreach (['yuztra_slug', 'yuztra_code'] as $listKey) {
             if (isset($section[$listKey]) && is_array($section[$listKey])) {
                 foreach ($section[$listKey] as $value) {
                     if (!is_string($value)) {
@@ -1102,7 +1120,7 @@ class YUZ_Settings implements SettingsInterface {
             }
         }
 
-        $warnings = array_merge($warnings, self::diff_warnings('yuz_tra_ws_settings', $section));
+        $warnings = array_merge($warnings, self::diff_warnings('yuztra_ws_settings', $section));
         return self::validation_result($errors, $warnings);
     }
 
@@ -1119,7 +1137,7 @@ class YUZ_Settings implements SettingsInterface {
                 $errors[] = sprintf('%s must be an empty string or \"1\"', $key);
             }
         }
-        $warnings = array_merge($warnings, self::diff_warnings('yuz_tra_ls_settings', $section));
+        $warnings = array_merge($warnings, self::diff_warnings('yuztra_ls_settings', $section));
         return self::validation_result($errors, $warnings);
     }
 
@@ -1142,7 +1160,7 @@ class YUZ_Settings implements SettingsInterface {
                 $warnings[] = sprintf('%s coerced to string', $key);
             }
         }
-        $warnings = array_merge($warnings, self::diff_warnings('yuz_tra_sw_settings', $section));
+        $warnings = array_merge($warnings, self::diff_warnings('yuztra_sw_settings', $section));
         return self::validation_result($errors, $warnings);
     }
 
@@ -1175,7 +1193,7 @@ class YUZ_Settings implements SettingsInterface {
         if (isset($section['translation_mode']) && !in_array($section['translation_mode'], ['full', 'half'], true)) {
             $warnings[] = 'translation_mode will be coerced to a supported value';
         }
-        $warnings = array_merge($warnings, self::diff_warnings('yuz_tra_ts_settings', $section));
+        $warnings = array_merge($warnings, self::diff_warnings('yuztra_ts_settings', $section));
         return self::validation_result($errors, $warnings);
     }
 
@@ -1206,7 +1224,7 @@ class YUZ_Settings implements SettingsInterface {
                 $warnings[] = sprintf('%s coerced to string', $key);
             }
         }
-        $warnings = array_merge($warnings, self::diff_warnings('yuz_tra_at_settings', $section));
+        $warnings = array_merge($warnings, self::diff_warnings('yuztra_at_settings', $section));
         return self::validation_result($errors, $warnings);
     }
 
@@ -1219,7 +1237,7 @@ class YUZ_Settings implements SettingsInterface {
                 $errors[] = sprintf('%s must be boolean', $key);
             }
         }
-        $warnings = array_merge($warnings, self::diff_warnings('yuz_tra_av_settings', $section));
+        $warnings = array_merge($warnings, self::diff_warnings('yuztra_av_settings', $section));
         return self::validation_result($errors, $warnings);
     }
 
@@ -1263,12 +1281,12 @@ class YUZ_Settings implements SettingsInterface {
         } elseif (!is_bool($section['enabled'])) {
             $errors[] = 'enabled must be boolean';
         }
-        $warnings = array_merge($warnings, self::diff_warnings('yuz_tra_ai_settings', $section));
+        $warnings = array_merge($warnings, self::diff_warnings('yuztra_ai_settings', $section));
         return self::validation_result($errors, $warnings);
     }
 
     private static function diff_warnings(string $canonical, array $current): array {
-        $sanitized = yuz_settings_sanitize_section($canonical, $current);
+        $sanitized = yuztra_settings_sanitize_section($canonical, $current);
         if ($sanitized !== $current) {
             return ['values will be normalised on next save'];
         }
@@ -1287,13 +1305,13 @@ class YUZ_Settings implements SettingsInterface {
      */
     private function get_default_all_settings() {
         $defaults = [];
-        $registry = function_exists('yuz_settings_registry') ? yuz_settings_registry() : [];
+        $registry = function_exists('yuztra_settings_registry') ? yuztra_settings_registry() : [];
 
         foreach ($registry as $canonical => $config) {
-            $sectionDefaults = yuz_settings_section_default($canonical);
-            if ($canonical === 'yuz_tra_ws_settings') {
-                $sectionDefaults['yuz_tra_default_language'] = $this->languages->get_default_language();
-                $sectionDefaults['yuz_tra_source_language']  = $this->languages->get_source_language();
+            $sectionDefaults = yuztra_settings_section_default($canonical);
+            if ($canonical === 'yuztra_ws_settings') {
+                $sectionDefaults['yuztra_default_language'] = $this->languages->get_default_language();
+                $sectionDefaults['yuztra_source_language']  = $this->languages->get_source_language();
             }
             $defaults[$canonical] = $sectionDefaults;
             $defaults[$config['alias']] = $sectionDefaults;
@@ -1307,9 +1325,9 @@ class YUZ_Settings implements SettingsInterface {
      */
     private function verify_settings($s) {
         $err = [];
-        if (empty($s['yuz_tra_default_language']))       { $err[] = 'Default language missing'; }
-        if (empty($s['yuz_tra_source_language']))        { $err[] = 'Source language missing'; }
-        if (empty($s['yuz_tra_translatable_languages'])) { $err[] = 'No translatable languages selected'; }
+        if (empty($s['yuztra_default_language']))       { $err[] = 'Default language missing'; }
+        if (empty($s['yuztra_source_language']))        { $err[] = 'Source language missing'; }
+        if (empty($s['yuztra_translatable_languages'])) { $err[] = 'No translatable languages selected'; }
         return ['valid' => empty($err), 'errors' => $err];
     }
 
@@ -1333,24 +1351,24 @@ class YUZ_Settings implements SettingsInterface {
             'string'                => 'strings',
         ];
 
-        $raw = isset($_GET['tab']) ? (string) $_GET['tab'] : 'general';
+            $raw = isset($_GET['tab']) ? sanitize_key(wp_unslash((string) $_GET['tab'])) : 'general';
         $current = sanitize_key($raw);
         if (isset($aliases[$current])) { $current = $aliases[$current]; }
         if (!isset($tabs[$current]))   { $current = 'general'; }
 
         // Slug de page (doit matcher add_menu_page)
-        $page = isset($_GET['page']) ? sanitize_key($_GET['page']) : 'yuz-translation-settings';
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : 'yuz-translation-settings';
 
         echo '<div class="wrap yuz-admin-shell" id="yuz-settings">';
         require_once __DIR__ . '/class-yuz-release.php';
-        YUZ_Release::render();
+        YUZTRA_Release::render();
 
         $locale = function_exists('get_user_locale') ? get_user_locale() : get_locale();
 
         // essaie d'obtenir un renderer si dispo (propriété ou singleton)
         $renderer = (isset($this->renderer) && is_object($this->renderer))
             ? $this->renderer
-            : ((class_exists('YUZ_Renderer') && method_exists('YUZ_Renderer', 'instance')) ? YUZ_Renderer::instance() : null);
+            : ((class_exists('YUZTRA_Renderer') && method_exists('YUZTRA_Renderer', 'instance')) ? YUZTRA_Renderer::instance() : null);
 
         $rendered_toolbar = false;
         if ($renderer && method_exists($renderer, 'render_support_toolbar')) {
@@ -1392,6 +1410,7 @@ class YUZ_Settings implements SettingsInterface {
 
         $handled = false;
         foreach ($candidates as $hook) {
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- WordPress-generated admin page hooks built exclusively from the fixed plugin page prefix and allowlisted tab.
             if (has_action($hook)) { do_action($hook); $handled = true; break; }
         }
         // Le catalogue commercial doit rester visible même si le module historique
@@ -1418,18 +1437,18 @@ class YUZ_Settings implements SettingsInterface {
         public static function ensure_defaults(): void {
             $defaults = [
                 // Do NOT enable front switcher features from here (admin core).
-                'yuz_floating_enabled' => false,
-                'yuz_floating_format' => 'short-names',
-                'yuz_floating_theme' => 'dark',
-                'yuz_floating_position' => 'bottom-right',
-                'yuz_menu_enabled' => false,
-                'yuz_menu_format' => 'short-names',
-                'yuz_shortcode_enabled' => false,
+                'yuztra_floating_enabled' => false,
+                'yuztra_floating_format' => 'short-names',
+                'yuztra_floating_theme' => 'dark',
+                'yuztra_floating_position' => 'bottom-right',
+                'yuztra_menu_enabled' => false,
+                'yuztra_menu_format' => 'short-names',
+                'yuztra_shortcode_enabled' => false,
                 'source_language_id' => 0,
                 'api_adapter' => 'libretranslate',
             ];
 
-            $option_name = 'yuz_tra_settings';
+            $option_name = 'yuztra_settings';
             $current = get_option($option_name, []);
 
             if (!is_array($current)) {
@@ -1439,7 +1458,7 @@ class YUZ_Settings implements SettingsInterface {
             if (empty($current)) {
                 add_option($option_name, $defaults);
                 if (function_exists('error_log')) {
-                    error_log('🟩 YUZ_Settings: création de yuz_tra_settings (defaults).');
+                    yuztra_debug_log('🟩 YUZTRA_Settings: création de yuztra_settings (defaults).');
                 }
                 return;
             }
@@ -1448,7 +1467,7 @@ class YUZ_Settings implements SettingsInterface {
             if ($updated !== $current) {
                 update_option($option_name, $updated, false);
                 if (function_exists('error_log')) {
-                    error_log('🟨 YUZ_Settings: ajout de clés manquantes dans yuz_tra_settings.');
+                    yuztra_debug_log('🟨 YUZTRA_Settings: ajout de clés manquantes dans yuztra_settings.');
                 }
             }
         }

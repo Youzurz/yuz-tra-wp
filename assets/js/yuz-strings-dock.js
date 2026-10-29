@@ -1,7 +1,7 @@
 /* YUZ-TRA catalog editor: no framework, no provider calls on page load. */
 (() => {
   'use strict';
-  const cfg = window.yuzStrings || {};
+  const cfg = window.yuztraStrings || {};
   if (!cfg.nonce) return;
   const query = new URLSearchParams(window.location.search);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -41,8 +41,8 @@
   (mount || document.body).appendChild(root);
   if (mount) root.classList.add('yuz-catalog-inline');
   const el = name => root.querySelector('[data-' + name + ']');
-  el('q').value = (query.get('yuz_q') || '').slice(0,200);
-  if ((cfg.languages || []).some(language => language.code === query.get('yuz_lang'))) state.lang = query.get('yuz_lang');
+  el('q').value = (query.get('yuztra_q') || '').slice(0,200);
+  if ((cfg.languages || []).some(language => language.code === query.get('yuztra_lang'))) state.lang = query.get('yuztra_lang');
   el('lang').value = state.lang;
   if (!el('lang').value) state.lang = el('lang').value = cfg.languages?.[0]?.code || '';
   const status = text => { el('status').textContent = text; };
@@ -57,7 +57,7 @@
       const response = await fetch(endpoint.href, {
         method: 'POST', credentials: 'same-origin', signal: controller.signal,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-        body: new URLSearchParams({ action: 'yuz_tra_strings', nonce: cfg.nonce, op, lang: state.lang, ...payload })
+        body: new URLSearchParams({ action: 'yuztra_strings', nonce: cfg.nonce, op, lang: state.lang, ...payload })
       });
       const raw = await response.text();
       const httpError = response.status === 401 || response.status === 403

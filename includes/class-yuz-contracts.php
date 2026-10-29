@@ -172,7 +172,7 @@ public function enqueue_scripts(): void;
 public function add_menu_switcher(string $items, object $args): string;
 public function render_floating_switcher(): void;
 public function add_hreflang_tags(): void;
-public function yuz_tra_sw_switch_language(): void;
+public function yuztra_sw_switch_language(): void;
 public function switchLanguage(string $lang_code): void;
 public function getAvailableLanguages(): array;
 public function render_shortcode(array $atts): string;
@@ -212,7 +212,7 @@ public function run_full_site_translation(): void;
  */
 interface ServicesInterface {
 public function handle_translation_request(string $text, string $source_lang, string $target_lang): ?string;
-public function yuz_tra_sv_handle_translation(): void;
+public function yuztra_sv_handle_translation(): void;
 public function request(array $params): ?string;
 public function register(): void;
 public function execute(string $service, array $params): mixed;

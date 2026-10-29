@@ -4,7 +4,7 @@
  * Onglet IA — orchestrateur côté client (isolation stricte).
  *
  * Discipline:
- *  - ACT-12: Onglet AI isolé — lit UNIQUEMENT `window.yuzAI` (pas de globals partagés).
+ *  - ACT-12: Onglet AI isolé — lit UNIQUEMENT `window.yuztraAI` (pas de globals partagés).
  *  - ACT-13: Pattern batch job → { job_id } puis polling `yuz_ai_job_status`.
  *  - ACT-14: Gestion 429 (backoff exponentiel + jitter), quotas/coûts affichés.
  *  - ACT-15: Confidentialité — filtrage client PII/secret avant envoi (opt-in par défaut).
@@ -14,13 +14,13 @@
   'use strict';
 
   /* --------------------------------- Guards --------------------------------- */
-  const y = window.yuzAI || null;
+  const y = window.yuztraAI || null;
   if (!y || !y.ajax_url) {
-    console.warn('[YUZ][AI] yuzAI manquant ou ajax_url absent, arrêt.');
+    console.warn('[YUZ][AI] yuztraAI manquant ou ajax_url absent, arrêt.');
     return;
   }
   // Ne s’exécute que sur l’onglet AI (ou si un conteneur AI est présent dans le DOM)
-  const isAITab = (y.current_tab || '').toString() === 'ai-translation' || !!document.getElementById('yuz_ai_panel');
+  const isAITab = (y.current_tab || '').toString() === 'ai-translation' || !!document.getElementById('yuztra_ai_panel');
 
   if (!isAITab) {
     console.log('[YUZ][AI] Onglet AI inactif, skip init.');
@@ -87,7 +87,7 @@
       </label>
     `;
     // Best-effort placement: before main panel if present, else top of body
-    const anchor = document.getElementById('yuz_ai_panel') || document.body.firstElementChild;
+    const anchor = document.getElementById('yuztra_ai_panel') || document.body.firstElementChild;
     (anchor?.parentNode || document.body).insertBefore(wrap, anchor || null);
   }
   function updateCostBanner() {
@@ -236,15 +236,15 @@
 
   /* ----------------------------- UI references ------------------------------- */
   const UI = {
-    btnTest:      () => document.getElementById('yuz_ai_test_btn'),
-    btnBatch:     () => document.getElementById('yuz_ai_batch_btn'),
-    txtInput:     () => document.getElementById('yuz_ai_text_input'),     // textarea (1 par ligne)
-    fileGlossary: () => document.getElementById('yuz_ai_glossary_file'),  // input[type=file]
-    btnGlossary:  () => document.getElementById('yuz_ai_upload_glossary_btn'),
-    srcLang:      () => document.getElementById('yuz_ai_lang_source'),
-    dstLang:      () => document.getElementById('yuz_ai_lang_target'),
-    status:       () => document.getElementById('yuz_ai_status'),
-    progress:     () => document.getElementById('yuz_ai_progress'),
+    btnTest:      () => document.getElementById('yuztra_ai_test_btn'),
+    btnBatch:     () => document.getElementById('yuztra_ai_batch_btn'),
+    txtInput:     () => document.getElementById('yuztra_ai_text_input'),     // textarea (1 par ligne)
+    fileGlossary: () => document.getElementById('yuztra_ai_glossary_file'),  // input[type=file]
+    btnGlossary:  () => document.getElementById('yuztra_ai_upload_glossary_btn'),
+    srcLang:      () => document.getElementById('yuztra_ai_lang_source'),
+    dstLang:      () => document.getElementById('yuztra_ai_lang_target'),
+    status:       () => document.getElementById('yuztra_ai_status'),
+    progress:     () => document.getElementById('yuztra_ai_progress'),
   };
 
   function setStatus(html) {
@@ -263,7 +263,7 @@
 
   /* ------------------------------ AI actions -------------------------------- */
   async function testConnection() {
-    const action = 'yuz_ai_test_connection';
+    const action = 'yuztra_ai_test_connection';
     const res = await postAjax(action, {}, { retries: 1 });
     if (res?.success) {
       toast('AI connection OK', 'success');
@@ -278,7 +278,7 @@
   async function uploadGlossary(file) {
     if (!file) return;
     if (!window.confirm('Confirmez-vous avoir vérifié et approuvé tous les termes du CSV (source_lang,target_lang,domain,context,source,target) ?')) return;
-    const action = 'yuz_ai_glossary_upload';
+    const action = 'yuztra_ai_glossary_upload';
     const nonce = nonceFor(action);
     if (!nonce) { toast('Glossary upload: nonce missing', 'error'); return; }
 
@@ -308,7 +308,7 @@
    * @param {string} target
    */
   async function startBatchTranslate(texts, source, target) {
-    const action = 'yuz_ai_batch_translate';
+    const action = 'yuztra_ai_batch_translate';
     const cleanTexts = texts
       .map(t => (t || '').trim())
       .filter(Boolean)
@@ -354,7 +354,7 @@
    * @param {string} jobId
    */
   async function pollJob(jobId) {
-    const action = 'yuz_ai_job_status';
+    const action = 'yuztra_ai_job_status';
     let delay = 900; // ms
     let cycles = 0;
 
@@ -456,7 +456,7 @@
           // Affichage best-effort du résultat (si serveur renvoie `result`)
           if (out?.result && Array.isArray(out.result.translations)) {
             // Si un conteneur de sortie existe, on le renseigne
-            const outEl = document.getElementById('yuz_ai_output');
+            const outEl = document.getElementById('yuztra_ai_output');
             if (outEl) {
               outEl.value = out.result.translations.join('\n');
             }

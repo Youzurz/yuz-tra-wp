@@ -73,7 +73,7 @@
   const Panel = () => {
     // Source d’URL (ordre de priorité)
     const permalink = getPermalink();
-    const fallback = (window.yuzGB && window.yuzGB.url_to_load) || window.location.href;
+    const fallback = (window.yuztraGB && window.yuztraGB.url_to_load) || window.location.href;
     const base = permalink || fallback;
     const href = buildEditorHref(base);
 
@@ -132,7 +132,7 @@
     if (!permalink) {
       children.push(
         el(Notice, { status: 'warning', isDismissible: false, key: 'permalink-missing' },
-          __('Permalink not available yet. Save the draft to enable Translate Page.', 'yuz_tra')
+          __('Permalink not available yet. Save the draft to enable Translate Page.', 'yuztra_tra')
         )
       );
     }
@@ -141,7 +141,7 @@
     if (dirty) {
       children.push(
         el(Notice, { status: 'info', isDismissible: false, key: 'dirty-info' },
-          __('You have unsaved changes. Use "Save & Translate" to avoid losing them.', 'yuz_tra')
+          __('You have unsaved changes. Use "Save & Translate" to avoid losing them.', 'yuztra_tra')
         )
       );
     }
@@ -154,7 +154,7 @@
           isPrimary: true,
           onClick: onSaveAndTranslate,
           disabled: !href,
-        }, dirty ? __('Save & Translate', 'yuz_tra') : __('Translate Page', 'yuz_tra')),
+        }, dirty ? __('Save & Translate', 'yuztra_tra') : __('Translate Page', 'yuztra_tra')),
         // Translate direct (toujours dispo, nouvel onglet)
         el(Button, {
           isSecondary: true,
@@ -163,7 +163,7 @@
           rel: 'noopener',
           onClick: href ? onTranslate : undefined,
           disabled: !href
-        }, __('Translate Page (new tab)', 'yuz_tra')),
+        }, __('Translate Page (new tab)', 'yuztra_tra')),
         // Spinner si WP sauvegarde
         saving && el(Spinner, { key: 'saving' })
       )

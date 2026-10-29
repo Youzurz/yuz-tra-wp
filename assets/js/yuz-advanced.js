@@ -1,11 +1,11 @@
 (function($){
   function hasEnv() {
-    var okUrl = (typeof yuzAdv !== 'undefined' && yuzAdv && yuzAdv.ajaxurl) || (typeof ajaxurl !== 'undefined' && ajaxurl);
-    var okNonce = (typeof yuzAdv !== 'undefined' && yuzAdv && yuzAdv.nonce) || ($('#yuz_tra_maintenance_nonce').val() || '').length > 0;
+    var okUrl = (typeof yuztraAdv !== 'undefined' && yuztraAdv && yuztraAdv.ajaxurl) || (typeof ajaxurl !== 'undefined' && ajaxurl);
+    var okNonce = (typeof yuztraAdv !== 'undefined' && yuztraAdv && yuztraAdv.nonce) || ($('#yuztra_maintenance_nonce').val() || '').length > 0;
     return !!(okUrl && okNonce);
   }
   function t(key, fallback) {
-    return (yuzAdv && yuzAdv.i18n && yuzAdv.i18n[key]) || fallback;
+    return (yuztraAdv && yuztraAdv.i18n && yuztraAdv.i18n[key]) || fallback;
   }
 
   $(document).on('click', '#yuz-run-diagnostics', function(e){
@@ -18,7 +18,7 @@
     $btn.prop('disabled', true).text(t('running','Running...'));
     $pre.text(t('running','Running...'));
 
-    $.post((yuzAdv && yuzAdv.ajaxurl) || ajaxurl, { action: 'yuz_run_diagnostics', nonce: yuzAdv.nonce })
+    $.post((yuztraAdv && yuztraAdv.ajaxurl) || ajaxurl, { action: 'yuztra_run_diagnostics', nonce: yuztraAdv.nonce })
       .done(function(res){
         if (res && res.success && res.report) {
           $pre.text(res.report);
@@ -46,7 +46,7 @@
     $btn.prop('disabled', true).text(t('running','Running...'));
     $span.text(t('running','Running...'));
 
-    $.post((yuzAdv && yuzAdv.ajaxurl) || ajaxurl, { action: 'yuz_clear_cache', nonce: yuzAdv.nonce })
+    $.post((yuztraAdv && yuztraAdv.ajaxurl) || ajaxurl, { action: 'yuztra_clear_cache', nonce: yuztraAdv.nonce })
       .done(function(res){
         if (res && res.success && res.message) {
           $span.text(res.message);
@@ -66,8 +66,8 @@
 
   // ---- Maintenance (translations table) ----
   function maintNonce() {
-    var v = $('#yuz_tra_maintenance_nonce').val();
-    return v || (hasEnv() ? yuzAdv.nonce : '');
+    var v = $('#yuztra_maintenance_nonce').val();
+    return v || (hasEnv() ? yuztraAdv.nonce : '');
   }
   function renderResult(obj) {
     var $pre = $('#yuz-maintenance-result');
@@ -83,7 +83,7 @@
     var nonce = maintNonce();
     var $pre = $('#yuz-maintenance-result');
     $pre.text(t('running','Running...'));
-    return $.post((yuzAdv && yuzAdv.ajaxurl) || ajaxurl, { action: 'yuz_tra_maintenance', task: task, nonce: nonce })
+    return $.post((yuztraAdv && yuztraAdv.ajaxurl) || ajaxurl, { action: 'yuztra_maintenance', task: task, nonce: nonce })
       .done(function(res){ renderResult(res); })
       .fail(function(xhr){ renderResult({success:false, status:xhr.status, text:xhr.responseText}); });
   }

@@ -8,8 +8,9 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-if (!class_exists('YUZ_String_Admin')) {
-    class YUZ_String_Admin {
+if (!class_exists('YUZTRA_String_Admin')) {
+
+class YUZTRA_String_Admin {
         public static function init(): void {
             add_action('yuz-tra_page_yuz-translation-strings', [__CLASS__, 'render_tab']);
             // Keep direct links valid even when the optional submenu is hidden.
@@ -18,13 +19,14 @@ if (!class_exists('YUZ_String_Admin')) {
 
         public static function register_menu(): void {
             // Parent slug must match top‑level menu created in YUZ_Settings::add_admin_page
-            $parent = apply_filters('yuz_tra_show_translate_admin_submenu', false)
+
+            $parent = apply_filters('yuztra_show_translate_admin_submenu', false)
                 ? 'yuz-translation-settings' : '';
             add_submenu_page(
                 $parent,
                 __('String Translation', 'yuz-tra'),
                 __('Strings', 'yuz-tra'),
-                'yuz_translate_strings',
+                'yuztra_translate_strings',
                 'yuz-string-translation-editor',
                 [__CLASS__, 'render_page']
             );
@@ -32,8 +34,8 @@ if (!class_exists('YUZ_String_Admin')) {
 
         public static function render_page(): void {
             if (
-                !current_user_can('yuz_translate_strings')
-                && !current_user_can('yuz_translate_content')
+                !current_user_can('yuztra_translate_strings')
+                && !current_user_can('yuztra_translate_content')
                 && !current_user_can('manage_options')
             ) {
                 wp_die(esc_html__('Unauthorized', 'yuz-tra'));
@@ -44,7 +46,7 @@ if (!class_exists('YUZ_String_Admin')) {
             );
             echo '<div class="wrap"><h1>' . esc_html__('String Translation', 'yuz-tra') . '</h1>';
             require_once __DIR__ . '/class-yuz-release.php';
-            YUZ_Release::render();
+            YUZTRA_Release::render();
             echo '<p class="description">' . esc_html__('This tool now lives in the YUZ-TRA "Strings" tab.', 'yuz-tra') . ' ';
             echo '<a href="' . esc_url($tab_url) . '">' . esc_html__('Open the Strings tab', 'yuz-tra') . '</a>.</p>';
             self::render_tab_content();
@@ -53,8 +55,8 @@ if (!class_exists('YUZ_String_Admin')) {
 
         public static function render_tab(): void {
             if (
-                !current_user_can('yuz_translate_strings')
-                && !current_user_can('yuz_translate_content')
+                !current_user_can('yuztra_translate_strings')
+                && !current_user_can('yuztra_translate_content')
                 && !current_user_can('manage_options')
             ) {
                 wp_die(esc_html__('Unauthorized', 'yuz-tra'));

@@ -1,18 +1,18 @@
 /*! YUZ-TE bootstrap shim (safe overlay if main script crashed) */
 // --- hotfix: ensure nonce for admin-ajax posts (safe, idempotent) ---
 (function () {
-  const Y = window.yuzTraSettings || {};
+  const Y = window.yuztraSettings || {};
   const QUIET = (Y.silent_logs !== false) && !/\byuzdebug=1\b/.test(window.location.search || '');
-  const AJAX = Y.ajax_url || '/wp-admin/admin-ajax.php';
+  const AJAX = Y.ajax_url || (() => { throw new Error('YUZ-TRA: AJAX endpoint not configured'); })();
   const NONCES = Y.nonces || {};
   const nonceFor = (action) =>
-    NONCES[action] || NONCES.yuz_tra_nonce || NONCES.yuz_tra_ws_get_languages || Y.nonce || '';
+    NONCES[action] || NONCES.yuztra_nonce || NONCES.yuztra_ws_get_languages || Y.nonce || '';
 
   // Helper universel (fetch)
-  window.yuzPost = async function (action, payload = {}) {
+  window.yuztraPost = async function (action, payload = {}) {
     const n = nonceFor(action);
     const body = new URLSearchParams({ action, ...payload });
-    if (n) { body.set('yuz_tra_nonce', n); body.set('nonce', n); body.set('security', n); }
+    if (n) { body.set('yuztra_nonce', n); body.set('nonce', n); body.set('security', n); }
     const r = await fetch(AJAX, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest' },
@@ -30,8 +30,8 @@
           const d = new URLSearchParams(orig.data || '');
           const a = d.get('action') || '';
           const n = nonceFor(a);
-          if (n && !d.has('yuz_tra_nonce') && !d.has('nonce') && !d.has('security')) {
-            d.set('yuz_tra_nonce', n); d.set('nonce', n); d.set('security', n);
+          if (n && !d.has('yuztra_nonce') && !d.has('nonce') && !d.has('security')) {
+            d.set('yuztra_nonce', n); d.set('nonce', n); d.set('security', n);
             opts.data = d.toString();
           }
         }
@@ -43,7 +43,7 @@
 (function (w, d) {
   let QUIET = false;
   try {
-    const CFG = w.yuzTraSettings || {};
+    const CFG = w.yuztraSettings || {};
     QUIET = (CFG.silent_logs !== false) && !/\byuzdebug=1\b/.test(w.location.search || '');
     try { d.documentElement.dataset.yuzUi = 'advanced'; } catch (_) {}
     if (d.querySelector('#yuz-editor-container .yuz-modal')) return; // déjà monté
@@ -56,8 +56,8 @@
     const TGTS = (Array.isArray(CFG.translation_langs) && CFG.translation_langs.length)
       ? CFG.translation_langs.map(norm)
       // compat: certaines builds exposent encore "yuz_tra_translatable_languages"
-      : (CFG.yuz_tra_general && Array.isArray(CFG.yuz_tra_general.yuz_tra_translatable_languages))
-        ? CFG.yuz_tra_general.yuz_tra_translatable_languages.map(norm)
+      : (CFG.yuztra_general && Array.isArray(CFG.yuztra_general.yuztra_translatable_languages))
+        ? CFG.yuztra_general.yuztra_translatable_languages.map(norm)
         : [];
 
     const NAMES = CFG.language_names || {}; // ex: {fr_FR:"French (France)", en_GB:"English (UK)"}
@@ -72,8 +72,8 @@
       if (!code) return suffix || '';
       const lookup = NAMES[code];
       if (lookup) return suffix ? `${lookup}${suffix}` : lookup;
-      if (typeof w.yuz_lang_label === 'function') {
-        const lbl = w.yuz_lang_label(code);
+      if (typeof w.yuztra_lang_label === 'function') {
+        const lbl = w.yuztra_lang_label(code);
         if (lbl) return suffix ? `${lbl}${suffix}` : lbl;
       }
       const normalized = code.replace(/_/g, '-');

@@ -69,23 +69,24 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // Include necessary files
 require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-yuz-translate-adapter.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 use YUZTRA\Interfaces\TranslateAdapterInterface;
-if (!function_exists('yuz_tra_adapter_log')) {
-    function yuz_tra_adapter_log(...$args) {
-        $enabled = (defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
+if (!function_exists('yuztra_adapter_log')) {
+    function yuztra_adapter_log(...$args) {
+        $enabled = (defined('YUZTRA_DEBUG') && YUZTRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
         if (!$enabled) {
             return;
         }
-        error_log(...$args);
+        yuztra_debug_log(...$args);
     }
 }
+
 // Assuming HttpClientInterface is defined elsewhere or needs to be added
 // For now, we'll use WP's wp_remote_request as fallback if no client injected
 // PLAN: Prepare creation of YUZ_Libre_Translate_Adapter class for LibreTranslate API
-yuz_tra_adapter_log('YUZ-TRA: [PLAN] Preparing to create YUZ_Libre_Translate_Adapter class at ' . current_time('mysql'));
-if (!class_exists('YUZ_Libre_Translate_Adapter')) {
-    class YUZ_Libre_Translate_Adapter extends YUZ_Translate_Adapter implements TranslateAdapterInterface {
+            yuztra_adapter_log('YUZ-TRA: [PLAN] Preparing to create YUZTRA_Libre_Translate_Adapter class at ' . current_time('mysql'));
+if (!class_exists('YUZTRA_Libre_Translate_Adapter')) {
+    class YUZTRA_Libre_Translate_Adapter extends YUZTRA_Translate_Adapter implements TranslateAdapterInterface {
         private $httpClient;
         private $config;
         /**
@@ -111,33 +112,33 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
          * {@inheritdoc}
          */
         public function translate(string $text, string $source_lang, string $target_lang, array $settings): ?string {
-            yuz_tra_adapter_log('YUZ-TRA: [DO] Translating text with LibreTranslate at ' . current_time('mysql') . ': ' . substr($text, 0, 50));
+            yuztra_adapter_log('YUZ-TRA: [DO] Translating text with LibreTranslate at ' . current_time('mysql') . ': ' . substr($text, 0, 50));
             $effective_settings = array_merge($this->config, $settings);
             if (empty($text)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] Missing text for translation');
+                yuztra_adapter_log('YUZ-TRA: [ERROR] Missing text for translation');
                 return null;
             }
             // Fetch available languages dynamically (best effort: do not block if unavailable)
             $available_languages = $this->get_available_languages($effective_settings);
             if (empty($available_languages)) {
-                yuz_tra_adapter_log('YUZ-TRA: [WARN] Languages endpoint unavailable; proceeding without strict check');
+                yuztra_adapter_log('YUZ-TRA: [WARN] Languages endpoint unavailable; proceeding without strict check');
             }
             // Handle source language dynamically
-            $settings = get_option('yuz_tra_settings', []);
+            $settings = get_option('yuztra_settings', []);
             if (!is_array($settings)) {
                 $settings = [];
             }
-            $general = get_option('yuz_tra_general', []);
+            $general = get_option('yuztra_general', []);
             if (!is_array($general)) {
                 $general = [];
             }
 
             $source_pref = $settings['source_language']
-                ?? $general['yuz_tra_source_language']
+                ?? $general['yuztra_source_language']
                 ?? $settings['default_language']
                 ?? get_locale();
             $target_list = (array)($settings['translatable_languages']
-                ?? $general['yuz_tra_translatable_languages']
+                ?? $general['yuztra_translatable_languages']
                 ?? []);
 
             $source_locale = $source_lang !== '' ? $source_lang : $source_pref;
@@ -152,10 +153,10 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             $available_map = array_map('strtolower', $available_languages);
             if (!empty($available_map)) {
                 if ($mapped_source !== 'auto' && !in_array($mapped_source, $available_map, true)) {
-                    yuz_tra_adapter_log('YUZ-TRA: [WARNING] Source language not in LT list: ' . $mapped_source);
+                    yuztra_adapter_log('YUZ-TRA: [WARNING] Source language not in LT list: ' . $mapped_source);
                 }
                 if (!in_array($mapped_target, $available_map, true)) {
-                    yuz_tra_adapter_log('YUZ-TRA: [WARNING] Target language not in LT list: ' . $mapped_target);
+                    yuztra_adapter_log('YUZ-TRA: [WARNING] Target language not in LT list: ' . $mapped_target);
                 }
             }
 
@@ -163,15 +164,17 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             $target_lang = $mapped_target;
             // Validate endpoint
             $endpoint = rtrim($effective_settings['endpoint'] ?? '', '/');
-            $endpoint = rtrim((string) apply_filters('yuz_tra_libre_translate_endpoint', $endpoint, $effective_settings), '/');
+
+            $endpoint = rtrim((string) apply_filters('yuztra_libre_translate_endpoint', $endpoint, $effective_settings), '/');
             if ($endpoint === '') {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate endpoint is not configured');
+                yuztra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate endpoint is not configured');
                 return null;
             }
             // Construct URL
             $url = preg_match('#/translate/?$#', $endpoint) ? $endpoint : $endpoint . '/translate';
-            yuz_tra_adapter_log('YUZ-TRA: [INFO] Constructed LibreTranslate URL: ' . $url);
-            $api_key = (string) apply_filters('yuz_tra_libre_translate_api_key', $effective_settings['api_key'] ?? '', $effective_settings);
+            yuztra_adapter_log('YUZ-TRA: [INFO] Constructed LibreTranslate URL: ' . $url);
+
+            $api_key = (string) apply_filters('yuztra_libre_translate_api_key', $effective_settings['api_key'] ?? '', $effective_settings);
             // Prepare request
             $args = [
                 'method' => 'POST',
@@ -197,14 +200,14 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             }
             if (is_wp_error($response)) {
                 $msg = $response->get_error_message();
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate translation failed: ' . $msg);
+                yuztra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate translation failed: ' . $msg);
                 throw new \RuntimeException( esc_html( 'LT_HTTP_ERR:' . $msg ) );
             }
             $status_code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
-            yuz_tra_adapter_log('YUZ-TRA: [INFO] LibreTranslate translation response: Status ' . $status_code . ', Body: ' . $body);
+            yuztra_adapter_log('YUZ-TRA: [INFO] LibreTranslate translation response: Status ' . $status_code . ', Body: ' . $body);
             if ($status_code !== 200) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate translation failed with status: ' . $status_code);
+                yuztra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate translation failed with status: ' . $status_code);
                 throw new \RuntimeException( esc_html( 'LT_HTTP_' . $status_code ) );
             }
             $data = json_decode($body, true);
@@ -247,7 +250,7 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
 
             $translated = $pickTranslated($data);
             if ($translated !== '') {
-                yuz_tra_adapter_log('YUZ-TRA: [ACT] Translation successful');
+                yuztra_adapter_log('YUZ-TRA: [ACT] Translation successful');
                 return $translated;
             }
 
@@ -258,10 +261,10 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
                 if ($peek === null) { $peek = ''; }
                 $peek = substr($peek, 0, 200);
             }
-            yuz_tra_adapter_log('YUZ-TRA: [ERROR] No translated text in response; peek=' . $peek);
+            yuztra_adapter_log('YUZ-TRA: [ERROR] No translated text in response; peek=' . $peek);
             // Trace empty response for downstream diagnostics (only when uploads dir writable)
             try {
-                $trace_on = (defined('YUZ_TRA_TRACE_AUTO') && YUZ_TRA_TRACE_AUTO) || !empty($_SERVER['HTTP_X_YUZ_TRACE']);
+                $trace_on = (defined('YUZTRA_TRACE_AUTO') && YUZTRA_TRACE_AUTO) || !empty($_SERVER['HTTP_X_YUZ_TRACE']);
                 if ($trace_on && function_exists('wp_upload_dir')) {
                     $up = wp_upload_dir();
                     if (!empty($up['basedir'])) {
@@ -275,7 +278,7 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
                             'status'   => $status_code,
                         ];
                         $row = gmdate('Y-m-d H:i:s') . " UTC LT.EMPTY_RESPONSE " . wp_json_encode($ctx, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) . PHP_EOL;
-                        yuz_tra_adapter_log($row, 3, $file);
+                        yuztra_adapter_log($row, 3, $file);
                     }
                 }
             } catch (\Throwable $ignored) {}
@@ -292,11 +295,11 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
          */
         public function test_api_conn(array $settings): bool
         {
-            yuz_tra_adapter_log('YUZ-TRA: [DO] Testing LibreTranslate API connection at ' . current_time('mysql'));
+            yuztra_adapter_log('YUZ-TRA: [DO] Testing LibreTranslate API connection at ' . current_time('mysql'));
             $effective = array_merge($this->config, $settings);
             $endpoint = rtrim($effective['endpoint'] ?? '', '/');
             if (empty($endpoint)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] No endpoint for LibreTranslate');
+                yuztra_adapter_log('YUZ-TRA: [ERROR] No endpoint for LibreTranslate');
                 return false;
             }
             // On s’assure qu’on va bien taper sur /translate
@@ -316,15 +319,15 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
                 ? $this->httpClient->request('POST', $url, $args)
                 : wp_remote_request($url, $args);
             if (is_wp_error($response)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate test failed: ' . $response->get_error_message());
+                yuztra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate test failed: ' . $response->get_error_message());
                 return false;
             }
             $code = wp_remote_retrieve_response_code($response);
             if ($code < 200 || $code >= 300) {
-                yuz_tra_adapter_log("YUZ-TRA: [ERROR] LibreTranslate test test returned HTTP {$code}");
+                yuztra_adapter_log("YUZ-TRA: [ERROR] LibreTranslate test test returned HTTP {$code}");
                 return false;
             }
-            yuz_tra_adapter_log('YUZ-TRA: [ACT] LibreTranslate API OK');
+            yuztra_adapter_log('YUZ-TRA: [ACT] LibreTranslate API OK');
             return true;
         }
 
@@ -336,13 +339,15 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             if (empty($texts)) return [];
             $effective_settings = array_merge($this->config, $settings);
             $endpoint = rtrim($effective_settings['endpoint'] ?? '', '/');
-            $endpoint = rtrim((string) apply_filters('yuz_tra_libre_translate_endpoint', $endpoint, $effective_settings), '/');
+
+            $endpoint = rtrim((string) apply_filters('yuztra_libre_translate_endpoint', $endpoint, $effective_settings), '/');
             if ($endpoint === '') {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate endpoint is not configured');
+                yuztra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate endpoint is not configured');
                 return array_fill_keys($texts, null);
             }
             $url = preg_match('#/translate/?$#', $endpoint) ? $endpoint : $endpoint . '/translate';
-            $api_key = (string) apply_filters('yuz_tra_libre_translate_api_key', $effective_settings['api_key'] ?? '', $effective_settings);
+
+            $api_key = (string) apply_filters('yuztra_libre_translate_api_key', $effective_settings['api_key'] ?? '', $effective_settings);
             $payload = [
                 'q' => array_values($texts),
                 'source' => $this->map_language_code($source_lang, 'auto'),
@@ -360,13 +365,13 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
                 ? $this->httpClient->request('POST', $url, $args)
                 : wp_remote_request($url, $args);
             if (is_wp_error($response)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate batch failed: ' . $response->get_error_message());
+                yuztra_adapter_log('YUZ-TRA: [ERROR] LibreTranslate batch failed: ' . $response->get_error_message());
                 return [];
             }
             $code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
             if ($code < 200 || $code >= 300) {
-                yuz_tra_adapter_log("YUZ-TRA: [ERROR] LibreTranslate batch HTTP {$code}");
+                yuztra_adapter_log("YUZ-TRA: [ERROR] LibreTranslate batch HTTP {$code}");
                 return [];
             }
             $data = json_decode($body, true);
@@ -432,25 +437,25 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
          * @return string[] Array of language codes or empty array on failure.
          */
         private function get_available_languages($settings) {
-            yuz_tra_adapter_log('YUZ-TRA: [DO] Fetching available languages from LibreTranslate at ' . current_time('mysql'));
+            yuztra_adapter_log('YUZ-TRA: [DO] Fetching available languages from LibreTranslate at ' . current_time('mysql'));
             $endpoint = rtrim($settings['endpoint'] ?? '', '/');
             if (empty($endpoint)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] No endpoint provided for fetching languages');
+                yuztra_adapter_log('YUZ-TRA: [ERROR] No endpoint provided for fetching languages');
                 return [];
             }
             $load_only = $settings['load_only'] ?? ($settings['languages'] ?? '');
-            $cache_key = 'yuz_lt_languages_' . md5($endpoint . '|' . (is_array($load_only) ? implode(',', $load_only) : (string) $load_only) . '|' . (!empty($settings['api_key']) ? 'k' : 'nok'));
+            $cache_key = 'yuztra_lt_languages_' . md5($endpoint . '|' . (is_array($load_only) ? implode(',', $load_only) : (string) $load_only) . '|' . (!empty($settings['api_key']) ? 'k' : 'nok'));
             $cache_ttl = (defined('HOUR_IN_SECONDS') ? HOUR_IN_SECONDS : 3600) * 6;
             $cached = get_transient($cache_key);
             if (is_array($cached) && !empty($cached)) {
-                yuz_tra_adapter_log('YUZ-TRA: [INFO] LibreTranslate languages cache hit: ' . $cache_key);
+                yuztra_adapter_log('YUZ-TRA: [INFO] LibreTranslate languages cache hit: ' . $cache_key);
                 return $cached;
             }
             $url = $endpoint . '/languages';
             if (!empty($settings['api_key'])) {
                 $url = add_query_arg('api_key', $settings['api_key'], $url);
             }
-            yuz_tra_adapter_log('YUZ-TRA: [INFO] Constructed LibreTranslate languages URL: ' . $url);
+            yuztra_adapter_log('YUZ-TRA: [INFO] Constructed LibreTranslate languages URL: ' . $url);
             $args = [
                 'method' => 'GET',
                 'timeout' => 10,
@@ -464,19 +469,19 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
                 $response = wp_remote_request($url, $args);
             }
             if (is_wp_error($response)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] Failed to fetch languages: ' . $response->get_error_message());
+                yuztra_adapter_log('YUZ-TRA: [ERROR] Failed to fetch languages: ' . $response->get_error_message());
                 return [];
             }
             $status_code = wp_remote_retrieve_response_code($response);
             $body = wp_remote_retrieve_body($response);
-            yuz_tra_adapter_log('YUZ-TRA: [INFO] LibreTranslate languages response: Status ' . $status_code . ', Body: ' . $body);
+            yuztra_adapter_log('YUZ-TRA: [INFO] LibreTranslate languages response: Status ' . $status_code . ', Body: ' . $body);
             if ($status_code !== 200) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] Failed to fetch languages with status: ' . $status_code);
+                yuztra_adapter_log('YUZ-TRA: [ERROR] Failed to fetch languages with status: ' . $status_code);
                 return [];
             }
             $data = json_decode($body, true);
             if (!is_array($data)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] Invalid language data format');
+                yuztra_adapter_log('YUZ-TRA: [ERROR] Invalid language data format');
                 return [];
             }
             // Accept both shapes: [{code:'en',...}] or ['en','fr',...]
@@ -489,7 +494,7 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
             } else {
                 $languages = array_column($data, 'code');
             }
-            yuz_tra_adapter_log('YUZ-TRA: [ACT] Retrieved languages: ' . implode(', ', $languages));
+            yuztra_adapter_log('YUZ-TRA: [ACT] Retrieved languages: ' . implode(', ', $languages));
             if (!empty($languages)) {
                 set_transient($cache_key, $languages, $cache_ttl);
             }
@@ -534,10 +539,10 @@ if (!class_exists('YUZ_Libre_Translate_Adapter')) {
     }
 }
 // ACT: Log class creation
-if (class_exists('YUZ_Libre_Translate_Adapter')) {
-    yuz_tra_adapter_log('YUZ-TRA: [ACT] YUZ_Libre_Translate_Adapter created successfully at ' . current_time('mysql'));
+if (class_exists('YUZTRA_Libre_Translate_Adapter')) {
+    yuztra_adapter_log('YUZ-TRA: [ACT] YUZTRA_Libre_Translate_Adapter created successfully at ' . current_time('mysql'));
 } else {
-    yuz_tra_adapter_log('YUZ-TRA: [ACT] Failed to create YUZ_Libre_Translate_Adapter at ' . current_time('mysql'));
+    yuztra_adapter_log('YUZ-TRA: [ACT] Failed to create YUZTRA_Libre_Translate_Adapter at ' . current_time('mysql'));
 }
 // Note: Add unit tests for translate(), test_api_conn(), and supports() in a separate test file.
 // Example test: assertTrue($adapter->supports('en'));.

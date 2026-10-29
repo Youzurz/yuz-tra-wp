@@ -60,10 +60,10 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-fallbacks.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-url-converter.php';
-require_once YUZ_TRA_INCLUDES . 'class-yuz-services.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-fallbacks.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-url-converter.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-services.php';
 
 use YUZTRA\Interfaces\SwitcherInterface;
 use YUZTRA\Interfaces\SettingsInterface;
@@ -82,8 +82,9 @@ use YUZTRA\Fallbacks\NullLogger;
 /**
  * Shim : permet d'appeler get_url_for_language($code) (1 arg) depuis le partial historique.
  */
-if (!class_exists('YUZ_Switcher_Url_Converter_Shim')) {
-    class YUZ_Switcher_Url_Converter_Shim implements UrlConverterInterface
+if (!class_exists('YUZTRA_Switcher_Url_Converter_Shim')) {
+
+class YUZTRA_Switcher_Url_Converter_Shim implements UrlConverterInterface
     {
         private UrlConverterInterface $inner;
 
@@ -145,9 +146,10 @@ if (!class_exists('YUZ_Switcher_Url_Converter_Shim')) {
 }
 
 
-if (!class_exists('YUZ_Switcher')) {
-class YUZ_Switcher implements SwitcherInterface {
-    private const CACHE_GROUP   = 'yuz-switcher';
+if (!class_exists('YUZTRA_Switcher')) {
+
+class YUZTRA_Switcher implements SwitcherInterface {
+    private const CACHE_GROUP   = 'yuztra-switcher';
     private const CACHE_TTL     = 600;
     private const CACHE_VERSION = 1;
 
@@ -175,7 +177,7 @@ class YUZ_Switcher implements SwitcherInterface {
         $this->url_converter = $url_converter ?? new NullUrlConverter();
         $this->logger        = $logger ?? new NullLogger();
         $this->db            = $db;
-        $this->logger->log('info', 'YUZ_Switcher instantiated with dependencies');
+        $this->logger->log('info', 'YUZTRA_Switcher instantiated with dependencies');
     }
 
     private static $initialized = false;
@@ -184,17 +186,17 @@ class YUZ_Switcher implements SwitcherInterface {
         if (self::$initialized) { return; }
         self::$initialized = true;
 
-        $logger       = class_exists('YUZ_Logger') ? new \YUZ_Logger() : new NullLogger();
-        $health_check = class_exists('YUZ_Health_Check') ? new \YUZ_Health_Check($logger) : null;
-        $db           = class_exists('YUZ_DB') ? new \YUZ_DB($logger, $health_check) : null;
+        $logger       = class_exists('YUZTRA_Logger') ? new \YUZTRA_Logger() : new NullLogger();
+        $health_check = class_exists('YUZTRA_Health_Check') ? new \YUZTRA_Health_Check($logger) : null;
+        $db           = class_exists('YUZTRA_DB') ? new \YUZTRA_DB($logger, $health_check) : null;
 
         // Dépendances via la factory
-        $settings  = class_exists('YUZ_Services') && method_exists('YUZ_Services','settings')  ? \YUZ_Services::settings()  : new NullSettings();
-        $languages = class_exists('YUZ_Services') && method_exists('YUZ_Services','languages') ? \YUZ_Services::languages() : new NullLanguages();
+        $settings  = class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services','settings')  ? \YUZTRA_Services::settings()  : new NullSettings();
+        $languages = class_exists('YUZTRA_Services') && method_exists('YUZTRA_Services','languages') ? \YUZTRA_Services::languages() : new NullLanguages();
 
         // Convertisseur réel + SHIM (pour compat du partial)
-        $real_converter = new \YUZ_Url_Converter($settings);
-        $url_converter  = new YUZ_Switcher_Url_Converter_Shim($real_converter);
+        $real_converter = new \YUZTRA_Url_Converter($settings);
+        $url_converter  = new YUZTRA_Switcher_Url_Converter_Shim($real_converter);
 
         $instance = new self($languages, $settings, null, $url_converter, $logger, $db);
 
@@ -204,15 +206,15 @@ class YUZ_Switcher implements SwitcherInterface {
             return;
         }
 
-        $instance->logger->log('info', 'Initializing YUZ_Switcher');
+        $instance->logger->log('info', 'Initializing YUZTRA_Switcher');
 
         // Shortcode + menu + floating + hreflang
-        add_shortcode('yuz_language_switcher', [$instance, 'render_shortcode_switcher']);
+        add_shortcode('yuztra_language_switcher', [$instance, 'render_shortcode_switcher']);
         add_filter('wp_nav_menu_items',       [$instance, 'add_menu_switcher'], 10, 2);
-        add_action('yuz/footer/frontend',     [$instance, 'render_floating_switcher'], 10);
+        add_action('yuztra/footer/frontend',     [$instance, 'render_floating_switcher'], 10);
         add_action('wp_head',                 [$instance, 'add_hreflang_tags']);
 
-        $instance->logger->log('success', 'YUZ_Switcher initialized');
+        $instance->logger->log('success', 'YUZTRA_Switcher initialized');
     }
 
     protected function log($level, $message, $context = []) {
@@ -229,7 +231,7 @@ class YUZ_Switcher implements SwitcherInterface {
         if (empty($flags['switcher_enabled'])) { return ''; }
 
         $settings = $this->normalize_switcher_settings(
-            (array) $this->settings->get_option('yuz_tra_switcher')
+            (array) $this->settings->get_option('yuztra_switcher')
         );
         if (!$this->is_switcher_mode_enabled($settings, 'shortcode_enabled')) { return ''; }
 
@@ -240,7 +242,7 @@ class YUZ_Switcher implements SwitcherInterface {
             'theme'     => $settings['floating_theme']   ?? 'dark',
             'position'  => $settings['floating_position'] ?? 'bottom-right',
             'poweredby' => $settings['show_poweredby']   ?? false,
-        ], $atts, 'yuz_language_switcher');
+        ], $atts, 'yuztra_language_switcher');
 
         $languages = $this->languages->get_translatable_languages();
         if (empty($languages)) { return ''; }
@@ -258,11 +260,11 @@ class YUZ_Switcher implements SwitcherInterface {
         $position        = ($mode === 'floating')
             ? sanitize_text_field($settings['floating_position'] ?? 'bottom-right')
             : $position_attr;
-        $show_poweredby  = filter_var($atts['poweredby'], FILTER_VALIDATE_BOOLEAN) || !empty($settings['show_poweredby']);
+        $show_poweredby  = filter_var($atts['poweredby'], FILTER_VALIDATE_BOOLEAN) && !empty($settings['show_poweredby']);
         $current_lang    = method_exists($this->url_converter, 'get_active_locale')
             ? $this->url_converter->get_active_locale()
             : get_locale();
-        $use_native_name = !empty(get_option('yuz_tra_settings', [])['native_language_name']);
+        $use_native_name = !empty(get_option('yuztra_settings', [])['native_language_name']);
         $translated_strings = [
             /* translators: %s: current language name or code. */
             'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
@@ -301,7 +303,7 @@ class YUZ_Switcher implements SwitcherInterface {
         ]);
 
         // Enqueue via fabrique
-        if (method_exists('YUZ_Assets','require')) { YUZ_Assets::require('switcher'); }
+        if (method_exists('YUZTRA_Assets','require')) { YUZTRA_Assets::require('switcher'); }
 
         $render_context = [
             'format'                 => $format,
@@ -338,7 +340,7 @@ class YUZ_Switcher implements SwitcherInterface {
         if (empty($flags['switcher_enabled'])) { return $items; }
 
         $settings = $this->normalize_switcher_settings(
-            (array) $this->settings->get_option('yuz_tra_switcher')
+            (array) $this->settings->get_option('yuztra_switcher')
         );
         if (!$this->is_switcher_mode_enabled($settings, 'menu_enabled')) { return $items; }
 
@@ -353,7 +355,7 @@ class YUZ_Switcher implements SwitcherInterface {
             ? $this->url_converter->get_active_locale()
             : get_locale();
         $mode            = 'menu';
-        $use_native_name = !empty(get_option('yuz_tra_settings', [])['native_language_name']);
+        $use_native_name = !empty(get_option('yuztra_settings', [])['native_language_name']);
         $translated_strings = [
             /* translators: %s: current language name or code. */
             'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
@@ -391,7 +393,7 @@ class YUZ_Switcher implements SwitcherInterface {
             'url_signature' => $this->url_signature($current_url_for_switcher),
         ]);
 
-        if (method_exists('YUZ_Assets','require')) { YUZ_Assets::require('switcher'); }
+        if (method_exists('YUZTRA_Assets','require')) { YUZTRA_Assets::require('switcher'); }
 
         $menu_context = [
             'format'                 => $format,
@@ -429,7 +431,7 @@ class YUZ_Switcher implements SwitcherInterface {
         if (empty($flags['switcher_enabled'])) { return; }
 
         $settings = $this->normalize_switcher_settings(
-            (array) $this->settings->get_option('yuz_tra_switcher')
+            (array) $this->settings->get_option('yuztra_switcher')
         );
         if (!$this->is_switcher_mode_enabled($settings, 'floating_enabled')) { return; }
 
@@ -444,7 +446,7 @@ class YUZ_Switcher implements SwitcherInterface {
             ? $this->url_converter->get_active_locale()
             : get_locale();
         $mode            = 'floating';
-        $use_native_name = !empty(get_option('yuz_tra_settings', [])['native_language_name']);
+        $use_native_name = !empty(get_option('yuztra_settings', [])['native_language_name']);
         $translated_strings = [
             /* translators: %s: current language name or code. */
             'current_lang_label' => esc_html__('Current language: %s, click to change', 'yuz-tra'),
@@ -482,7 +484,7 @@ class YUZ_Switcher implements SwitcherInterface {
             'url_signature' => $this->url_signature($current_url_for_switcher),
         ]);
 
-        if (method_exists('YUZ_Assets','require')) { YUZ_Assets::require('switcher'); }
+        if (method_exists('YUZTRA_Assets','require')) { YUZTRA_Assets::require('switcher'); }
 
         $floating_context = [
             'format'                 => $format,
@@ -549,7 +551,7 @@ class YUZ_Switcher implements SwitcherInterface {
     }
 
     /** @inheritDoc */
-    public function yuz_tra_sw_switch_language(): void {
+    public function yuztra_sw_switch_language(): void {
         // No-op: les endpoints/JSON sont exclusifs à class-yuz-ajax.php
         // L’AJAX réel est implémenté dans YUZ_Ajax::yuz_tra_sw_switch_language()
     }
@@ -564,10 +566,11 @@ class YUZ_Switcher implements SwitcherInterface {
                 : '';
             $url = $this->url_converter->get_url_for_language($lang_code, $current);
             // Optionnel: log/filtre, mais on ne fait pas de redirect ici.
-            do_action('yuz/switcher/php_switch_computed', $lang_code, $url);
+
+            do_action('yuztra/switcher/php_switch_computed', $lang_code, $url);
         } catch (\Throwable $e) {
-            if (class_exists('YUZ_Logger')) {
-                (new \YUZ_Logger())->log('warning', 'switchLanguage shim failed: '.$e->getMessage());
+            if (class_exists('YUZTRA_Logger')) {
+                (new \YUZTRA_Logger())->log('warning', 'switchLanguage shim failed: '.$e->getMessage());
             }
         }
     }
@@ -594,7 +597,7 @@ class YUZ_Switcher implements SwitcherInterface {
     private function get_js_settings(): array {
         $flags = method_exists($this->settings, 'runtime_flags') ? (array)$this->settings->runtime_flags() : [];
         $sw_settings = $this->normalize_switcher_settings(
-            (array) $this->settings->get_option('yuz_tra_switcher')
+            (array) $this->settings->get_option('yuztra_switcher')
         );
 
         $langs = [];
@@ -625,9 +628,9 @@ class YUZ_Switcher implements SwitcherInterface {
             'languages' => $langs,
             'ajax' => [
                 'url'           => admin_url('admin-ajax.php', 'relative'),
-                'nonce'         => wp_create_nonce('yuz_tra_nonce'),
-                'action'        => 'yuz_tra_sw_switch_language',
-                'centralAction' => 'yuz_tra_ajax',
+                'nonce'         => wp_create_nonce('yuztra_nonce'),
+                'action'        => 'yuztra_sw_switch_language',
+                'centralAction' => 'yuztra_ajax',
                 'route'         => 'sw_switch_language',
             ],
         ];
@@ -710,8 +713,8 @@ class YUZ_Switcher implements SwitcherInterface {
         $context['cache_version'] = self::CACHE_VERSION;
         ksort($context);
         $hash = substr(sha1(wp_json_encode($context)), 0, 32);
-        if (class_exists('YUZ_Settings_Service')) {
-            return YUZ_Settings_Service::cache_key('switcher:' . $hash);
+        if (class_exists('YUZTRA_Settings_Service')) {
+            return YUZTRA_Settings_Service::cache_key('switcher:' . $hash);
         }
         return 'yuztra:switcher:' . $hash;
     }
@@ -763,7 +766,7 @@ class YUZ_Switcher implements SwitcherInterface {
         $current_url_for_switcher = $context['current_url_for_switcher'] ?? '';
 
         ob_start();
-        include plugin_dir_path(YUZ_TRA_PLUGIN_FILE) . 'partials/yuz-language-switcher.php';
+        include plugin_dir_path(YUZTRA_PLUGIN_FILE) . 'partials/yuz-language-switcher.php';
         return (string) ob_get_clean();
     }
 

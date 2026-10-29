@@ -2,17 +2,17 @@
 (() => {
   'use strict';
 
-  const CFG = window.yuzTS || {};
+  const CFG = window.yuztraTS || {};
   if (!CFG.ajax_url) {
     console.warn('[YUZ][TS] ajax_url manquant. Handlers will still attach for redirect-only actions.');
   }
 
   // Map logique → action AJAX
   const ACTIONS = {
-    'get_settings':        'yuz_tra_ts_get_settings',
-    'update_settings':     'yuz_tra_ts_upd_settings',
-    'create_full':         'yuz_tra_ts_cre_fulltra',
-    'start_translation':   'yuz_tra_ts_start_translation'
+    'get_settings':        'yuztra_ts_get_settings',
+    'update_settings':     'yuztra_ts_upd_settings',
+    'create_full':         'yuztra_ts_cre_fulltra',
+    'start_translation':   'yuztra_ts_start_translation'
   };
 
   // Redirection vers l'éditeur front (équivalent du clic sur l'onglet de TranslatePress)
@@ -21,7 +21,7 @@
       // 1) Essaye la dernière page front mémorisée
       let target = null;
       try {
-        const last = localStorage.getItem('yuz_last_page');
+        const last = localStorage.getItem('yuztra_last_page');
         if (last && !/\/wp-admin\//.test(last)) target = last;
       } catch (_) {}
 
@@ -51,7 +51,7 @@
   // Récupère le nonce adapté à l'action (fallback sur yuz_tra_nonce)
   function nonceFor(actionKey) {
     const action = ACTIONS[actionKey] || actionKey;
-    return (CFG.nonces && (CFG.nonces[action] || CFG.nonces.yuz_tra_nonce)) || '';
+    return (CFG.nonces && (CFG.nonces[action] || CFG.nonces.yuztra_nonce)) || '';
   }
 
   // Fusionne dataset + inputs du formulaire voisin

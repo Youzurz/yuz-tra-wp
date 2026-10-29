@@ -2,11 +2,11 @@
 (function (w) {
   // Activation via localStorage, query string, ou payload localisé
   const qs = new URL(w.location.href).searchParams;
-  const cfg = (w.yuzDebug || {});
-  const enabled = cfg.enabled ?? (qs.has('yuz_debug') ? qs.get('yuz_debug') !== '0' : null);
+  const cfg = (w.yuztraDebug || {});
+  const enabled = cfg.enabled ?? (qs.has('yuztra_debug') ? qs.get('yuztra_debug') !== '0' : null);
   const ls = (() => { try { return localStorage; } catch (_) { return {}; }})();
-  const on = (enabled !== null) ? enabled : (ls.yuz_debug ? ls.yuz_debug !== '0' : false);
-  if (on) ls.yuz_debug = '1';
+  const on = (enabled !== null) ? enabled : (ls.yuztra_debug ? ls.yuztra_debug !== '0' : false);
+  if (on) ls.yuztra_debug = '1';
 
   const prefix = '[YUZ]';
   const mk = (fn) => (...a) => {

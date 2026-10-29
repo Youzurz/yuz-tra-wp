@@ -65,19 +65,19 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 // use YUZTRA\Interfaces\HealthCheckInterface;
 //require_once YUZ_TRA_INCLUDES . 'class-yuz-logger.php';
 use YUZTRA\Interfaces\HealthCheckInterface;
 use YUZTRA\Interfaces\LoggerInterface;
-if (!class_exists('YUZ_Health_Check')) {
-    class YUZ_Health_Check implements HealthCheckInterface { // here
+if (!class_exists('YUZTRA_Health_Check')) {
+    class YUZTRA_Health_Check implements HealthCheckInterface { // here
         /** @var LoggerInterface */
         private static $logger;
         public static function init(): void {
             // Lightweight checks without blocking
             if (!self::$logger) {
-                self::$logger = new YUZ_Logger();
+                self::$logger = new YUZTRA_Logger();
                 self::$logger->init();
             }
             if (version_compare(PHP_VERSION, '7.4', '<')) {
@@ -95,7 +95,7 @@ if (!class_exists('YUZ_Health_Check')) {
  */
 private static function getLogger(): LoggerInterface {
     if ( ! self::$logger ) {
-        self::$logger = new \YUZ_Logger();
+        self::$logger = new \YUZTRA_Logger();
     }
     return self::$logger;
 }
@@ -113,7 +113,7 @@ private static function getLogger(): LoggerInterface {
     if ( ! $condition ) {
         $log_context = ['context' => $method, 'message' => $message];
         $logger->log('critical', "Health check failed: $message", $log_context);
-        error_log("🟥 [CRITICAL] YUZ-TRA: $message in $method");
+        yuztra_debug_log("🟥 [CRITICAL] YUZ-TRA: $message in $method");
         if ( is_admin() ) {
             wp_die( esc_html( "Critical error: $message" ) );
         }
@@ -132,7 +132,9 @@ private static function getLogger(): LoggerInterface {
             global $wpdb;
             $db_connection = $wpdb->check_connection();
             $table_name = $wpdb->prefix . 'yuz_tra_languages';
-            $tables_exist = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+            $tables_exist = $wpdb->get_var(
+                $wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))
+            ) === $table_name;
             return [
                 'db_connection_alive' => $db_connection,
                 'db_tables_exist' => $tables_exist,

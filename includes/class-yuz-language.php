@@ -66,10 +66,10 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // Include the contracts file
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 use YUZTRA\Interfaces\Language as LanguageInterface;
-if (!class_exists('YUZ_Language')) {
-class YUZ_Language implements LanguageInterface {
+if (!class_exists('YUZTRA_Language')) {
+class YUZTRA_Language implements LanguageInterface {
 /** @var array Données brutes de la langue */
 private $data;
 /** @var bool Activer/désactiver les logs */
@@ -86,7 +86,7 @@ private static $prefixes = [
          */
 public function __construct(array $data) {
 $this->data = $data;
-$this->log('info', 'Création de YUZ_Language', $data);
+$this->log('info', 'Création de YUZTRA_Language', $data);
         }
 public function getId(): int {
 return (int) ($this->data['id'] ?? 0);
@@ -188,7 +188,8 @@ if (!self::$debug) {
 return;
             }
 $prefix = self::$prefixes[$level] ?? self::$prefixes['info'];
-error_log(sprintf('%s %s: %s', $prefix, $message, print_r($context, true)));
+$encoded = wp_json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+yuztra_debug_log(sprintf('%s %s: %s', $prefix, $message, $encoded !== false ? $encoded : '[unencodable]'));
         }
     }
 }

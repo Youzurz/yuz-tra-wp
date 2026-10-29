@@ -66,25 +66,26 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-require_once YUZ_TRA_INCLUDES . 'class-yuz-contracts.php';
+require_once YUZTRA_INCLUDES . 'class-yuz-contracts.php';
 
 use YUZTRA\Interfaces\TranslateAdapterInterface;
 
-if (!function_exists('yuz_tra_adapter_log')) {
-    function yuz_tra_adapter_log(...$args) {
-        $enabled = (defined('YUZ_TRA_DEBUG') && YUZ_TRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
+if (!function_exists('yuztra_adapter_log')) {
+
+    function yuztra_adapter_log(...$args) {
+        $enabled = (defined('YUZTRA_DEBUG') && YUZTRA_DEBUG) || (defined('WP_DEBUG') && WP_DEBUG);
         if (!$enabled) {
             return;
         }
-        error_log(...$args);
+        yuztra_debug_log(...$args);
     }
 }
 
 // PLAN: Prepare creation of YUZ_Custom_Translate_Adapter for custom API
-yuz_tra_adapter_log('YUZ-TRA: [PLAN] Preparing to create YUZ_Custom_Translate_Adapter class at ' . current_time('mysql'));
+yuztra_adapter_log('YUZ-TRA: [PLAN] Preparing to create YUZTRA_Custom_Translate_Adapter class at ' . current_time('mysql'));
 
-if (!class_exists('YUZ_Custom_Translate_Adapter')) {
-    class YUZ_Custom_Translate_Adapter implements TranslateAdapterInterface {
+if (!class_exists('YUZTRA_Custom_Translate_Adapter')) {
+    class YUZTRA_Custom_Translate_Adapter implements TranslateAdapterInterface {
         private $httpClient;
         private $config;
 
@@ -106,7 +107,7 @@ if (!class_exists('YUZ_Custom_Translate_Adapter')) {
  * @return bool True si la connexion est OK, false sinon.
  */
 public function test_api_conn(array $settings): bool {
-    yuz_tra_adapter_log('YUZ-TRA: [DO] Testing API connection at ' . current_time('mysql'));
+    yuztra_adapter_log('YUZ-TRA: [DO] Testing API connection at ' . current_time('mysql'));
 
     $options = [
         'headers' => [ 'Content-Type' => 'application/json' ],
@@ -121,17 +122,17 @@ public function test_api_conn(array $settings): bool {
     }
 
     if (is_wp_error($response)) {
-        yuz_tra_adapter_log('YUZ-TRA: [ERROR] API connection failed: ' . $response->get_error_message());
+        yuztra_adapter_log('YUZ-TRA: [ERROR] API connection failed: ' . $response->get_error_message());
         return false;
     }
 
     $status = wp_remote_retrieve_response_code($response);
     if ($status < 200 || $status >= 300) {
-        yuz_tra_adapter_log("YUZ-TRA: [ERROR] API returned HTTP {$status}");
+        yuztra_adapter_log("YUZ-TRA: [ERROR] API returned HTTP {$status}");
         return false;
     }
 
-    yuz_tra_adapter_log('YUZ-TRA: [ACT] API connection successful');
+    yuztra_adapter_log('YUZ-TRA: [ACT] API connection successful');
     return true;
 }
 
@@ -146,7 +147,7 @@ public function test_api_conn(array $settings): bool {
          * @return string|null The translated text, or null on failure.
          */
         public function translate(string $text, string $source_lang, string $target_lang, array $settings): ?string {
-            yuz_tra_adapter_log('YUZ-TRA: [DO] Translating using custom API at ' . current_time('mysql'));
+            yuztra_adapter_log('YUZ-TRA: [DO] Translating using custom API at ' . current_time('mysql'));
 
             // Build request payload
             $payload = [
@@ -169,32 +170,32 @@ public function test_api_conn(array $settings): bool {
             }
 
             if (is_wp_error($response)) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] API request failed: ' . $response->get_error_message());
+                yuztra_adapter_log('YUZ-TRA: [ERROR] API request failed: ' . $response->get_error_message());
                 return null;
             }
 
             $status = wp_remote_retrieve_response_code($response);
             if ($status < 200 || $status >= 300) {
-                yuz_tra_adapter_log("YUZ-TRA: [ERROR] HTTP $status from translation API");
+                yuztra_adapter_log("YUZ-TRA: [ERROR] HTTP $status from translation API");
                 return null;
             }
 
             $body = wp_remote_retrieve_body($response);
             $data = json_decode($body, true);
             if (!isset($data['translated_text']) || empty($data['translated_text'])) {
-                yuz_tra_adapter_log('YUZ-TRA: [ERROR] Invalid API response: missing translated_text');
+                yuztra_adapter_log('YUZ-TRA: [ERROR] Invalid API response: missing translated_text');
                 return null;
             }
 
-            yuz_tra_adapter_log('YUZ-TRA: [ACT] Translation successful at ' . current_time('mysql'));
+            yuztra_adapter_log('YUZ-TRA: [ACT] Translation successful at ' . current_time('mysql'));
             return $data['translated_text'];
         }
     }
 
     // ACT: Log the result of class creation
-    if (class_exists('YUZ_Custom_Translate_Adapter')) {
-        yuz_tra_adapter_log('YUZ-TRA: [ACT] YUZ_Custom_Translate_Adapter class created successfully at ' . current_time('mysql'));
+    if (class_exists('YUZTRA_Custom_Translate_Adapter')) {
+        yuztra_adapter_log('YUZ-TRA: [ACT] YUZTRA_Custom_Translate_Adapter class created successfully at ' . current_time('mysql'));
     } else {
-        yuz_tra_adapter_log('YUZ-TRA: [ACT] Failed to create YUZ_Custom_Translate_Adapter class at ' . current_time('mysql'));
+        yuztra_adapter_log('YUZ-TRA: [ACT] Failed to create YUZTRA_Custom_Translate_Adapter class at ' . current_time('mysql'));
     }
 }
